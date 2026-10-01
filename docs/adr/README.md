@@ -15,3 +15,4 @@ Status values: Proposed, Accepted, Superseded. Decisions below were taken by the
 | 0009 | Health views are never cached; revocation is pushed | Accepted |
 | 0010 | Spec and PRD conflicts resolved | Accepted |
 | 0011 | Cloud provider stays AWS; Cloudflare only as optional edge | Accepted (proxy question needs counsel) |
+| 0012 | Restricted-zone boundary enforced by a custom ESLint rule | Accepted |

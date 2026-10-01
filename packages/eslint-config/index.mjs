@@ -1,18 +1,22 @@
 import js from '@eslint/js';
 import comments from '@eslint-community/eslint-plugin-eslint-comments/configs';
 import globals from 'globals';
+import path from 'node:path';
 import tseslint from 'typescript-eslint';
+import { restrictedBoundary } from './rules/restricted-boundary.mjs';
 
 const TS_FILES = ['**/*.{ts,tsx,mts,cts}'];
+const DEFAULT_ROOT = path.resolve(import.meta.dirname, '../..');
 
 /**
  * Shared ESLint flat config for every Chronos Place workspace.
  *
- * @param {{ tsconfigRootDir?: string, typed?: boolean }} [options]
+ * @param {{ tsconfigRootDir?: string, typed?: boolean, rootDir?: string }} [options]
  *   `typed: false` skips type-aware rules (used by this package's own tests).
+ *   `rootDir` is the repository root used by the restricted-zone boundary rule.
  */
 export function createConfig(options = {}) {
-  const { tsconfigRootDir, typed = true } = options;
+  const { tsconfigRootDir, typed = true, rootDir = DEFAULT_ROOT } = options;
 
   return tseslint.config(
     { ignores: ['**/dist/**', '**/node_modules/**', '**/.turbo/**', '**/coverage/**'] },
@@ -34,7 +38,12 @@ export function createConfig(options = {}) {
           : {}),
       },
       linterOptions: { reportUnusedDisableDirectives: 'error' },
+      plugins: { chronos: { rules: { 'restricted-boundary': restrictedBoundary } } },
       rules: {
+        // CLAUDE.md rule 1: the boundary rule can never be switched off inline.
+        'chronos/restricted-boundary': ['error', { root: rootDir }],
+        '@eslint-community/eslint-comments/no-restricted-disable': ['error', 'chronos/*'],
+        '@eslint-community/eslint-comments/no-unlimited-disable': 'error',
         // Rule 4: services log through @chronos/logger only.
         'no-console': 'error',
         // Escape hatches must say why (CLAUDE.md: no `any` without an explanation).
