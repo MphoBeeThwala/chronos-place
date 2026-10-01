@@ -14,3 +14,4 @@ Status values: Proposed, Accepted, Superseded. Decisions below were taken by the
 | 0008 | Feature flags: OpenFeature with self-hosted Unleash | Accepted |
 | 0009 | Health views are never cached; revocation is pushed | Accepted |
 | 0010 | Spec and PRD conflicts resolved | Accepted |
+| 0011 | Cloud provider stays AWS; Cloudflare only as optional edge | Accepted (proxy question needs counsel) |
