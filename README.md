@@ -44,7 +44,8 @@ Database migrations, seed data and privacy tests arrive with their tasks (M2.1, 
 
 Workspaces are `apps/*`, `services/*`, `restricted/*`, `packages/*` and `tools/*`. A workspace is created in the task that builds it; none are empty placeholders.
 
-| Package                  | Purpose                                                   |
-| ------------------------ | --------------------------------------------------------- |
-| `@chronos/tsconfig`      | Strict shared TypeScript configs                          |
-| `@chronos/eslint-config` | Shared ESLint flat config (no `console`, explained `any`) |
+| Package                  | Purpose                                                                                   |
+| ------------------------ | ----------------------------------------------------------------------------------------- |
+| `@chronos/tsconfig`      | Strict shared TypeScript configs                                                          |
+| `@chronos/eslint-config` | Shared ESLint flat config (no `console`, explained `any`)                                 |
+| `@chronos/logger`        | Redacting pino logger with request and trace ids, allow-list mode for restricted services |
