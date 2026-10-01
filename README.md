@@ -15,7 +15,30 @@ pnpm build
 pnpm format      # write Prettier formatting
 ```
 
-Commands for the local stack, database migrations, seed data and privacy tests are added by the tasks that build them (M0.3, M2.1, M0.10) and are documented in `CLAUDE.md` when they exist.
+## Local infrastructure
+
+Requires Docker with Compose v2.
+
+```sh
+pnpm dev:infra         # start the stack and wait for every health check (generates tools/.env on first run)
+pnpm dev:infra:status  # container health
+pnpm test:infra        # prove the Health Vault database is unreachable from outside its network
+pnpm dev:infra:down    # stop; dev:infra:reset also deletes volumes
+```
+
+| Service                 | Address                          | Notes                                                      |
+| ----------------------- | -------------------------------- | ---------------------------------------------------------- |
+| postgres-core (PostGIS) | `127.0.0.1:5432`                 | user `chronos`, db `chronos_core`                          |
+| postgres-vault          | `127.0.0.1:5433`                 | separate `vault-net`; only the disclosure service may join |
+| redis                   | `127.0.0.1:6379`                 | password required                                          |
+| redpanda (Kafka)        | `127.0.0.1:19092`                |                                                            |
+| s3 (SeaweedFS)          | `127.0.0.1:8333`                 | S3 API with credentials                                    |
+| localstack              | `127.0.0.1:4566`                 | KMS, S3, Secrets Manager (region af-south-1)               |
+| mailpit                 | SMTP `1025`, UI `127.0.0.1:8025` |                                                            |
+
+Credentials are random per machine and live in `tools/.env`, which is git-ignored. Everything binds to `127.0.0.1`.
+
+Database migrations, seed data and privacy tests arrive with their tasks (M2.1, M0.10) and are added to `CLAUDE.md` then.
 
 ## Layout
 

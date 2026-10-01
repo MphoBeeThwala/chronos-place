@@ -13,7 +13,12 @@
     "lint": "turbo run lint && prettier --check .",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "dev:infra": "bash tools/scripts/dev-infra.sh up",
+    "dev:infra:down": "bash tools/scripts/dev-infra.sh down",
+    "dev:infra:reset": "bash tools/scripts/dev-infra.sh reset",
+    "dev:infra:status": "bash tools/scripts/dev-infra.sh status",
+    "test:infra": "bash tools/scripts/check-vault-isolation.sh"
   },
   "devDependencies": {
     "@chronos/eslint-config": "workspace:*",

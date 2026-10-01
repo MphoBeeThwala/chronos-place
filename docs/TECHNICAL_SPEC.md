@@ -417,7 +417,7 @@ SCPs deny resource creation outside af-south-1 (except global services) and deny
 
 ### 10.3 Local development
 
-`tools/docker-compose.yml`: postgres-core (PostGIS), postgres-vault, redis, redpanda, minio, localstack (KMS, S3, Secrets Manager), mailpit. The vault database runs on a separate network that only the disclosure-service container joins.
+`tools/docker-compose.yml`: postgres-core (PostGIS), postgres-vault, redis, redpanda, s3 (SeaweedFS, ADR-0013), localstack (KMS, S3, Secrets Manager), mailpit. The vault database runs on a separate network that only the disclosure-service container joins.
 
 ### 10.4 Delivery pipeline
 

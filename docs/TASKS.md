@@ -19,7 +19,7 @@ Tasks marked **[approval]** touch auth, crypto, the restricted zone, schemas or 
 - AC: a deliberate violating import fails lint in CI; a test fixture proves it.
 
 ### M0.3 Local development stack
-- `tools/docker-compose.yml`: postgres-core (PostGIS), postgres-vault (separate network), redis, redpanda, minio, localstack (KMS, S3, Secrets Manager), mailpit.
+- `tools/docker-compose.yml`: postgres-core (PostGIS), postgres-vault (separate network), redis, redpanda, s3 (SeaweedFS, ADR-0013), localstack (KMS, S3, Secrets Manager), mailpit.
 - `pnpm dev:infra` starts it; health checks for each container.
 - AC: one command brings the stack up; vault DB unreachable from containers outside its network (test script proves it).
 

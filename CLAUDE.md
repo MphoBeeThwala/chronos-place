@@ -42,7 +42,7 @@ If a task seems to require breaking one of these rules, stop and explain why ins
 - **Services:** NestJS. GraphQL (Apollo) at the gateway/BFF for clients; gRPC between services; Kafka events for async.
 - **Databases:** PostgreSQL + PostGIS (core) and a separate PostgreSQL cluster (Health Vault). Drizzle ORM and Drizzle migrations.
 - **Cache:** Redis. **Events:** Kafka (Redpanda locally, Amazon MSK in AWS).
-- **Media:** S3-compatible storage (MinIO locally).
+- **Media:** S3-compatible storage (SeaweedFS locally, ADR-0013).
 - **Chat:** end-to-end encryption using the Signal Protocol (libsignal). See ADR-0003.
 - **Infra:** AWS af-south-1 (Cape Town), EKS, Aurora PostgreSQL, KMS + CloudHSM, Terraform, Argo CD.
 - **Testing:** Vitest, Supertest, Testcontainers, Maestro (mobile E2E), Playwright (web E2E), k6 (load).
@@ -89,7 +89,8 @@ docs/
 
 ```
 pnpm install                 # install
-pnpm dev:infra               # start local stack (docker compose)
+pnpm dev:infra               # start local stack (docker compose); also dev:infra:down|reset|status
+pnpm test:infra              # prove the Health Vault DB is unreachable outside its network (needs the stack up)
 pnpm dev                     # run all apps/services in watch mode
 pnpm lint                    # ESLint incl. boundary rules
 pnpm typecheck
