@@ -1,0 +1,27 @@
+{
+  "name": "chronos-place",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Chronos Place monorepo (development title)",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint && prettier --check .",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@chronos/eslint-config": "workspace:*",
+    "@types/node": "^22.19.0",
+    "eslint": "^10.11.0",
+    "prettier": "^3.9.9",
+    "turbo": "^2.11.6",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.3"
+  }
+}

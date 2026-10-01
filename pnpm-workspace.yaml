@@ -1,0 +1,6 @@
+packages:
+  - apps/*
+  - services/*
+  - restricted/*
+  - packages/*
+  - tools/*
