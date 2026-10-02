@@ -31,7 +31,7 @@
     "contracts:gen": "buf generate && graphql-codegen --config codegen.yml",
     "contracts:breaking": "bash scripts/breaking.sh",
     "build": "pnpm contracts:gen && tsc -p tsconfig.build.json && node scripts/emit-json-schema.mjs",
-    "lint": "buf lint && eslint .",
+    "lint": "pnpm contracts:gen && buf lint && eslint .",
     "typecheck": "pnpm contracts:gen && tsc --noEmit",
     "test": "pnpm contracts:gen && vitest run"
   },
