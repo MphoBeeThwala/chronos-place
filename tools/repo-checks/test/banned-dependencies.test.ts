@@ -44,6 +44,26 @@ describe('findViolations', () => {
     );
   });
 
+  it('bans query-cache persistence (ADR-0009) and over-the-air updates until an ADR allows them', () => {
+    const content = {
+      dependencies: {
+        '@tanstack/react-query-persist-client': '^5',
+        '@tanstack/query-async-storage-persister': '^5',
+        'expo-updates': '~57',
+        '@tanstack/react-query': '^5',
+      },
+    };
+    expect(
+      findViolations(manifest(content), policy, adrs([]))
+        .map((v) => v.dependency)
+        .sort(),
+    ).toEqual([
+      '@tanstack/query-async-storage-persister',
+      '@tanstack/react-query-persist-client',
+      'expo-updates',
+    ]);
+  });
+
   it('lets ordinary dependencies through', () => {
     expect(
       findViolations(

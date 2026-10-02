@@ -1,8 +1,11 @@
 import js from '@eslint/js';
 import comments from '@eslint-community/eslint-plugin-eslint-comments/configs';
 import globals from 'globals';
+import reactHooks from 'eslint-plugin-react-hooks';
 import path from 'node:path';
 import tseslint from 'typescript-eslint';
+import { a11yLabel } from './rules/a11y-label.mjs';
+import { noRawText } from './rules/no-raw-text.mjs';
 import { restrictedBoundary } from './rules/restricted-boundary.mjs';
 
 const TS_FILES = ['**/*.{ts,tsx,mts,cts}'];
@@ -41,7 +44,15 @@ export function createConfig(options = {}) {
           : {}),
       },
       linterOptions: { reportUnusedDisableDirectives: 'error' },
-      plugins: { chronos: { rules: { 'restricted-boundary': restrictedBoundary } } },
+      plugins: {
+        chronos: {
+          rules: {
+            'restricted-boundary': restrictedBoundary,
+            'a11y-label': a11yLabel,
+            'no-raw-text': noRawText,
+          },
+        },
+      },
       rules: {
         // CLAUDE.md rule 1: the boundary rule can never be switched off inline.
         'chronos/restricted-boundary': ['error', { root: rootDir }],
@@ -69,6 +80,21 @@ export function createConfig(options = {}) {
           },
         ],
       },
+    },
+    {
+      // Accessibility (PRD: WCAG 2.2 AA): interactive elements and images carry labels and roles.
+      files: ['**/*.tsx'],
+      rules: { 'chronos/a11y-label': 'error' },
+    },
+    {
+      // Screens take every word from the translation catalogues.
+      files: ['apps/**/*.tsx'],
+      ignores: ['**/*.spec.tsx', '**/*.test.tsx'],
+      rules: { 'chronos/no-raw-text': 'error' },
+    },
+    {
+      ...reactHooks.configs.flat.recommended,
+      files: ['apps/**/*.{ts,tsx}', 'packages/ui/**/*.{ts,tsx}'],
     },
     {
       files: TS_FILES,
