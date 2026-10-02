@@ -1,6 +1,6 @@
 # @chronos/service-kit
 
-Everything a NestJS service needs to start safely. Generate a service with `pnpm new:service <name>` (M0.8 part 2), or use it directly:
+Everything a NestJS service needs to start safely. Generate a service with `pnpm new:service <name>` (add `--restricted` for `restricted/`), or use it directly:
 
 ```ts
 // src/main.ts
@@ -35,3 +35,14 @@ constructor(
 | Telemetry | HTTP and gRPC spans via OTLP, scrubbed before export. Run with `node --import @chronos/service-kit/instrument dist/main.js`.                                                                  |
 
 Rules: always `@Inject(...)` (no decorator metadata); restricted services pass `loggerMode: 'allowlist'`. See ADR-0016.
+
+## Generating a service
+
+```sh
+pnpm new:service profile              # services/profile
+pnpm new:service vault-api --restricted   # restricted/vault-api, allow-list logger
+pnpm install
+pnpm --filter @chronos/profile test
+```
+
+The generated service has config, probes, shutdown and telemetry from the kit, a test that boots it, and a Dockerfile (build from the repo root). `pnpm test:service-template` proves the whole path, including the image: non-root, no shell, read-only filesystem, clean SIGTERM, Trivy clean.

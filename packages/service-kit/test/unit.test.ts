@@ -1,4 +1,5 @@
 import { status } from '@grpc/grpc-js';
+import { BadRequestException, HttpException, NotFoundException } from '@nestjs/common';
 import { createLogger } from '@chronos/logger';
 import { describe, expect, it, vi } from 'vitest';
 import {
@@ -51,6 +52,13 @@ describe('toPublicError', () => {
     expect(toPublicError(new DomainError('aborted', 'Version conflict')).grpcCode).toBe(
       status.ABORTED,
     );
+  });
+
+  it('keeps framework HTTP statuses but replaces their messages', () => {
+    const result = toPublicError(new NotFoundException(`Cannot GET /secret/${MARKER}`));
+    expect(result).toEqual({ grpcCode: status.NOT_FOUND, httpCode: 404, message: 'Not found' });
+    expect(toPublicError(new BadRequestException(MARKER)).message).toBe('Bad request');
+    expect(toPublicError(new HttpException(MARKER, 503)).httpCode).toBe(500);
   });
 
   it('turns everything else into a generic internal error', () => {

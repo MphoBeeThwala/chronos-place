@@ -1,7 +1,7 @@
 # ADR-0016: Service template, telemetry and container image
 
 ## Decisions
-**Service kit** (`@chronos/service-kit`) is the one way services start. A service provides a Nest module; the kit provides validated config (exits on bad config), the redacting logger, request ids, HTTP probes (`/healthz`, `/readyz`), the gRPC server with the standard `grpc.health.v1` service, safe error mapping, graceful shutdown and telemetry. New services are generated from `tools/templates/service` (`pnpm new:service <name>`); no placeholder service lives in `services/`.
+**Service kit** (`@chronos/service-kit`) is the one way services start. A service provides a Nest module; the kit provides validated config (exits on bad config), the redacting logger, request ids, HTTP probes (`/healthz`, `/readyz`), the gRPC server with the standard `grpc.health.v1` service, safe error mapping, graceful shutdown and telemetry. New services are generated from `packages/service-kit/templates/service` (`pnpm new:service <name> [--restricted]`); no placeholder service lives in `services/`.
 
 - **Fastify** serves the HTTP probe endpoints (and webhooks, where a service needs them). gRPC is the API transport.
 - **Decorators:** `experimentalDecorators` is on and `emitDecoratorMetadata` is off. Always inject with `@Inject(TOKEN_OR_CLASS)`. This keeps tests (esbuild) and builds (tsc) identical.
@@ -17,8 +17,9 @@
 - Packages are pinned to the 0.2xx experimental line; upgrade them together.
 
 **Container image**
-- Multi-stage build with `pnpm deploy --prod`; final stage `gcr.io/distroless/nodejs22-debian12:nonroot` pinned by digest, user 65532, no shell, read-only root filesystem.
-- Trivy runs with `--severity HIGH,CRITICAL --exit-code 1`. The ignore file stays empty unless an entry has a reason and an expiry date. Scans run in CI (M0.9); the local script runs them where Trivy is installed.
+- Multi-stage build with `pnpm deploy --prod`; final stage `gcr.io/distroless/nodejs22-debian13:nonroot` pinned by digest, user 65532, no shell, read-only root filesystem.
+- The base is Debian 13 (`nodejs22-debian13`). When this was pinned, the newest Debian 12 image still carried fixable HIGH and CRITICAL OpenSSL findings (libssl3) that Trivy rejects; the Debian 13 image scans clean. The digest lives in `tools/distroless.digest` and is refreshed deliberately (pull, scan, update the file); the CI scan (M0.9) fails when new findings appear.
+- Trivy runs with `--severity HIGH,CRITICAL --ignore-unfixed --exit-code 1`. The ignore file stays empty unless an entry has a reason and an expiry date. `pnpm test:service-template` generates a service, builds and runs its image, checks it is non-root with no shell and a read-only filesystem, exits 0 on SIGTERM, and scans it. CI (M0.9) runs the same script.
 
 ## Consequences
 The kit couples services to NestJS, which the stack already requires. Changing probe, shutdown or telemetry behaviour is a change to one package, tested once.

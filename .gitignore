@@ -8,3 +8,4 @@ coverage/
 *.log
 .DS_Store
 gen/
+.build-ca.crt

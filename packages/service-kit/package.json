@@ -18,7 +18,8 @@
   },
   "files": [
     "dist",
-    "proto"
+    "proto",
+    "templates"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
@@ -50,5 +51,8 @@
   },
   "devDependencies": {
     "@chronos/tsconfig": "workspace:*"
+  },
+  "bin": {
+    "chronos-new-service": "./dist/cli/main.js"
   }
 }

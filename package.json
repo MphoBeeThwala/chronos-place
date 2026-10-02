@@ -20,7 +20,9 @@
     "dev:infra:status": "bash tools/scripts/dev-infra.sh status",
     "test:infra": "bash tools/scripts/check-vault-isolation.sh",
     "test:integration": "turbo run test:integration",
-    "contracts:gen": "pnpm --filter @chronos/contracts contracts:gen"
+    "contracts:gen": "pnpm --filter @chronos/contracts contracts:gen",
+    "new:service": "node packages/service-kit/dist/cli/main.js",
+    "test:service-template": "bash tools/scripts/check-service-template.sh"
   },
   "devDependencies": {
     "@chronos/eslint-config": "workspace:*",

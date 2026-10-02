@@ -1,5 +1,5 @@
 import { status } from '@grpc/grpc-js';
-import { Catch, type ArgumentsHost, type ExceptionFilter } from '@nestjs/common';
+import { Catch, HttpException, type ArgumentsHost, type ExceptionFilter } from '@nestjs/common';
 import { throwError } from 'rxjs';
 import type { Logger } from '@chronos/logger';
 
@@ -60,6 +60,21 @@ interface PublicError {
   message: string;
 }
 
+/**
+ * Framework HTTP errors (unknown route, malformed body, ...) keep their status but get a fixed
+ * message: Nest's own messages can echo the path or the input.
+ */
+const FRAMEWORK_ERRORS: Record<number, { grpcCode: number; message: string }> = {
+  400: { grpcCode: status.INVALID_ARGUMENT, message: 'Bad request' },
+  401: { grpcCode: status.UNAUTHENTICATED, message: 'Unauthenticated' },
+  403: { grpcCode: status.PERMISSION_DENIED, message: 'Forbidden' },
+  404: { grpcCode: status.NOT_FOUND, message: 'Not found' },
+  405: { grpcCode: status.UNIMPLEMENTED, message: 'Method not allowed' },
+  413: { grpcCode: status.INVALID_ARGUMENT, message: 'Payload too large' },
+  415: { grpcCode: status.INVALID_ARGUMENT, message: 'Unsupported media type' },
+  429: { grpcCode: status.RESOURCE_EXHAUSTED, message: 'Too many requests' },
+};
+
 /** Maps any thrown value to what the caller may see. Unknown errors become a generic internal error. */
 export function toPublicError(error: unknown): PublicError {
   if (error instanceof DomainError) {
@@ -68,6 +83,11 @@ export function toPublicError(error: unknown): PublicError {
       httpCode: HTTP_STATUS[error.code],
       message: error.message,
     };
+  }
+  if (error instanceof HttpException) {
+    const known = FRAMEWORK_ERRORS[error.getStatus()];
+    if (known)
+      return { grpcCode: known.grpcCode, httpCode: error.getStatus(), message: known.message };
   }
   return { grpcCode: status.INTERNAL, httpCode: 500, message: INTERNAL_MESSAGE };
 }
@@ -86,7 +106,7 @@ export class SafeExceptionFilter implements ExceptionFilter {
 
   catch(error: unknown, host: ArgumentsHost) {
     const publicError = toPublicError(error);
-    if (!(error instanceof DomainError)) {
+    if (!(error instanceof DomainError) && publicError.httpCode >= 500) {
       this.#logger.error(
         error instanceof Error ? error : { thrown: typeof error },
         'unhandled error',

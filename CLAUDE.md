@@ -99,6 +99,8 @@ pnpm test:integration        # Testcontainers-backed tests (needs Docker)
 pnpm test:privacy            # leakage tests (logs, events, notifications)
 pnpm db:migrate              # core + vault migrations (local)
 pnpm seed                    # synthetic data only
+pnpm new:service <name>      # generate a service from the template (--restricted for restricted/)
+pnpm test:service-template   # build, run, harden-check and scan a generated service image (needs Docker)
 pnpm contracts:gen           # generate TypeScript from the protobuf contracts (also runs in build/test)
 ```
 

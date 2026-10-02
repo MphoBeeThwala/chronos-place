@@ -1,0 +1,4 @@
+# Trivy exceptions. Keep this file empty if you can.
+# Every entry needs: the CVE id, why it does not apply, an owner, and an expiry date (exp:YYYY-MM-DD).
+# Example:
+#   CVE-2099-00000 exp:2026-12-31   # not reachable: distroless image has no shell; owner: security

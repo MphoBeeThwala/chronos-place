@@ -180,6 +180,11 @@ describe('errors never leak', () => {
     const body = await boom.text();
     expect(JSON.parse(body)).toEqual({ error: 'Internal error' });
     expect(body).not.toContain(MARKER);
+    const unknown = await fetch(`${http}/no-such-route/${MARKER}`);
+    expect(unknown.status).toBe(404);
+    const unknownBody = await unknown.text();
+    expect(JSON.parse(unknownBody)).toEqual({ error: 'Not found' });
+    expect(unknownBody).not.toContain(MARKER);
     const missing = await fetch(`${http}/missing`);
     expect(missing.status).toBe(404);
     expect(await missing.json()).toEqual({ error: 'Thing not found' });
