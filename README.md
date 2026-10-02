@@ -50,3 +50,4 @@ Workspaces are `apps/*`, `services/*`, `restricted/*`, `packages/*` and `tools/*
 | `@chronos/eslint-config` | Shared ESLint flat config (no `console`, explained `any`)                                 |
 | `@chronos/logger`        | Redacting pino logger with request and trace ids, allow-list mode for restricted services |
 | `@chronos/config`        | Zod-validated environment config; secrets wrapped; services exit on invalid config        |
+| `@chronos/crypto`        | AES-256-GCM envelope encryption, per-subject keys wrapped by KMS, crypto-shred            |

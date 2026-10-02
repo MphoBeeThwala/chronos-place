@@ -95,7 +95,7 @@ pnpm dev                     # run all apps/services in watch mode
 pnpm lint                    # ESLint incl. boundary rules
 pnpm typecheck
 pnpm test                    # unit tests
-pnpm test:integration        # Testcontainers-backed tests
+pnpm test:integration        # Testcontainers-backed tests (needs Docker)
 pnpm test:privacy            # leakage tests (logs, events, notifications)
 pnpm db:migrate              # core + vault migrations (local)
 pnpm seed                    # synthetic data only

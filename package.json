@@ -18,7 +18,8 @@
     "dev:infra:down": "bash tools/scripts/dev-infra.sh down",
     "dev:infra:reset": "bash tools/scripts/dev-infra.sh reset",
     "dev:infra:status": "bash tools/scripts/dev-infra.sh status",
-    "test:infra": "bash tools/scripts/check-vault-isolation.sh"
+    "test:infra": "bash tools/scripts/check-vault-isolation.sh",
+    "test:integration": "turbo run test:integration"
   },
   "devDependencies": {
     "@chronos/eslint-config": "workspace:*",
