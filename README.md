@@ -51,3 +51,4 @@ Workspaces are `apps/*`, `services/*`, `restricted/*`, `packages/*` and `tools/*
 | `@chronos/logger`        | Redacting pino logger with request and trace ids, allow-list mode for restricted services |
 | `@chronos/config`        | Zod-validated environment config; secrets wrapped; services exit on invalid config        |
 | `@chronos/crypto`        | AES-256-GCM envelope encryption, per-subject keys wrapped by KMS, crypto-shred            |
+| `@chronos/contracts`     | Protobuf (Buf, ts-proto), event schemas, GraphQL schema                                   |

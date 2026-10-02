@@ -239,14 +239,15 @@ message ViewResponse {
   HealthProfileView profile = 2;   // empty when not allowed
 }
 enum Purpose { PURPOSE_UNSPECIFIED = 0; PROFILE_VIEW = 1; CHAT_CARD = 2; MODERATION = 3; }
-// remaining messages defined in the contracts package
+// The proto file in packages/contracts is the source of truth; message names there follow Buf lint
+// (e.g. ViewHealthProfileRequest). This excerpt is illustrative. See ADR-0015.
 ```
 
 Callers are authenticated by mTLS identity. Allow-list:
 
 | Caller | Allowed RPCs |
 | --- | --- |
-| gateway | UpsertHealthProfile, GetOwnHealthProfile, SetVisibility, GrantDisclosure, RevokeDisclosure, ViewHealthProfile, ListHealthViewers |
+| gateway | UpsertHealthProfile, GetOwnHealthProfile, SetVisibility, GrantDisclosure, RevokeDisclosure, ViewHealthProfile, ListHealthViewers, ListConditionTaxonomy, SetFilterPreferences, GetFilterPreferences |
 | discovery | FilterEligibleSubjects |
 | identity | ExportSubject, EraseSubject |
 | moderation | ViewHealthProfile with purpose MODERATION only, requires a linked open report ID |
@@ -271,9 +272,9 @@ Block and match state are fetched from matching via gRPC (or a short-TTL cache i
 
 ### 4.3 Condition-aware discovery without leakage
 
-1. Discovery calls `FilterEligibleSubjects(viewer, candidateIds[], wantedConditionCodes[])`.
+1. Discovery calls `FilterEligibleSubjects(viewer, candidateIds[])`. The viewer's wanted condition codes are stored in the vault (`SetFilterPreferences`), so discovery, its caches and its logs never see them (ADR-0015).
 2. The service returns only candidates whose visibility is `profile`, who set `filter_opt_in`, and who match the codes — **and only if the viewer also shares their own health profile** (`profile` visibility + opt-in).
-3. If fewer than **k = 20** candidates pass, return an empty set with reason `below_threshold` so counts cannot reveal individuals.
+3. If fewer than **k = 20** candidates pass, return an empty set with outcome `below_threshold` so counts cannot reveal individuals. A viewer who does not share their own profile gets outcome `viewer_not_sharing`.
 4. The response contains account IDs only, never condition data.
 
 ### 4.4 Encryption

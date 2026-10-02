@@ -1,0 +1,292 @@
+syntax = "proto3";
+
+package chronos.disclosure.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// The Disclosure Service is the only door to the Health Vault (CLAUDE.md rule 2).
+//
+// Conventions
+// - Callers are authenticated by mTLS identity and checked against a per-method allow-list
+//   (TECHNICAL_SPEC 4.1). Account ids in requests are trusted only from allow-listed callers.
+// - Only account ids cross this boundary. The pseudonymous vault id never leaves the restricted zone.
+// - Request ids and trace context travel in gRPC metadata, not in messages.
+// - Every call to ViewHealthProfile and FilterEligibleSubjects is audited, allowed or denied.
+// - gRPC status codes: INVALID_ARGUMENT for malformed input, PERMISSION_DENIED for a caller that
+//   is not allow-listed for the method, ABORTED for a version conflict. A denied *view* is not an
+//   error: it is a normal response with allowed = false.
+service DisclosureService {
+  // Creates or replaces the member's own health profile. Caller: gateway.
+  rpc UpsertHealthProfile(UpsertHealthProfileRequest) returns (UpsertHealthProfileResponse);
+  // Returns the member's own profile, or an empty response when none exists. Caller: gateway.
+  rpc GetOwnHealthProfile(GetOwnHealthProfileRequest) returns (GetOwnHealthProfileResponse);
+  // Sets who may see the profile, and whether the member opts in to condition-aware filters. Caller: gateway.
+  rpc SetVisibility(SetVisibilityRequest) returns (SetVisibilityResponse);
+  // Shares the profile with one viewer (disclosure card). Requires an active match. Caller: gateway.
+  rpc GrantDisclosure(GrantDisclosureRequest) returns (GrantDisclosureResponse);
+  // Revokes a grant. Takes effect on the next view. Caller: gateway.
+  rpc RevokeDisclosure(RevokeDisclosureRequest) returns (RevokeDisclosureResponse);
+  // A viewer asks to see a subject's health profile. Callers: gateway, moderation (purpose MODERATION only).
+  rpc ViewHealthProfile(ViewHealthProfileRequest) returns (ViewHealthProfileResponse);
+  // Lists who has viewed the member's health details and when. Caller: gateway.
+  rpc ListHealthViewers(ListHealthViewersRequest) returns (ListHealthViewersResponse);
+  // Reference list of conditions members can choose from. Contains no member data. Caller: gateway.
+  rpc ListConditionTaxonomy(ListConditionTaxonomyRequest) returns (ListConditionTaxonomyResponse);
+  // Stores which conditions the member wants to filter for. They live in the vault so discovery never sees them. Caller: gateway.
+  rpc SetFilterPreferences(SetFilterPreferencesRequest) returns (SetFilterPreferencesResponse);
+  // Returns the member's own filter preferences. Caller: gateway.
+  rpc GetFilterPreferences(GetFilterPreferencesRequest) returns (GetFilterPreferencesResponse);
+  // Condition-aware discovery: narrows candidates using the viewer's stored preferences (TECHNICAL_SPEC 4.3). Caller: discovery.
+  rpc FilterEligibleSubjects(FilterEligibleSubjectsRequest) returns (FilterEligibleSubjectsResponse);
+  // Returns everything held about the member, for data export. Caller: identity.
+  rpc ExportSubject(ExportSubjectRequest) returns (ExportSubjectResponse);
+  // Crypto-shreds and deletes everything held about the member. Idempotent. Caller: identity.
+  rpc EraseSubject(EraseSubjectRequest) returns (EraseSubjectResponse);
+}
+
+enum Visibility {
+  VISIBILITY_UNSPECIFIED = 0;
+  // Nobody sees it. The default.
+  VISIBILITY_HIDDEN = 1;
+  // Mutual matches only.
+  VISIBILITY_MATCH_ONLY = 2;
+  // One chosen person at a time, via a disclosure card.
+  VISIBILITY_CHAT_GRANT = 3;
+  // Anyone who views the profile (verified viewers).
+  VISIBILITY_PROFILE = 4;
+}
+
+enum GrantScope {
+  GRANT_SCOPE_UNSPECIFIED = 0;
+  // Conditions, free text and note.
+  GRANT_SCOPE_FULL = 1;
+  // Conditions only. Free text and note are withheld.
+  GRANT_SCOPE_CONDITIONS_ONLY = 2;
+}
+
+enum ConditionStatus {
+  CONDITION_STATUS_UNSPECIFIED = 0;
+  CONDITION_STATUS_LIVING_WITH = 1;
+  CONDITION_STATUS_IN_REMISSION = 2;
+  CONDITION_STATUS_SURVIVOR = 3;
+}
+
+enum Purpose {
+  PURPOSE_UNSPECIFIED = 0;
+  PURPOSE_PROFILE_VIEW = 1;
+  PURPOSE_CHAT_CARD = 2;
+  PURPOSE_MODERATION = 3;
+}
+
+enum FilterOutcome {
+  FILTER_OUTCOME_UNSPECIFIED = 0;
+  // eligible_account_ids holds the matches.
+  FILTER_OUTCOME_OK = 1;
+  // Fewer than k candidates passed, so none are returned (prevents inference from small result sets).
+  FILTER_OUTCOME_BELOW_THRESHOLD = 2;
+  // The viewer does not share their own profile, so condition filters are unavailable to them.
+  FILTER_OUTCOME_VIEWER_NOT_SHARING = 3;
+}
+
+message Condition {
+  // Code from the condition taxonomy, or "other" together with free text.
+  string code = 1;
+  ConditionStatus status = 2;
+}
+
+// What a member stores about their own health. Restricted data.
+message HealthProfile {
+  repeated Condition conditions = 1;
+  // The member's own words about their conditions.
+  string free_text = 2;
+  string note = 3;
+}
+
+// A member's view of their own profile and settings.
+message OwnHealthProfile {
+  HealthProfile profile = 1;
+  Visibility visibility = 2;
+  bool filter_opt_in = 3;
+  // Incremented on every change, used for optimistic concurrency.
+  int32 version = 4;
+}
+
+// What a viewer is allowed to see. Never cached beyond lease_expires_at (ADR-0009).
+message HealthProfileView {
+  repeated Condition conditions = 1;
+  // Empty unless the scope is FULL.
+  string free_text = 2;
+  string note = 3;
+  GrantScope scope = 4;
+  // The client must re-request after this time and clear the view if it is not renewed.
+  google.protobuf.Timestamp lease_expires_at = 5;
+}
+
+message UpsertHealthProfileRequest {
+  string account_id = 1;
+  HealthProfile profile = 2;
+  // Version the caller last read; 0 when creating. A mismatch returns ABORTED.
+  int32 expected_version = 3;
+}
+
+message UpsertHealthProfileResponse {
+  int32 version = 1;
+}
+
+message GetOwnHealthProfileRequest {
+  string account_id = 1;
+}
+
+message GetOwnHealthProfileResponse {
+  // Unset when the member has no health profile.
+  OwnHealthProfile profile = 1;
+}
+
+message SetVisibilityRequest {
+  string account_id = 1;
+  Visibility visibility = 2;
+  bool filter_opt_in = 3;
+}
+
+message SetVisibilityResponse {
+  Visibility visibility = 1;
+  bool filter_opt_in = 2;
+}
+
+message GrantDisclosureRequest {
+  // The member sharing their profile.
+  string subject_account_id = 1;
+  string viewer_account_id = 2;
+  GrantScope scope = 3;
+}
+
+message GrantDisclosureResponse {
+  string grant_id = 1;
+  google.protobuf.Timestamp granted_at = 2;
+}
+
+message RevokeDisclosureRequest {
+  string subject_account_id = 1;
+  string viewer_account_id = 2;
+}
+
+message RevokeDisclosureResponse {
+  // False when there was no active grant. Revoking twice is not an error.
+  bool revoked = 1;
+}
+
+// Required when the purpose is PURPOSE_MODERATION. The Disclosure Service trusts the
+// allow-listed moderation caller for these, and records both in the audit log.
+message ModerationContext {
+  string report_id = 1;
+  string staff_id = 2;
+}
+
+message ViewHealthProfileRequest {
+  string viewer_account_id = 1;
+  string subject_account_id = 2;
+  Purpose purpose = 3;
+  ModerationContext moderation = 4;
+}
+
+// A denial carries no reason: "hidden", "blocked" and "no profile" must look identical to the
+// viewer, or the difference would reveal a condition. The reason goes to the audit log only.
+message ViewHealthProfileResponse {
+  bool allowed = 1;
+  // Set only when allowed.
+  HealthProfileView profile = 2;
+}
+
+message ListHealthViewersRequest {
+  string subject_account_id = 1;
+  int32 page_size = 2;
+  string page_token = 3;
+}
+
+message HealthViewer {
+  string viewer_account_id = 1;
+  google.protobuf.Timestamp last_viewed_at = 2;
+  int32 view_count = 3;
+  bool has_active_grant = 4;
+}
+
+message ListHealthViewersResponse {
+  repeated HealthViewer viewers = 1;
+  string next_page_token = 2;
+}
+
+message ListConditionTaxonomyRequest {}
+
+message TaxonomyEntry {
+  string code = 1;
+  string label_en = 2;
+}
+
+message ListConditionTaxonomyResponse {
+  repeated TaxonomyEntry entries = 1;
+}
+
+message SetFilterPreferencesRequest {
+  string account_id = 1;
+  repeated string wanted_condition_codes = 2;
+}
+
+message SetFilterPreferencesResponse {}
+
+message GetFilterPreferencesRequest {
+  string account_id = 1;
+}
+
+message GetFilterPreferencesResponse {
+  repeated string wanted_condition_codes = 1;
+}
+
+message FilterEligibleSubjectsRequest {
+  string viewer_account_id = 1;
+  // At most 500. Larger requests are rejected with INVALID_ARGUMENT.
+  repeated string candidate_account_ids = 2;
+}
+
+// Contains account ids only, never condition data.
+message FilterEligibleSubjectsResponse {
+  FilterOutcome outcome = 1;
+  repeated string eligible_account_ids = 2;
+}
+
+message ExportSubjectRequest {
+  string subject_account_id = 1;
+}
+
+message GrantRecord {
+  string viewer_account_id = 1;
+  GrantScope scope = 2;
+  google.protobuf.Timestamp granted_at = 3;
+  // Unset while the grant is active.
+  google.protobuf.Timestamp revoked_at = 4;
+}
+
+message AccessRecord {
+  // Empty when the accessor was staff; staff are not identified to members.
+  string accessor_account_id = 1;
+  Purpose purpose = 2;
+  bool allowed = 3;
+  google.protobuf.Timestamp at = 4;
+}
+
+message ExportSubjectResponse {
+  OwnHealthProfile profile = 1;
+  repeated string wanted_condition_codes = 2;
+  repeated GrantRecord grants = 3;
+  repeated AccessRecord accesses = 4;
+}
+
+message EraseSubjectRequest {
+  string subject_account_id = 1;
+  // Idempotency key, so a retried erasure is safe.
+  string request_id = 2;
+}
+
+message EraseSubjectResponse {
+  // True once the key is shredded and the rows are deleted, including when the subject was already erased.
+  bool completed = 1;
+}

@@ -99,6 +99,7 @@ pnpm test:integration        # Testcontainers-backed tests (needs Docker)
 pnpm test:privacy            # leakage tests (logs, events, notifications)
 pnpm db:migrate              # core + vault migrations (local)
 pnpm seed                    # synthetic data only
+pnpm contracts:gen           # generate TypeScript from the protobuf contracts (also runs in build/test)
 ```
 
 Keep this section accurate. If you add or change a command, update it here.

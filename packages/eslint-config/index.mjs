@@ -19,7 +19,10 @@ export function createConfig(options = {}) {
   const { tsconfigRootDir, typed = true, rootDir = DEFAULT_ROOT } = options;
 
   return tseslint.config(
-    { ignores: ['**/dist/**', '**/node_modules/**', '**/.turbo/**', '**/coverage/**'] },
+    // `gen/` holds generated code (protobuf); it is reviewed as .proto source, not as TypeScript.
+    {
+      ignores: ['**/dist/**', '**/node_modules/**', '**/.turbo/**', '**/coverage/**', '**/gen/**'],
+    },
     js.configs.recommended,
     comments.recommended,
     typed

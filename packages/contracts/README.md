@@ -1,0 +1,16 @@
+# @chronos/contracts
+
+Contracts first: change this package before implementing against it.
+
+| Area    | Location                             | Notes                                                    |
+| ------- | ------------------------------------ | -------------------------------------------------------- |
+| gRPC    | `proto/chronos/<service>/v1/*.proto` | Buf-linted; generated TypeScript in `gen/` (git-ignored) |
+| Events  | `src/events`                         | Zod schemas (added in M0.7 part 2)                       |
+| GraphQL | `graphql/schema.graphql`             | Client API (added in M0.7 part 3)                        |
+
+```sh
+pnpm --filter @chronos/contracts contracts:gen        # buf generate
+pnpm --filter @chronos/contracts contracts:breaking   # compare with origin/main
+```
+
+`@chronos/contracts/disclosure` is the generated Disclosure Service client and server interfaces. Only the gateway, discovery, identity and moderation services (and `restricted/`) may import it; lint enforces this (ADR-0012). See ADR-0015 for the API design.
