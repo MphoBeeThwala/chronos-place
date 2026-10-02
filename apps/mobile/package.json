@@ -6,7 +6,11 @@
   "scripts": {
     "start": "expo start --dev-client",
     "android": "expo run:android",
-    "ios": "expo run:ios"
+    "ios": "expo run:ios",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run && jest",
+    "bundle:check": "expo export --platform ios --platform android --output-dir .expo-export-check"
   },
   "dependencies": {
     "@chronos/ui": "workspace:*",
@@ -47,6 +51,7 @@
     "babel-preset-expo": "~57.0.13",
     "jest": "^29.7.0",
     "jest-expo": "~57.0.5",
-    "react-test-renderer": "19.2.3"
+    "react-test-renderer": "19.2.3",
+    "yaml": "^2.8.1"
   }
 }

@@ -59,3 +59,4 @@ Workspaces are `apps/*`, `services/*`, `restricted/*`, `packages/*` and `tools/*
 | `@chronos/service-kit`     | NestJS bootstrap: probes, gRPC, graceful shutdown, safe errors, scrubbed telemetry                                                                                               |
 | `@chronos/privacy-harness` | Synthetic-marker leak detection across logs, events, errors, traces, URLs, notifications                                                                                         |
 | `@chronos/ui`              | React Native design system: tokens, theming, accessible components                                                                                                               |
+| `@chronos/mobile`          | Expo app shell: Welcome and Settings, i18n, light and dark themes, Maestro flows                                                                                                 |

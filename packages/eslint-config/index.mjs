@@ -82,6 +82,11 @@ export function createConfig(options = {}) {
       },
     },
     {
+      // Jest (jest-expo) tests and setup files in React Native packages.
+      files: ['**/*.spec.{ts,tsx}', '**/jest.setup.cjs'],
+      languageOptions: { globals: { ...globals.jest } },
+    },
+    {
       // Accessibility (PRD: WCAG 2.2 AA): interactive elements and images carry labels and roles.
       files: ['**/*.tsx'],
       rules: { 'chronos/a11y-label': 'error' },

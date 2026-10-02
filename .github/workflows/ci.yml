@@ -44,6 +44,12 @@ jobs:
       - run: pnpm build
       - name: Banned dependencies (CLAUDE.md rule 7)
         run: pnpm check:deps
+      - name: Mobile app compiles for iOS and Android
+        env:
+          EXPO_NO_TELEMETRY: '1'
+          EXPO_OFFLINE: '1'
+          CI: '1'
+        run: pnpm --filter @chronos/mobile bundle:check
 
   integration:
     name: Integration, vault isolation, service image

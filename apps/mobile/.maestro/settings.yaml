@@ -1,0 +1,14 @@
+# Opens Settings, switches to the dark theme and checks the choice is selected.
+appId: com.chronosplace.app
+---
+- launchApp:
+    clearState: true
+- tapOn:
+    id: open-settings
+- assertVisible:
+    id: settings-screen
+- tapOn:
+    id: theme-choice-dark
+- assertVisible:
+    id: theme-choice-dark
+    checked: true

@@ -9,3 +9,6 @@ coverage/
 .DS_Store
 gen/
 .build-ca.crt
+.expo/
+.expo-export-check/
+expo-env.d.ts

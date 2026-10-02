@@ -102,6 +102,7 @@ pnpm seed                    # synthetic data only
 pnpm check:deps              # banned third-party SDKs (rule 7); also runs in CI
 pnpm new:service <name>      # generate a service from the template (--restricted for restricted/)
 pnpm test:service-template   # build, run, harden-check and scan a generated service image (needs Docker)
+pnpm --filter @chronos/mobile start|bundle:check   # mobile dev client; compile iOS and Android bundles
 pnpm contracts:gen           # generate TypeScript from the protobuf contracts (also runs in build/test)
 ```
 

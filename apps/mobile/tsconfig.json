@@ -1,0 +1,15 @@
+{
+  "extends": "@chronos/tsconfig/react-native.json",
+  "compilerOptions": { "rootDir": ".", "types": ["jest"] },
+  "include": [
+    "app/**/*.ts",
+    "app/**/*.tsx",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "tests/**/*.ts",
+    "tests/**/*.tsx",
+    "*.config.ts",
+    "expo-env.d.ts",
+    ".expo/types/**/*.ts"
+  ]
+}

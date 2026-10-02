@@ -1,0 +1,9 @@
+# Opens the app and checks the first screen renders. Run: maestro test apps/mobile/.maestro
+appId: com.chronosplace.app
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    id: welcome-screen
+- assertVisible:
+    id: open-settings
