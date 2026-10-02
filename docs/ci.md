@@ -7,6 +7,10 @@ Two workflows run on every pull request and on pushes to `main`. Each ends in a 
 | `.github/workflows/ci.yml` | `verify` (lint, typecheck, unit tests, build, banned dependencies), `integration` (local stack, vault isolation, Testcontainers KMS tests, service template image and Trivy), `contracts-breaking` (Buf, PRs only) | **CI gate** |
 | `.github/workflows/security.yml` | `semgrep`, `gitleaks`, `osv-scanner`, `trivy-fs`, `checkov` (also weekly, because advisories appear without code changes) | **Security gate** |
 
+## First run
+
+GitHub only registers a workflow once it is on the default branch or a pull request uses it, so the first real run happens when the first pull request is opened (or after the workflows reach `main`). If every job fails within a few seconds with no steps and no logs, the job never reached a runner: check **Settings > Actions** (Actions enabled for this repository) and the account's **Billing** (Actions minutes and spending limit). The job page shows the reason.
+
 ## Branch protection (set by a repository admin)
 
 GitHub does not let this be set from the repository, so it has to be configured once in **Settings > Branches > Add branch ruleset** for `main`:
