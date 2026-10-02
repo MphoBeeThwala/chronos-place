@@ -8,6 +8,10 @@
     "./disclosure": {
       "types": "./dist/gen/chronos/disclosure/v1/disclosure.d.ts",
       "default": "./dist/gen/chronos/disclosure/v1/disclosure.js"
+    },
+    "./events": {
+      "types": "./dist/src/events/index.d.ts",
+      "default": "./dist/src/events/index.js"
     }
   },
   "files": [
@@ -17,7 +21,7 @@
   "scripts": {
     "contracts:gen": "buf generate",
     "contracts:breaking": "bash scripts/breaking.sh",
-    "build": "pnpm contracts:gen && tsc -p tsconfig.build.json",
+    "build": "pnpm contracts:gen && tsc -p tsconfig.build.json && node scripts/emit-json-schema.mjs",
     "lint": "buf lint && eslint .",
     "typecheck": "pnpm contracts:gen && tsc --noEmit",
     "test": "pnpm contracts:gen && vitest run"
@@ -27,10 +31,12 @@
     "@nestjs/common": "^12.1.2",
     "@nestjs/microservices": "^12.1.2",
     "protobufjs": "^7.6.6",
-    "rxjs": "^7.8.2"
+    "rxjs": "^7.8.2",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@bufbuild/buf": "^1.73.0",
+    "@chronos/logger": "workspace:*",
     "@chronos/tsconfig": "workspace:*",
     "@grpc/grpc-js": "^1.14.5",
     "@grpc/proto-loader": "^0.8.1",

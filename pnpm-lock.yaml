@@ -57,10 +57,16 @@ importers:
       rxjs:
         specifier: ^7.8.2
         version: 7.8.2
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
     devDependencies:
       '@bufbuild/buf':
         specifier: ^1.73.0
         version: 1.73.0
+      '@chronos/logger':
+        specifier: workspace:*
+        version: link:../logger
       '@chronos/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
