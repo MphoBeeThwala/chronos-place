@@ -118,6 +118,7 @@ Keep this section accurate. If you add or change a command, update it here.
 - TypeScript `strict: true`; no `any` without a comment explaining why.
 - Validate all external input with zod at the edge (GraphQL resolvers, gRPC handlers, webhooks, Kafka consumers).
 - Errors: typed domain errors; never leak internals or personal data in error messages.
+- Log messages are static strings (lint rule `chronos/static-log-messages`): a literal or a `const` string, never a template with expressions, a concatenation or a variable. Put variable data, including error text, in the fields object (`logger.error({ err }, 'request failed')`) where `@chronos/logger` redacts it.
 - Naming: `kebab-case` files, `PascalCase` types/classes, `camelCase` functions.
 - Accessibility (mobile and web): WCAG 2.2 AA; every interactive element has an accessible label; touch targets at least 44x44 pt; every swipe has a button alternative.
 - Copy uses person-first, stigma-free language ("living with HIV", never "infected").

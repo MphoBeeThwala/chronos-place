@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "Shared flat ESLint config. Restricted-zone boundary rules arrive in M0.2.",
+  "description": "Shared flat ESLint config. Restricted-zone boundary and static-log-message rules.",
   "exports": {
     ".": "./index.mjs"
   },

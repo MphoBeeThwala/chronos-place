@@ -18,3 +18,10 @@ Adding a package to a restricted allow-list or an importer to the Disclosure cli
 
 ## Known limits
 The rule sees only literal specifiers. Path aliases that resolve into `restricted/` are not supported (none are configured; adding one needs an ADR). CI wiring lands in M0.9; the real `restricted/` tree arrives in M2.1, at which point the fixture tests should be re-run against it.
+
+## Addendum: static log messages (`chronos/static-log-messages`)
+The redacting logger masks field names and scrubs recognisable values, but the message text is free text in every mode, including `allowlist`. A health string interpolated into a message, or planted under a harmless field name, therefore reached the logs. `packages/eslint-config/rules/static-log-messages.mjs` closes the message half of that gap: in `services/`, `restricted/`, `apps/` and `packages/service-kit/src`, the message passed to `trace`/`debug`/`info`/`warn`/`error`/`fatal` must be a literal or a same-file `const` string.
+
+**How errors are logged:** error text never goes in the message. Pass the error in the fields object (`logger.error({ err }, 'request failed')`), where the logger redacts it, and in allowlist mode never writes error messages or stacks. Like the boundary rule, it cannot be disabled inline.
+
+**Limits:** the rule cannot see through a logger held under an unrelated name or passed as a parameter named otherwise, and it does not check field values. A health string under a harmless field name (e.g. `detail`) is still written in `redact` mode; the privacy harness covers that, not lint.
