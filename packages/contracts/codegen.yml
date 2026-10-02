@@ -1,0 +1,12 @@
+schema: graphql/schema.graphql
+generates:
+  gen/graphql/types.ts:
+    plugins:
+      - typescript
+    config:
+      scalars:
+        DateTime: string
+      strictScalars: true
+      enumsAsTypes: true
+      skipTypename: true
+      useTypeImports: true

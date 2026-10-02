@@ -30,3 +30,11 @@ const key = partitionKey(received); // keeps related events in order
 - Payloads hold ids and timestamps only. A test fails if any field name is on the logger's redaction list.
 - **Disclosure changes are not events.** Even "this member changed their health visibility" implies health data. Clearing open health screens (ADR-0009) must use a signal that does not say why.
 - `ContractError` names the failing fields, never their values.
+
+## GraphQL
+
+`@chronos/contracts/graphql` exports `schemaPath` (the SDL) and `PUBLIC_MUTATIONS` (the only operations callable without a session). Types are generated to `gen/graphql/types.ts` and exported as `@chronos/contracts/graphql/types`.
+
+Schema tests enforce the privacy rules: health vocabulary appears only on the dedicated health types and operations, `PublicProfile` has no health fields, no output type exposes coordinates, `LocationInput` is write-only, and the health enums match the Disclosure proto.
+
+Beyond the spec §6 excerpt, the schema adds the operations the other contracts require: `refreshSession` and `signOut` (rotating refresh tokens, spec §8), and `conditionTaxonomy`, `myHealthFilters`, `setHealthFilters` and the optional `filterOptIn` argument (condition-aware filters live in the vault, ADR-0015).

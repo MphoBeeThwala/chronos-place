@@ -12,14 +12,23 @@
     "./events": {
       "types": "./dist/src/events/index.d.ts",
       "default": "./dist/src/events/index.js"
-    }
+    },
+    "./graphql": {
+      "types": "./dist/src/graphql/index.d.ts",
+      "default": "./dist/src/graphql/index.js"
+    },
+    "./graphql/types": {
+      "types": "./dist/gen/graphql/types.d.ts"
+    },
+    "./graphql/schema.graphql": "./graphql/schema.graphql"
   },
   "files": [
     "dist",
-    "proto"
+    "proto",
+    "graphql"
   ],
   "scripts": {
-    "contracts:gen": "buf generate",
+    "contracts:gen": "buf generate && graphql-codegen --config codegen.yml",
     "contracts:breaking": "bash scripts/breaking.sh",
     "build": "pnpm contracts:gen && tsc -p tsconfig.build.json && node scripts/emit-json-schema.mjs",
     "lint": "buf lint && eslint .",
@@ -30,6 +39,7 @@
     "@bufbuild/protobuf": "^2.16.0",
     "@nestjs/common": "^12.1.2",
     "@nestjs/microservices": "^12.1.2",
+    "graphql": "^16.14.2",
     "protobufjs": "^7.6.6",
     "rxjs": "^7.8.2",
     "zod": "^4.6.5"
@@ -38,6 +48,8 @@
     "@bufbuild/buf": "^1.73.0",
     "@chronos/logger": "workspace:*",
     "@chronos/tsconfig": "workspace:*",
+    "@graphql-codegen/cli": "^7.4.3",
+    "@graphql-codegen/typescript": "^6.1.0",
     "@grpc/grpc-js": "^1.14.5",
     "@grpc/proto-loader": "^0.8.1",
     "@nestjs/core": "^12.1.2",
