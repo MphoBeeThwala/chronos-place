@@ -25,6 +25,14 @@ describe('@chronos/tsconfig base', () => {
     expect(options[flag]).toBe(true);
   });
 
+  it('never turns strict off in the react-native preset, and bundles modules for Metro', () => {
+    const rn = read('react-native.json');
+    expect(rn.extends).toBe('./base.json');
+    expect(rn.compilerOptions?.['strict']).not.toBe(false);
+    expect(rn.compilerOptions?.['moduleResolution']).toBe('Bundler');
+    expect(rn.compilerOptions?.['jsx']).toBe('react-native');
+  });
+
   it('never turns strict off in the node preset', () => {
     const node = read('node.json');
     expect(node.extends).toBe('./base.json');

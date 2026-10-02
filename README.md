@@ -58,3 +58,4 @@ Workspaces are `apps/*`, `services/*`, `restricted/*`, `packages/*` and `tools/*
 | `@chronos/contracts`       | Protobuf (Buf, ts-proto), event schemas, GraphQL schema                                   |
 | `@chronos/service-kit`     | NestJS bootstrap: probes, gRPC, graceful shutdown, safe errors, scrubbed telemetry        |
 | `@chronos/privacy-harness` | Synthetic-marker leak detection across logs, events, errors, traces, URLs, notifications  |
+| `@chronos/ui`              | React Native design system: tokens, theming, accessible components                        |

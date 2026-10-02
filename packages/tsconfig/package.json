@@ -5,7 +5,8 @@
   "description": "Shared strict TypeScript configs",
   "files": [
     "base.json",
-    "node.json"
+    "node.json",
+    "react-native.json"
   ],
   "scripts": {
     "lint": "eslint .",
