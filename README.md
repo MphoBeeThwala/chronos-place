@@ -40,6 +40,10 @@ Credentials are random per machine and live in `tools/.env`, which is git-ignore
 
 Database migrations, seed data and privacy tests arrive with their tasks (M2.1, M0.10) and are added to `CLAUDE.md` then.
 
+## CI
+
+Pull requests run the checks in `.github/workflows` (see [docs/ci.md](docs/ci.md) for the gates and the branch-protection checklist). Run `pnpm check:deps` locally to check for banned third-party SDKs.
+
 ## Layout
 
 Workspaces are `apps/*`, `services/*`, `restricted/*`, `packages/*` and `tools/*`. A workspace is created in the task that builds it; none are empty placeholders.

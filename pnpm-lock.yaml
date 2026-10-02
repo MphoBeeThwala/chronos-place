@@ -221,6 +221,12 @@ importers:
 
   packages/tsconfig: {}
 
+  tools/repo-checks:
+    devDependencies:
+      '@chronos/tsconfig':
+        specifier: workspace:*
+        version: link:../../packages/tsconfig
+
 packages:
 
   '@ardatan/relay-compiler@13.0.2':
