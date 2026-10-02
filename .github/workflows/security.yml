@@ -1,0 +1,117 @@
+name: Security
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    # New advisories appear without any code change; re-scan weekly.
+    - cron: '17 4 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  semgrep:
+    name: Semgrep (SAST)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Semgrep
+        run: pipx install semgrep==1.179.0
+      - name: Scan (rules are downloaded; source code never leaves the runner)
+        run: |
+          semgrep scan --error --metrics=off --disable-version-check \
+            --config p/typescript --config p/nodejs --config p/security-audit \
+            --config p/secrets --config p/dockerfile \
+            --config .semgrep/ \
+            .
+
+  gitleaks:
+    name: gitleaks (secrets in history)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Scan the full history
+        run: |
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1 \
+            detect --source /repo --config /repo/.gitleaks.toml --redact --no-banner --verbose
+
+  osv-scanner:
+    name: OSV-Scanner (known-vulnerable dependencies)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Scan the lockfile
+        run: |
+          docker run --rm -v "$PWD:/src:ro" ghcr.io/google/osv-scanner:v2.6.0 \
+            scan source --lockfile=/src/pnpm-lock.yaml
+
+  trivy-fs:
+    name: Trivy (repository files)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Vulnerabilities, secrets and misconfiguration
+        run: |
+          docker run --rm -v "$PWD:/work:ro" aquasec/trivy:0.75.0 fs \
+            --scanners vuln,secret,misconfig --severity HIGH,CRITICAL --ignore-unfixed \
+            --skip-dirs node_modules,.turbo,dist,gen --exit-code 1 --ignorefile /work/.trivyignore --no-progress /work
+
+  checkov:
+    name: Checkov (Dockerfiles and workflows)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Checkov
+        run: pipx install checkov==3.3.22
+      - name: Workflows
+        run: checkov -d .github --framework github_actions --skip-download --quiet --compact
+      - name: Service Dockerfile template
+        run: |
+          mkdir -p /tmp/dockerfile
+          digest="$(sed 's/^sha256://' tools/distroless.digest)"
+          sed -e 's/__NAME__/sample/g' -e 's/__SCOPE_DIR__/services/g' -e "s/__DISTROLESS_DIGEST__/${digest}/g" \
+            packages/service-kit/templates/service/Dockerfile.tpl > /tmp/dockerfile/Dockerfile
+          checkov -f /tmp/dockerfile/Dockerfile --framework dockerfile --skip-download --quiet --compact
+
+  # The single check branch protection requires for this workflow.
+  security-gate:
+    name: Security gate
+    if: always()
+    needs: [semgrep, gitleaks, osv-scanner, trivy-fs, checkov]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Every scan succeeded
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Results: $RESULTS"
+          for result in $RESULTS; do
+            if [ "$result" != "success" ]; then
+              echo "A security scan did not succeed." >&2
+              exit 1
+            fi
+          done
