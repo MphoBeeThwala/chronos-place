@@ -4,7 +4,7 @@ Two workflows run on every pull request and on pushes to `main`. Each ends in a 
 
 | Workflow | Jobs | Gate |
 | --- | --- | --- |
-| `.github/workflows/ci.yml` | `verify` (lint, typecheck, unit tests, build, banned dependencies), `integration` (local stack, vault isolation, Testcontainers KMS tests, service template image and Trivy), `contracts-breaking` (Buf, PRs only) | **CI gate** |
+| `.github/workflows/ci.yml` | `verify` (lint, typecheck, unit tests, build, banned dependencies), `integration` (local stack, vault isolation, Testcontainers KMS tests, service template image and Trivy), `privacy` (`pnpm test:privacy`), `contracts-breaking` (Buf, PRs only) | **CI gate** |
 | `.github/workflows/security.yml` | `semgrep`, `gitleaks`, `osv-scanner`, `trivy-fs`, `checkov` (also weekly, because advisories appear without code changes) | **Security gate** |
 
 ## First run
@@ -37,6 +37,7 @@ Until this is done, a failing check is visible but does not block a merge.
 ```sh
 pnpm lint && pnpm typecheck && pnpm test && pnpm build
 pnpm check:deps              # banned analytics, ads, attribution and replay SDKs
+pnpm test:privacy           # synthetic markers must not reach logs, events, errors, traces, URLs, notifications
 pnpm dev:infra && pnpm test:infra && pnpm test:integration && pnpm test:service-template
 ```
 

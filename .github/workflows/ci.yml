@@ -76,6 +76,28 @@ jobs:
         if: failure()
         run: pnpm dev:infra:status || true
 
+  privacy:
+    name: Privacy leak tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: corepack enable
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .turbo
+          key: turbo-privacy-${{ runner.os }}-${{ github.sha }}
+          restore-keys: turbo-privacy-${{ runner.os }}-
+      - run: pnpm install --frozen-lockfile
+      - name: Synthetic markers must not reach logs, events, errors, traces, URLs or notifications
+        run: pnpm test:privacy
+
   contracts-breaking:
     name: Protobuf breaking changes
     if: github.event_name == 'pull_request'
@@ -101,7 +123,7 @@ jobs:
   ci-gate:
     name: CI gate
     if: always()
-    needs: [verify, integration, contracts-breaking]
+    needs: [verify, integration, privacy, contracts-breaking]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
