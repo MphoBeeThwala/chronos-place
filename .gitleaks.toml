@@ -1,0 +1,26 @@
+title = "Chronos Place gitleaks"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Synthetic test markers and content hashes that are not secrets"
+regexes = [
+  '''SYNTHETIC-MARKER-[0-9a-f]+''',
+]
+paths = [
+  '''pnpm-lock\.yaml$''',
+  '''tools/distroless\.digest$''',
+]
+
+[[allowlists]]
+description = "A made-up JWT used to prove the logger scrubs tokens (CLAUDE.md rule 6: synthetic data only)"
+condition = "AND"
+paths = ['''packages/logger/test/redaction\.test\.ts$''']
+regexes = ['''eyJhbGciOiJIUzI1NiJ9\.eyJzdWIiOiIxMjM0NTY3ODkwIn0\.abcDEF123456''']
+
+[[allowlists]]
+description = "Backlog prose in the original upload (TASKS.md at the repository root, since moved to docs/); the words 'unauthenticated ... OTP' look like a key to the generic rule"
+condition = "AND"
+paths = ['''^TASKS\.md$''']
+commits = ['e1322d977793078c194199e63e6e71696c1fa608']

@@ -1,0 +1,17 @@
+{
+  "name": "@chronos/repo-checks",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Repository policy checks that run in CI.",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "check:deps": "pnpm build && node dist/banned-dependencies-cli.js"
+  },
+  "devDependencies": {
+    "@chronos/tsconfig": "workspace:*"
+  }
+}

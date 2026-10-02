@@ -1,0 +1,140 @@
+name: CI
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # No telemetry to third parties from build tooling.
+  TURBO_TELEMETRY_DISABLED: '1'
+  DO_NOT_TRACK: '1'
+
+jobs:
+  verify:
+    name: Lint, typecheck, unit tests, build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: corepack enable
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ github.sha }}
+          restore-keys: turbo-${{ runner.os }}-
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - name: Banned dependencies (CLAUDE.md rule 7)
+        run: pnpm check:deps
+
+  integration:
+    name: Integration, vault isolation, service image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: corepack enable
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .turbo
+          key: turbo-integration-${{ runner.os }}-${{ github.sha }}
+          restore-keys: turbo-integration-${{ runner.os }}-
+      - run: pnpm install --frozen-lockfile
+      - name: Start the local stack (pulls images, waits for health checks)
+        run: pnpm dev:infra
+      - name: Vault database is unreachable from outside its network
+        run: pnpm test:infra
+      - name: Testcontainers-backed tests (KMS against LocalStack)
+        run: pnpm test:integration
+      - name: Service template, hardened image and Trivy scan
+        run: pnpm test:service-template
+      - name: Stack logs on failure
+        if: failure()
+        run: pnpm dev:infra:status || true
+
+  privacy:
+    name: Privacy leak tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: corepack enable
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .turbo
+          key: turbo-privacy-${{ runner.os }}-${{ github.sha }}
+          restore-keys: turbo-privacy-${{ runner.os }}-
+      - run: pnpm install --frozen-lockfile
+      - name: Synthetic markers must not reach logs, events, errors, traces, URLs or notifications
+        run: pnpm test:privacy
+
+  contracts-breaking:
+    name: Protobuf breaking changes
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - run: corepack enable
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Compare with the base branch
+        env:
+          AGAINST_REF: origin/${{ github.base_ref }}
+        run: pnpm --filter @chronos/contracts contracts:breaking
+
+  # The single check branch protection requires for this workflow.
+  ci-gate:
+    name: CI gate
+    if: always()
+    needs: [verify, integration, privacy, contracts-breaking]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Every job succeeded (or was intentionally skipped)
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Results: $RESULTS"
+          for result in $RESULTS; do
+            if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
+              echo "A required job did not succeed." >&2
+              exit 1
+            fi
+          done

@@ -1,0 +1,16 @@
+version: v2
+clean: true
+plugins:
+  - local: protoc-gen-ts_proto
+    out: gen
+    include_imports: true
+    include_wkt: true
+    opt:
+      - nestJs=true
+      - outputEncodeMethods=true
+      - useDate=true
+      - esModuleInterop=true
+      - importSuffix=.js
+      - env=node
+      - forceLong=number
+      - outputPartialMethods=true

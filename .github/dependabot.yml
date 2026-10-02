@@ -1,0 +1,24 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directories:
+      - /
+      - /packages/*
+      - /tools/*
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+    # Pinned together: OpenTelemetry's Node packages are on the 0.2xx experimental line.
+    ignore:
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']

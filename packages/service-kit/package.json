@@ -1,0 +1,58 @@
+{
+  "name": "@chronos/service-kit",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Bootstrap for NestJS services: probes, gRPC, graceful shutdown, telemetry, safe errors.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./instrument": {
+      "types": "./dist/instrument.d.ts",
+      "default": "./dist/instrument.js"
+    }
+  },
+  "files": [
+    "dist",
+    "proto",
+    "templates"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "pnpm build && vitest run"
+  },
+  "dependencies": {
+    "@chronos/config": "workspace:*",
+    "@chronos/logger": "workspace:*",
+    "@grpc/grpc-js": "^1.14.5",
+    "@grpc/proto-loader": "^0.8.1",
+    "@nestjs/common": "^12.1.2",
+    "@nestjs/core": "^12.1.2",
+    "@nestjs/microservices": "^12.1.2",
+    "@nestjs/platform-fastify": "^12.1.2",
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/core": "^2.11.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.222.0",
+    "@opentelemetry/instrumentation": "^0.222.0",
+    "@opentelemetry/instrumentation-grpc": "^0.222.0",
+    "@opentelemetry/instrumentation-http": "^0.222.0",
+    "@opentelemetry/resources": "^2.11.0",
+    "@opentelemetry/sdk-node": "^0.222.0",
+    "@opentelemetry/sdk-trace-base": "^2.11.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@chronos/tsconfig": "workspace:*"
+  },
+  "bin": {
+    "chronos-new-service": "./dist/cli/main.js"
+  }
+}

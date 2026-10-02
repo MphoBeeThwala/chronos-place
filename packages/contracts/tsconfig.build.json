@@ -1,0 +1,5 @@
+{
+  "extends": "@chronos/tsconfig/node.json",
+  "compilerOptions": { "outDir": "dist", "rootDir": ".", "noEmit": false },
+  "include": ["gen/**/*.ts", "src/**/*.ts"]
+}

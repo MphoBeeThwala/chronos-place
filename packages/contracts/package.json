@@ -1,0 +1,59 @@
+{
+  "name": "@chronos/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Service contracts: protobuf (gRPC), GraphQL schema and event schemas. Contracts first.",
+  "exports": {
+    "./disclosure": {
+      "types": "./dist/gen/chronos/disclosure/v1/disclosure.d.ts",
+      "default": "./dist/gen/chronos/disclosure/v1/disclosure.js"
+    },
+    "./events": {
+      "types": "./dist/src/events/index.d.ts",
+      "default": "./dist/src/events/index.js"
+    },
+    "./graphql": {
+      "types": "./dist/src/graphql/index.d.ts",
+      "default": "./dist/src/graphql/index.js"
+    },
+    "./graphql/types": {
+      "types": "./dist/gen/graphql/types.d.ts"
+    },
+    "./graphql/schema.graphql": "./graphql/schema.graphql"
+  },
+  "files": [
+    "dist",
+    "proto",
+    "graphql"
+  ],
+  "scripts": {
+    "contracts:gen": "buf generate && graphql-codegen --config codegen.yml",
+    "contracts:breaking": "bash scripts/breaking.sh",
+    "build": "pnpm contracts:gen && tsc -p tsconfig.build.json && node scripts/emit-json-schema.mjs",
+    "lint": "pnpm contracts:gen && buf lint && eslint .",
+    "typecheck": "pnpm contracts:gen && tsc --noEmit",
+    "test": "pnpm contracts:gen && vitest run"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "^2.16.0",
+    "@nestjs/common": "^12.1.2",
+    "@nestjs/microservices": "^12.1.2",
+    "graphql": "^16.14.2",
+    "protobufjs": "^7.6.6",
+    "rxjs": "^7.8.2",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@bufbuild/buf": "^1.73.0",
+    "@chronos/logger": "workspace:*",
+    "@chronos/tsconfig": "workspace:*",
+    "@graphql-codegen/cli": "^7.4.3",
+    "@graphql-codegen/typescript": "^6.1.0",
+    "@grpc/grpc-js": "^1.14.5",
+    "@grpc/proto-loader": "^0.8.1",
+    "@nestjs/core": "^12.1.2",
+    "reflect-metadata": "^0.2.2",
+    "ts-proto": "^2.12.4"
+  }
+}

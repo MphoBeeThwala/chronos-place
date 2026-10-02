@@ -1,0 +1,14 @@
+# Changes to these paths need a review from the listed owner (enable "Require review from Code Owners"
+# in branch protection). Add a security owner or team here when there is one.
+*                                   @MphoBeeThwala
+
+/restricted/                        @MphoBeeThwala
+/packages/crypto/                   @MphoBeeThwala
+/packages/eslint-config/rules/      @MphoBeeThwala
+/packages/contracts/proto/          @MphoBeeThwala
+/infra/                             @MphoBeeThwala
+/.github/                           @MphoBeeThwala
+/docs/adr/                          @MphoBeeThwala
+/tools/distroless.digest            @MphoBeeThwala
+/tools/repo-checks/                 @MphoBeeThwala
+/CLAUDE.md                          @MphoBeeThwala

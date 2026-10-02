@@ -1,0 +1,51 @@
+rules:
+  - id: chronos-no-process-env-in-services
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      Read configuration through @chronos/config, not process.env. Invalid config must stop the
+      service from starting (M0.5).
+    pattern-either:
+      - pattern: process.env.$VAR
+      - pattern: process.env[$VAR]
+    paths:
+      include:
+        - /services/
+        - /restricted/
+        - /apps/
+
+  - id: chronos-no-third-party-analytics-hosts
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      Calls to third-party analytics, advertising, attribution or session-replay hosts are not
+      allowed without an approved ADR (CLAUDE.md rule 7). Analytics are self-hosted (ADR-0005).
+    pattern-regex: (google-analytics\.com|googletagmanager\.com|doubleclick\.net|segment\.(io|com)|mixpanel\.com|amplitude\.com|appsflyer\.com|adjust\.com|facebook\.com/tr|connect\.facebook\.net|hotjar\.com|fullstory\.com|logrocket\.(com|io)|smartlook\.com|clarity\.ms|app-measurement\.com)
+    paths:
+      include:
+        - '*.ts'
+        - '*.tsx'
+        - '*.js'
+        - '*.mjs'
+        - '*.json'
+        - '*.yml'
+      exclude:
+        - /tools/repo-checks/
+        - /.semgrep/
+        - /docs/
+
+  - id: chronos-no-blanket-eslint-disable
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      Blanket eslint-disable comments are not allowed: they would also switch off the restricted-zone
+      boundary rule (CLAUDE.md rule 1). Disable named rules only, with a reason.
+    pattern-regex: ^\s*(//|/\*)\s*eslint-disable\s*(\*/)?\s*$
+    paths:
+      include:
+        - '*.ts'
+        - '*.tsx'
+        - '*.js'
+        - '*.mjs'
+      exclude:
+        - /packages/eslint-config/test/

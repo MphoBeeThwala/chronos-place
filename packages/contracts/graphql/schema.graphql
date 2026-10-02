@@ -1,0 +1,312 @@
+# Client API (TECHNICAL_SPEC section 6). Contracts first: change this file before the gateway.
+#
+# Rules this schema encodes
+# - Health data appears only on the dedicated health types below, and is resolved only through
+#   resolvers that call the Disclosure Service. No other type has a health field.
+# - Another member's coordinates are never returned: LocationInput is write-only, and distance is
+#   rounded to at least 1 km.
+# - Persisted queries only in production; depth and complexity limits at the gateway.
+
+scalar DateTime
+
+type Query {
+  me: Me!
+  feed(first: Int = 20, after: String): FeedConnection!
+  profile(id: ID!): PublicProfile
+  matches(first: Int = 50, after: String): MatchConnection!
+
+  "The member's own health profile. Null when none has been created."
+  myHealthProfile: HealthProfile
+  "Another member's health details. Null whenever the viewer is not permitted, for any reason."
+  healthProfileOf(accountId: ID!): HealthProfileView
+  "Who has viewed the member's health details, and when."
+  healthViewers: [HealthViewer!]!
+  "Conditions members can choose from. Contains no member data."
+  conditionTaxonomy: [ConditionTaxonomyEntry!]!
+  "Condition codes the member wants to filter for. Stored with the health data, never in discovery."
+  myHealthFilters: [String!]!
+}
+
+type Mutation {
+  requestOtp(phone: String!): OtpChallenge!
+  verifyOtp(challengeId: ID!, code: String!): Session!
+  refreshSession(refreshToken: String!): Session!
+  signOut: Boolean!
+
+  recordConsent(input: ConsentInput!): Boolean!
+  updateProfile(input: ProfileInput!): Me!
+  updatePreferences(input: PreferencesInput!): Me!
+
+  like(accountId: ID!): LikeResult!
+  pass(accountId: ID!): Boolean!
+  unmatch(matchId: ID!): Boolean!
+  block(accountId: ID!): Boolean!
+  report(input: ReportInput!): Report!
+
+  upsertHealthProfile(input: HealthProfileInput!): HealthProfile!
+  setHealthVisibility(visibility: HealthVisibility!, filterOptIn: Boolean): HealthProfile!
+  setHealthFilters(conditionCodes: [String!]!): [String!]!
+  shareHealthCard(matchId: ID!, scope: GrantScope!): Boolean!
+  revokeHealthShare(accountId: ID!): Boolean!
+
+  requestDataExport: Boolean!
+  deleteAccount(confirm: Boolean!): Boolean!
+}
+
+# ---- Sessions ----------------------------------------------------------------------------------
+
+type OtpChallenge {
+  challengeId: ID!
+  expiresAt: DateTime!
+  retryAfterSeconds: Int!
+}
+
+type Session {
+  accessToken: String!
+  refreshToken: String!
+  expiresAt: DateTime!
+  me: Me!
+}
+
+# ---- Members and profiles ----------------------------------------------------------------------
+
+enum Intent {
+  LONG_TERM
+  DATING
+  FRIENDSHIP
+  OPEN
+}
+
+enum Tier {
+  FREE
+  PLUS
+  PREMIUM
+}
+
+type Photo {
+  id: ID!
+  position: Int!
+  url: String!
+}
+
+type Prompt {
+  id: ID!
+  question: String!
+  answer: String!
+}
+
+"The member's own profile. Never shown to others in this shape."
+type Me {
+  id: ID!
+  displayName: String!
+  bio: String
+  intent: Intent!
+  gender: String
+  pronouns: String
+  areaLabel: String
+  privateMode: Boolean!
+  visible: Boolean!
+  verified: Boolean!
+  photos: [Photo!]!
+  prompts: [Prompt!]!
+  preferences: Preferences!
+  tier: Tier!
+}
+
+type Preferences {
+  ageMin: Int!
+  ageMax: Int!
+  maxDistanceKm: Int!
+  intents: [Intent!]!
+  genders: [String!]
+}
+
+# NOTE: no health fields here. Health comes only from healthProfileOf.
+type PublicProfile {
+  id: ID!
+  displayName: String!
+  age: Int!
+  bio: String
+  areaLabel: String
+  "Rounded, minimum 1 km. Null when unknown."
+  distanceKm: Int
+  photos: [Photo!]!
+  prompts: [Prompt!]!
+  verified: Boolean!
+}
+
+type PageInfo {
+  endCursor: String
+  hasNextPage: Boolean!
+}
+
+type FeedEdge {
+  cursor: String!
+  node: PublicProfile!
+}
+
+type FeedConnection {
+  edges: [FeedEdge!]!
+  pageInfo: PageInfo!
+}
+
+type Match {
+  id: ID!
+  profile: PublicProfile!
+  matchedAt: DateTime!
+}
+
+type MatchEdge {
+  cursor: String!
+  node: Match!
+}
+
+type MatchConnection {
+  edges: [MatchEdge!]!
+  pageInfo: PageInfo!
+}
+
+type LikeResult {
+  matched: Boolean!
+  match: Match
+}
+
+# ---- Inputs ------------------------------------------------------------------------------------
+
+enum ConsentType {
+  TERMS
+  PRIVACY
+  HEALTH_PROCESSING
+  MARKETING
+}
+
+input ConsentInput {
+  type: ConsentType!
+  policyVersion: String!
+  granted: Boolean!
+}
+
+"Write-only. Exact coordinates are stored for distance queries and never returned."
+input LocationInput {
+  latitude: Float!
+  longitude: Float!
+}
+
+input ProfileInput {
+  displayName: String
+  bio: String
+  intent: Intent
+  gender: String
+  pronouns: String
+  areaLabel: String
+  location: LocationInput
+  privateMode: Boolean
+  visible: Boolean
+}
+
+input PreferencesInput {
+  ageMin: Int
+  ageMax: Int
+  maxDistanceKm: Int
+  intents: [Intent!]
+  genders: [String!]
+}
+
+# ---- Safety ------------------------------------------------------------------------------------
+
+enum ReportCategory {
+  SCAM
+  HARASSMENT
+  OUTING_THREAT
+  FAKE
+  UNDERAGE
+  OTHER
+}
+
+enum ReportStatus {
+  RECEIVED
+  IN_REVIEW
+  ACTIONED
+  CLOSED
+}
+
+input ReportInput {
+  subjectId: ID!
+  category: ReportCategory!
+  note: String
+}
+
+type Report {
+  id: ID!
+  status: ReportStatus!
+  createdAt: DateTime!
+}
+
+# ---- Health (resolved only through the Disclosure Service) -------------------------------------
+
+enum HealthVisibility {
+  HIDDEN
+  MATCH_ONLY
+  CHAT_GRANT
+  PROFILE
+}
+
+enum GrantScope {
+  FULL
+  CONDITIONS_ONLY
+}
+
+enum ConditionStatus {
+  LIVING_WITH
+  IN_REMISSION
+  SURVIVOR
+}
+
+type HealthCondition {
+  code: String!
+  status: ConditionStatus!
+}
+
+input HealthConditionInput {
+  code: String!
+  status: ConditionStatus!
+}
+
+type ConditionTaxonomyEntry {
+  code: String!
+  label: String!
+}
+
+"The member's own health profile and settings."
+type HealthProfile {
+  conditions: [HealthCondition!]!
+  freeText: String
+  note: String
+  visibility: HealthVisibility!
+  filterOptIn: Boolean!
+  version: Int!
+}
+
+input HealthProfileInput {
+  conditions: [HealthConditionInput!]!
+  freeText: String
+  note: String
+  "Version last read; omit when creating. A stale version is rejected."
+  expectedVersion: Int
+}
+
+"What a viewer is allowed to see. Never cache; clear it when the lease expires."
+type HealthProfileView {
+  conditions: [HealthCondition!]!
+  freeText: String
+  note: String
+  scope: GrantScope!
+  leaseExpiresAt: DateTime!
+}
+
+type HealthViewer {
+  viewer: PublicProfile
+  lastViewedAt: DateTime!
+  viewCount: Int!
+  hasActiveGrant: Boolean!
+}
