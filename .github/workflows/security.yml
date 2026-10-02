@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, 'claude/**'] # TEMPORARY: verify before a pull request exists
   schedule:
     # New advisories appear without any code change; re-scan weekly.
     - cron: '17 4 * * 1'
