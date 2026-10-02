@@ -23,7 +23,8 @@
     "contracts:gen": "pnpm --filter @chronos/contracts contracts:gen",
     "new:service": "node packages/service-kit/dist/cli/main.js",
     "test:service-template": "bash tools/scripts/check-service-template.sh",
-    "check:deps": "pnpm --filter @chronos/repo-checks check:deps"
+    "check:deps": "pnpm --filter @chronos/repo-checks check:deps",
+    "test:privacy": "turbo run test:privacy"
   },
   "devDependencies": {
     "@chronos/eslint-config": "workspace:*",

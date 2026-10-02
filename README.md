@@ -48,12 +48,13 @@ Pull requests run the checks in `.github/workflows` (see [docs/ci.md](docs/ci.md
 
 Workspaces are `apps/*`, `services/*`, `restricted/*`, `packages/*` and `tools/*`. A workspace is created in the task that builds it; none are empty placeholders.
 
-| Package                  | Purpose                                                                                   |
-| ------------------------ | ----------------------------------------------------------------------------------------- |
-| `@chronos/tsconfig`      | Strict shared TypeScript configs                                                          |
-| `@chronos/eslint-config` | Shared ESLint flat config (no `console`, explained `any`)                                 |
-| `@chronos/logger`        | Redacting pino logger with request and trace ids, allow-list mode for restricted services |
-| `@chronos/config`        | Zod-validated environment config; secrets wrapped; services exit on invalid config        |
-| `@chronos/crypto`        | AES-256-GCM envelope encryption, per-subject keys wrapped by KMS, crypto-shred            |
-| `@chronos/contracts`     | Protobuf (Buf, ts-proto), event schemas, GraphQL schema                                   |
-| `@chronos/service-kit`   | NestJS bootstrap: probes, gRPC, graceful shutdown, safe errors, scrubbed telemetry        |
+| Package                    | Purpose                                                                                   |
+| -------------------------- | ----------------------------------------------------------------------------------------- |
+| `@chronos/tsconfig`        | Strict shared TypeScript configs                                                          |
+| `@chronos/eslint-config`   | Shared ESLint flat config (no `console`, explained `any`)                                 |
+| `@chronos/logger`          | Redacting pino logger with request and trace ids, allow-list mode for restricted services |
+| `@chronos/config`          | Zod-validated environment config; secrets wrapped; services exit on invalid config        |
+| `@chronos/crypto`          | AES-256-GCM envelope encryption, per-subject keys wrapped by KMS, crypto-shred            |
+| `@chronos/contracts`       | Protobuf (Buf, ts-proto), event schemas, GraphQL schema                                   |
+| `@chronos/service-kit`     | NestJS bootstrap: probes, gRPC, graceful shutdown, safe errors, scrubbed telemetry        |
+| `@chronos/privacy-harness` | Synthetic-marker leak detection across logs, events, errors, traces, URLs, notifications  |

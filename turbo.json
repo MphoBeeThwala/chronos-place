@@ -21,6 +21,10 @@
     "test:integration": {
       "dependsOn": ["^build"],
       "cache": false
+    },
+    "test:privacy": {
+      "dependsOn": ["^build"],
+      "cache": false
     }
   },
   "agentGuidance": false
