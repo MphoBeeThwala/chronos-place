@@ -52,3 +52,4 @@ Workspaces are `apps/*`, `services/*`, `restricted/*`, `packages/*` and `tools/*
 | `@chronos/config`        | Zod-validated environment config; secrets wrapped; services exit on invalid config        |
 | `@chronos/crypto`        | AES-256-GCM envelope encryption, per-subject keys wrapped by KMS, crypto-shred            |
 | `@chronos/contracts`     | Protobuf (Buf, ts-proto), event schemas, GraphQL schema                                   |
+| `@chronos/service-kit`   | NestJS bootstrap: probes, gRPC, graceful shutdown, safe errors, scrubbed telemetry        |

@@ -19,3 +19,4 @@ Status values: Proposed, Accepted, Superseded. Decisions below were taken by the
 | 0013 | SeaweedFS replaces MinIO for local object storage | Accepted |
 | 0014 | Erasure ledger so restored backups cannot resurrect erased data | Accepted |
 | 0015 | Contracts toolchain (Buf, ts-proto) and Disclosure API design | Accepted |
+| 0016 | Service template, telemetry and container image | Accepted |

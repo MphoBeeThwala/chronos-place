@@ -75,6 +75,8 @@ export function createConfig(options = {}) {
       rules: {
         '@typescript-eslint/no-explicit-any': 'error',
         '@typescript-eslint/consistent-type-imports': 'error',
+        // NestJS modules and providers are decorated classes, often with no members.
+        '@typescript-eslint/no-extraneous-class': ['error', { allowWithDecorator: true }],
       },
     },
     {
