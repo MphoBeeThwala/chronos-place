@@ -1,0 +1,9 @@
+node_modules
+dist
+.turbo
+coverage
+pnpm-lock.yaml
+docs/PRD.pdf
+docs
+FIRST_PROMPT.md
+CLAUDE.md

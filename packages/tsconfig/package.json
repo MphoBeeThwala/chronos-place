@@ -1,0 +1,16 @@
+{
+  "name": "@chronos/tsconfig",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Shared strict TypeScript configs",
+  "files": [
+    "base.json",
+    "node.json"
+  ],
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "type": "module"
+}

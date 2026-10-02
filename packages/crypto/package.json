@@ -1,0 +1,37 @@
+{
+  "name": "@chronos/crypto",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Envelope encryption: AES-256-GCM with per-subject data keys wrapped by KMS.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "default": "./dist/testing.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-kms": "^3.1145.0"
+  },
+  "devDependencies": {
+    "@chronos/tsconfig": "workspace:*",
+    "@testcontainers/localstack": "^12.2.0",
+    "testcontainers": "^12.2.0"
+  }
+}

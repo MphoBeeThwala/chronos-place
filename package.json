@@ -1,0 +1,33 @@
+{
+  "name": "chronos-place",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Chronos Place monorepo (development title)",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint && prettier --check .",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "format": "prettier --write .",
+    "dev:infra": "bash tools/scripts/dev-infra.sh up",
+    "dev:infra:down": "bash tools/scripts/dev-infra.sh down",
+    "dev:infra:reset": "bash tools/scripts/dev-infra.sh reset",
+    "dev:infra:status": "bash tools/scripts/dev-infra.sh status",
+    "test:infra": "bash tools/scripts/check-vault-isolation.sh",
+    "test:integration": "turbo run test:integration"
+  },
+  "devDependencies": {
+    "@chronos/eslint-config": "workspace:*",
+    "@types/node": "^22.19.0",
+    "eslint": "^10.11.0",
+    "prettier": "^3.9.9",
+    "turbo": "^2.11.6",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.3"
+  }
+}

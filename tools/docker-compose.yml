@@ -1,0 +1,150 @@
+# Local development stack. Start with `pnpm dev:infra` (generates tools/.env on first run).
+# All ports bind to 127.0.0.1 only. Credentials come from tools/.env (git-ignored, random per machine).
+#
+# Network isolation (CLAUDE.md rule 1, spec 10.3):
+#   core-net   everything except the Health Vault database
+#   vault-net  postgres-vault only; the future disclosure-service container joins it as well
+# `tools/scripts/check-vault-isolation.sh` proves containers outside vault-net cannot reach the vault.
+
+name: chronos
+
+services:
+  postgres-core:
+    image: postgis/postgis:17-3.5-alpine
+    environment:
+      POSTGRES_USER: chronos
+      POSTGRES_PASSWORD: ${POSTGRES_CORE_PASSWORD:?run pnpm dev:infra to generate tools/.env}
+      POSTGRES_DB: chronos_core
+    ports:
+      - '127.0.0.1:5432:5432'
+    volumes:
+      - postgres-core-data:/var/lib/postgresql/data
+    networks: [core-net]
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U chronos -d chronos_core && psql -U chronos -d chronos_core -tAc "select postgis_version()"',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  postgres-vault:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: vault
+      POSTGRES_PASSWORD: ${POSTGRES_VAULT_PASSWORD:?run pnpm dev:infra to generate tools/.env}
+      POSTGRES_DB: chronos_vault
+    ports:
+      - '127.0.0.1:5433:5432'
+    volumes:
+      - postgres-vault-data:/var/lib/postgresql/data
+    networks: [vault-net]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U vault -d chronos_vault']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    command:
+      [
+        'redis-server',
+        '--requirepass',
+        '${REDIS_PASSWORD:?run pnpm dev:infra to generate tools/.env}',
+      ]
+    ports:
+      - '127.0.0.1:6379:6379'
+    networks: [core-net]
+    healthcheck:
+      test: ['CMD-SHELL', 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping | grep -q PONG']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+
+  redpanda:
+    image: redpandadata/redpanda:v25.1.7
+    command:
+      - redpanda
+      - start
+      - --mode=dev-container
+      - --smp=1
+      - --memory=512M
+      - --kafka-addr=internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr=internal://redpanda:9092,external://127.0.0.1:19092
+    ports:
+      - '127.0.0.1:19092:19092'
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+    networks: [core-net]
+    healthcheck:
+      test: ['CMD-SHELL', 'rpk cluster health | grep -q "Healthy:.*true"']
+      interval: 10s
+      timeout: 10s
+      retries: 20
+
+  # S3-compatible object storage for media. SeaweedFS replaces MinIO (ADR-0013).
+  s3:
+    image: chrislusf/seaweedfs:latest
+    command: ['server', '-dir=/data', '-s3', '-s3.port=8333', '-ip.bind=0.0.0.0']
+    environment:
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY:?run pnpm dev:infra to generate tools/.env}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY:?run pnpm dev:infra to generate tools/.env}
+    ports:
+      - '127.0.0.1:8333:8333'
+    volumes:
+      - s3-data:/data
+    networks: [core-net]
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:9333/cluster/status']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # KMS, S3 and Secrets Manager emulation for @chronos/crypto and config tests.
+  localstack:
+    image: localstack/localstack:4.9
+    environment:
+      SERVICES: kms,s3,secretsmanager
+      AWS_DEFAULT_REGION: af-south-1
+    ports:
+      - '127.0.0.1:4566:4566'
+    volumes:
+      - localstack-data:/var/lib/localstack
+    networks: [core-net]
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'curl -sf http://127.0.0.1:4566/_localstack/health | grep -qE "\"(kms|s3|secretsmanager)\": \"(available|running)\""',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - '127.0.0.1:1025:1025'
+      - '127.0.0.1:8025:8025'
+    networks: [core-net]
+    healthcheck:
+      test: ['CMD', '/mailpit', 'readyz']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+networks:
+  core-net: {}
+  vault-net: {}
+
+volumes:
+  postgres-core-data: {}
+  postgres-vault-data: {}
+  redpanda-data: {}
+  s3-data: {}
+  localstack-data: {}

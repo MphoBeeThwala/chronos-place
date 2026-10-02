@@ -1,0 +1,33 @@
+{
+  "name": "@chronos/logger",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Redacting pino logger. The only way service code may log (CLAUDE.md rule 4).",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.1",
+    "pino": "^10.3.1"
+  },
+  "devDependencies": {
+    "@chronos/tsconfig": "workspace:*",
+    "@opentelemetry/sdk-trace-base": "^2.11.0",
+    "@opentelemetry/context-async-hooks": "^2.11.0"
+  }
+}

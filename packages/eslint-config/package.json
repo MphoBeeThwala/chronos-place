@@ -1,0 +1,27 @@
+{
+  "name": "@chronos/eslint-config",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Shared flat ESLint config. Restricted-zone boundary rules arrive in M0.2.",
+  "exports": {
+    ".": "./index.mjs"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@eslint-community/eslint-plugin-eslint-comments": "^4.5.0",
+    "@eslint/js": "^10.0.1",
+    "globals": "^16.0.0",
+    "typescript-eslint": "^8.71.0"
+  },
+  "peerDependencies": {
+    "eslint": "^10.0.0"
+  },
+  "devDependencies": {
+    "@chronos/tsconfig": "workspace:*"
+  }
+}

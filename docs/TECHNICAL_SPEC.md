@@ -281,7 +281,7 @@ Block and match state are fetched from matching via gRPC (or a short-TTL cache i
 - Per-subject data encryption key (DEK), AES-256-GCM, generated with KMS `GenerateDataKey`.
 - Wrapped DEK stored in `subject_keys`; plaintext DEK held in memory only for the request (optional short in-process cache, max 60 s).
 - CMK in KMS backed by CloudHSM custom key store, rotation yearly, key policy limited to the disclosure-service IAM role.
-- **Erasure:** delete `subject_keys` row (crypto-shred), then delete vault rows; backups become unreadable for that subject because the DEK is gone.
+- **Erasure:** record the subject in the erasure ledger, delete the `subject_keys` row (crypto-shred), then delete vault rows. Deleting the key alone does not protect backups taken earlier, because they still hold the wrapped key and KMS can unwrap it. The ledger (outside database backups) makes the keyring refuse to unwrap an erased subject, and restore procedures must replay it before going live. Backup retention is capped at 30 days. See ADR-0014.
 
 ---
 
@@ -417,7 +417,7 @@ SCPs deny resource creation outside af-south-1 (except global services) and deny
 
 ### 10.3 Local development
 
-`tools/docker-compose.yml`: postgres-core (PostGIS), postgres-vault, redis, redpanda, minio, localstack (KMS, S3, Secrets Manager), mailpit. The vault database runs on a separate network that only the disclosure-service container joins.
+`tools/docker-compose.yml`: postgres-core (PostGIS), postgres-vault, redis, redpanda, s3 (SeaweedFS, ADR-0013), localstack (KMS, S3, Secrets Manager), mailpit. The vault database runs on a separate network that only the disclosure-service container joins.
 
 ### 10.4 Delivery pipeline
 
