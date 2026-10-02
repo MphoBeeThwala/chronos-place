@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { ESLint, type Linter } from 'eslint';
 import { describe, expect, it } from 'vitest';
 import { createConfig } from '../index.mjs';
@@ -10,6 +11,11 @@ const eslint = new ESLint({
 
 async function lint(code: string): Promise<string[]> {
   const [result] = await eslint.lintText(code, { filePath: 'fixture.ts' });
+  return (result?.messages ?? []).map((m) => m.ruleId ?? m.message);
+}
+
+async function lintAt(file: string, code: string): Promise<string[]> {
+  const [result] = await eslint.lintText(code, { filePath: path.join(process.cwd(), file) });
   return (result?.messages ?? []).map((m) => m.ruleId ?? m.message);
 }
 
@@ -45,6 +51,14 @@ describe('@chronos/eslint-config', () => {
     expect(rules).toContain(
       "Unused eslint-disable directive (no problems were reported from 'no-console').",
     );
+  });
+
+  it('bans process.env in service code but not in packages', async () => {
+    const code = "export const url = process.env['DATABASE_URL'];\n";
+    const inService = await lintAt('services/profile/src/a.ts', code);
+    const inPackage = await lintAt('packages/config/src/a.ts', code);
+    expect(inService).toContain('no-restricted-syntax');
+    expect(inPackage).not.toContain('no-restricted-syntax');
   });
 
   it('passes clean code', async () => {

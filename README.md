@@ -49,3 +49,4 @@ Workspaces are `apps/*`, `services/*`, `restricted/*`, `packages/*` and `tools/*
 | `@chronos/tsconfig`      | Strict shared TypeScript configs                                                          |
 | `@chronos/eslint-config` | Shared ESLint flat config (no `console`, explained `any`)                                 |
 | `@chronos/logger`        | Redacting pino logger with request and trace ids, allow-list mode for restricted services |
+| `@chronos/config`        | Zod-validated environment config; secrets wrapped; services exit on invalid config        |

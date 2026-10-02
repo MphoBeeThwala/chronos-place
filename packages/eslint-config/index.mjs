@@ -55,6 +55,19 @@ export function createConfig(options = {}) {
       },
     },
     {
+      // Service code reads configuration only through @chronos/config, so invalid config stops start-up.
+      files: ['services/**', 'restricted/**', 'apps/**'],
+      rules: {
+        'no-restricted-syntax': [
+          'error',
+          {
+            selector: "MemberExpression[object.name='process'][property.name='env']",
+            message: 'Read configuration through @chronos/config, not process.env.',
+          },
+        ],
+      },
+    },
+    {
       files: TS_FILES,
       rules: {
         '@typescript-eslint/no-explicit-any': 'error',
