@@ -39,7 +39,7 @@
     "@bufbuild/protobuf": "^2.16.0",
     "@nestjs/common": "^12.1.2",
     "@nestjs/microservices": "^12.1.2",
-    "graphql": "^16.14.2",
+    "graphql": "^17.0.2",
     "protobufjs": "^7.6.6",
     "rxjs": "^7.8.2",
     "zod": "^4.6.5"
