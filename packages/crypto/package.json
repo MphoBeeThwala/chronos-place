@@ -27,7 +27,7 @@
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
-    "@aws-sdk/client-kms": "^3.1145.0"
+    "@aws-sdk/client-kms": "^3.1146.0"
   },
   "devDependencies": {
     "@chronos/tsconfig": "workspace:*",
