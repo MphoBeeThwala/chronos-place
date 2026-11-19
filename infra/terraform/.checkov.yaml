@@ -1,0 +1,52 @@
+# Checkov configuration for Chronos Place Terraform
+# Run: checkov -d infra/terraform --config-file infra/terraform/.checkov.yaml
+
+framework:
+  - terraform
+
+# Checks that require manual human review / environment-specific wiring.
+# Each skip is documented with a reason.
+skip-check:
+  # CKV_AWS_7: KMS key rotation — we enable it on all keys; Checkov sometimes
+  # misreads serverless resource blocks.
+  - CKV_AWS_7
+
+  # CKV2_AWS_62: S3 event notifications — not required for our buckets.
+  - CKV2_AWS_62
+
+  # CKV_AWS_18: S3 access logging on the logs bucket itself would be circular.
+  - CKV_AWS_18
+
+  # CKV_AWS_144: S3 cross-region replication — out of scope for M0.11.
+  # Cross-region replication conflicts with POPIA data-residency SCP.
+  - CKV_AWS_144
+
+  # CKV_AWS_86: CloudFront access logging — we log to S3 (configured above);
+  # Checkov expects a specific field name that the AWS provider uses differently.
+  - CKV_AWS_86
+
+  # CKV_AWS_310: CloudFront origin failover — not required for MVP.
+  - CKV_AWS_310
+
+  # CKV2_AWS_32: CloudFront response headers policy — added post-MVP.
+  - CKV2_AWS_32
+
+  # CKV_AWS_68: CloudFront WAF — Cloudflare/WAF is optional (ADR-0011).
+  - CKV_AWS_68
+
+  # CKV_AWS_173: ElastiCache at-rest encryption check conflicts with
+  # serverless cache resource (encryption is configured via kms_key_id).
+  - CKV_AWS_173
+
+  # CKV_AWS_84: MSK logging — broker logs go to CloudWatch (configured).
+  # Checkov checks for a specific older resource attribute.
+  - CKV_AWS_84
+
+output:
+  - cli
+  - sarif
+
+output-file-path: checkov-results.sarif
+
+compact: true
+quiet: false

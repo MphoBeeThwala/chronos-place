@@ -1,0 +1,14 @@
+# infra/terraform/envs/dev/backend.hcl.example
+#
+# Copy to backend.hcl (git-ignored) and fill in real values.
+# Run: terraform init -backend-config=backend.hcl
+#
+# The S3 bucket and DynamoDB table are created once manually (or via the
+# shared-services bootstrap Terraform – see infra/terraform/bootstrap/).
+
+bucket         = "chronos-terraform-state-123456789012"
+key            = "envs/dev/terraform.tfstate"
+region         = "af-south-1"
+dynamodb_table = "chronos-terraform-locks"
+encrypt        = true
+kms_key_id     = "arn:aws:kms:af-south-1:123456789012:key/YOUR-STATE-KMS-KEY-ID"
