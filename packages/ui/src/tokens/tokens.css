@@ -1,0 +1,137 @@
+/**
+ * CSS custom properties generated from design tokens.
+ * Import in apps/web/src/styles/globals.css
+ *
+ * Light and dark themes are both declared; the [data-theme="dark"] selector
+ * lets users override the system preference via the in-app toggle.
+ */
+
+:root,
+[data-theme="light"] {
+  /* Brand */
+  --color-brand-50: #fdf4ff;
+  --color-brand-100: #fae8ff;
+  --color-brand-200: #f5d0fe;
+  --color-brand-300: #f0abfc;
+  --color-brand-400: #e879f9;
+  --color-brand-500: #d946ef;
+  --color-brand-600: #c026d3;
+  --color-brand-700: #a21caf;
+  --color-brand-800: #86198f;
+  --color-brand-900: #701a75;
+  --color-brand-950: #4a044e;
+
+  /* Semantic surface colours */
+  --color-bg: #ffffff;
+  --color-bg-subtle: #f8fafc;
+  --color-bg-muted: #f1f5f9;
+  --color-surface: #ffffff;
+  --color-surface-raised: #f8fafc;
+  --color-border: #e2e8f0;
+  --color-border-strong: #cbd5e1;
+
+  /* Text */
+  --color-text: #0f172a;
+  --color-text-muted: #475569;
+  --color-text-subtle: #94a3b8;
+  --color-text-on-brand: #ffffff;
+
+  /* Interactive */
+  --color-primary: #d946ef;
+  --color-primary-hover: #c026d3;
+  --color-primary-active: #a21caf;
+  --color-primary-subtle: #fae8ff;
+
+  /* Status — stigma-free palette (no red/green for health conditions) */
+  --color-indicator: #7c3aed;
+  --color-indicator-bg: #ede9fe;
+  --color-success: #059669;
+  --color-success-bg: #d1fae5;
+  --color-warning: #ca8a04;
+  --color-warning-bg: #fef9c3;
+  --color-destructive: #dc2626;
+  --color-destructive-bg: #fee2e2;
+
+  /* Misc */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+
+  --radius-sm: 0.125rem;
+  --radius: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-full: 9999px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-bg: #09090b;
+    --color-bg-subtle: #0f172a;
+    --color-bg-muted: #1e293b;
+    --color-surface: #111827;
+    --color-surface-raised: #1e293b;
+    --color-border: #1e293b;
+    --color-border-strong: #334155;
+
+    --color-text: #f8fafc;
+    --color-text-muted: #94a3b8;
+    --color-text-subtle: #64748b;
+    --color-text-on-brand: #ffffff;
+
+    --color-primary: #e879f9;
+    --color-primary-hover: #f0abfc;
+    --color-primary-active: #f5d0fe;
+    --color-primary-subtle: #2d1b46;
+
+    --color-indicator: #a78bfa;
+    --color-indicator-bg: #1e1b4b;
+    --color-success: #34d399;
+    --color-success-bg: #022c22;
+    --color-warning: #fbbf24;
+    --color-warning-bg: #422006;
+    --color-destructive: #f87171;
+    --color-destructive-bg: #450a0a;
+
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+    --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.4), 0 1px 2px -1px rgb(0 0 0 / 0.4);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.4);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.4);
+  }
+}
+
+[data-theme="dark"] {
+  --color-bg: #09090b;
+  --color-bg-subtle: #0f172a;
+  --color-bg-muted: #1e293b;
+  --color-surface: #111827;
+  --color-surface-raised: #1e293b;
+  --color-border: #1e293b;
+  --color-border-strong: #334155;
+
+  --color-text: #f8fafc;
+  --color-text-muted: #94a3b8;
+  --color-text-subtle: #64748b;
+  --color-text-on-brand: #ffffff;
+
+  --color-primary: #e879f9;
+  --color-primary-hover: #f0abfc;
+  --color-primary-active: #f5d0fe;
+  --color-primary-subtle: #2d1b46;
+
+  --color-indicator: #a78bfa;
+  --color-indicator-bg: #1e1b4b;
+  --color-success: #34d399;
+  --color-success-bg: #022c22;
+  --color-warning: #fbbf24;
+  --color-warning-bg: #422006;
+  --color-destructive: #f87171;
+  --color-destructive-bg: #450a0a;
+
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.4), 0 1px 2px -1px rgb(0 0 0 / 0.4);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.4);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.4);
+}

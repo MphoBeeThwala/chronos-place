@@ -1,0 +1,32 @@
+{
+  "name": "@chronos/ui",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Design-system tokens and shared React components for Chronos Place web app.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./tokens": {
+      "types": "./dist/tokens/index.d.ts",
+      "default": "./dist/tokens/index.js"
+    },
+    "./tokens.css": "./src/tokens/tokens.css"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@chronos/tsconfig": "workspace:*",
+    "@types/react": "^19.1.0",
+    "react": "^19.1.0",
+    "typescript": "~6.0.3"
+  },
+  "peerDependencies": {
+    "react": ">=19"
+  }
+}

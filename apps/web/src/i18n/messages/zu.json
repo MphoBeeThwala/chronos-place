@@ -1,0 +1,28 @@
+{
+  "common": {
+    "appName": "Chronos Place",
+    "loading": "Iyalayisha…",
+    "error": "Kukhona okungahambanga kahle. Sicela uzame futhi.",
+    "retry": "Zama futhi",
+    "back": "Emuva",
+    "close": "Vala",
+    "save": "Gcina",
+    "cancel": "Khansela",
+    "continue": "Qhubeka",
+    "skip": "Yeqa",
+    "learnMore": "Funda okwengeziwe",
+    "required": "Kuyadingeka"
+  },
+  "nav": {
+    "feed": "Thola",
+    "matches": "Izifaniso",
+    "profile": "Iphrofayili",
+    "settings": "Izilungiselelo",
+    "signOut": "Phuma"
+  },
+  "auth": {
+    "signIn": "Ngena",
+    "sendCode": "Thumela ikhodi",
+    "verify": "Qinisekisa"
+  }
+}
