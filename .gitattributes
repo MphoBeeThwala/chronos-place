@@ -1,0 +1,6 @@
+# Keep LF line endings in the repository and in every working tree (Windows included), so Prettier
+# and the shell scripts behave the same everywhere.
+* text=auto eol=lf
+*.pdf binary
+*.png binary
+*.ico binary

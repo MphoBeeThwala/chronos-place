@@ -1,20 +1,29 @@
 /**
- * next-intl server-side configuration.
- * Loaded by next-intl/plugin (see next.config.ts).
+ * next-intl request configuration (loaded by next-intl/plugin, see next.config.ts).
+ *
+ * The app does not use locale-prefixed URLs: there is no [locale] route segment, so a prefix
+ * such as /zu/feed would not resolve. The locale comes from the NEXT_LOCALE cookie instead
+ * (set by a language switcher, to be added with the translations) and falls back to English.
  */
+import { cookies } from 'next/headers';
 import { getRequestConfig } from 'next-intl/server';
-import { routing } from './routing.js';
+import { isLocale, LOCALE_COOKIE, routing, type Locale } from './routing';
 
-export default getRequestConfig(async ({ requestLocale }) => {
-  // Validate that the locale from the URL is one we support.
-  let locale = await requestLocale;
-  if (!locale || !routing.locales.includes(locale as (typeof routing.locales)[number])) {
-    locale = routing.defaultLocale;
-  }
+type Messages = Record<string, unknown>;
 
-  // Dynamically import the message bundle for this locale.
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- dynamic JSON import
-  const messages = (await import(`./messages/${locale}.json`)).default;
+// Literal import paths, so the restricted-zone boundary rule can check every import.
+const loaders: Record<Locale, () => Promise<{ default: Messages }>> = {
+  en: () => import('./messages/en.json'),
+  zu: () => import('./messages/zu.json'),
+  xh: () => import('./messages/xh.json'),
+  af: () => import('./messages/af.json'),
+  st: () => import('./messages/st.json'),
+};
 
+export default getRequestConfig(async () => {
+  const requested = (await cookies()).get(LOCALE_COOKIE)?.value;
+  const locale: Locale =
+    requested !== undefined && isLocale(requested) ? requested : routing.defaultLocale;
+  const messages = (await loaders[locale]()).default;
   return { locale, messages };
 });

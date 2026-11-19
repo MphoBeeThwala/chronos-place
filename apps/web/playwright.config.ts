@@ -21,9 +21,9 @@ export default defineConfig({
     { name: 'Mobile Chrome', use: { ...devices['Pixel 5'] } },
   ],
 
-  // Start the Next.js dev server before running tests.
+  // CI tests the production build (pnpm build runs first); locally the dev server is enough.
   webServer: {
-    command: 'pnpm dev',
+    command: process.env['CI'] ? 'pnpm start' : 'pnpm dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env['CI'],
     timeout: 120_000,

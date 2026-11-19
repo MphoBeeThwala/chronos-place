@@ -37,15 +37,16 @@ If a task seems to require breaking one of these rules, stop and explain why ins
 
 - **Language:** TypeScript everywhere (strict mode). Node.js current LTS.
 - **Monorepo:** pnpm workspaces + Turborepo.
-- **Mobile:** React Native with Expo (dev client, EAS Build), Expo Router, TanStack Query, Zustand.
-- **Web (admin, partner portal):** Next.js (App Router), staff SSO via OIDC.
+- **Member app (web-first, ADR-0017):** Next.js (App Router), Apollo Client, next-intl, Tailwind CSS. Web replacements for the mobile controls are in ADR-0017; follow them.
+- **Native app (deferred to M8):** React Native with Expo (dev client, EAS Build), Expo Router, TanStack Query, Zustand.
+- **Staff web (admin, partner portal):** Next.js (App Router), staff SSO via OIDC. Never shares an app, session or origin with the member app.
 - **Services:** NestJS. GraphQL (Apollo) at the gateway/BFF for clients; gRPC between services; Kafka events for async.
 - **Databases:** PostgreSQL + PostGIS (core) and a separate PostgreSQL cluster (Health Vault). Drizzle ORM and Drizzle migrations.
 - **Cache:** Redis. **Events:** Kafka (Redpanda locally, Amazon MSK in AWS).
 - **Media:** S3-compatible storage (SeaweedFS locally, ADR-0013).
 - **Chat:** end-to-end encryption using the Signal Protocol (libsignal). See ADR-0003.
 - **Infra:** AWS af-south-1 (Cape Town), EKS, Aurora PostgreSQL, KMS + CloudHSM, Terraform, Argo CD.
-- **Testing:** Vitest, Supertest, Testcontainers, Maestro (mobile E2E), Playwright (web E2E), k6 (load).
+- **Testing:** Vitest, Supertest, Testcontainers, Playwright (web E2E), Maestro (native E2E, M8), k6 (load).
 - **Security tooling:** Semgrep, gitleaks, Trivy, Checkov, OSV-Scanner, Dependabot.
 
 Do not add a new framework, database or major dependency without proposing an ADR first.
@@ -54,8 +55,9 @@ Do not add a new framework, database or major dependency without proposing an AD
 
 ```
 apps/
-  mobile/              React Native (Expo) member app
-  admin/               Next.js admin, moderation, compliance console
+  web/                 Next.js member app (web-first, ADR-0017)
+  admin/               Next.js admin, moderation, compliance console (M5)
+  mobile/              React Native (Expo) member app (M8)
 services/
   gateway/             GraphQL BFF, auth guard, rate limiting
   identity/            accounts, OTP, sessions, verification
@@ -74,7 +76,7 @@ packages/
   crypto/              envelope encryption, key handling
   logger/              pino-based redacting logger
   config/              typed config loading
-  ui/                  React Native design system
+  ui/                  design tokens (TS + CSS) shared by the web app and, later, native
   eslint-config/ tsconfig/
 infra/
   terraform/           modules + envs (dev, staging, prod)
@@ -92,13 +94,15 @@ pnpm install                 # install
 pnpm dev:infra               # start local stack (docker compose); also dev:infra:down|reset|status
 pnpm test:infra              # prove the Health Vault DB is unreachable outside its network (needs the stack up)
 pnpm dev                     # run all apps/services in watch mode
+pnpm build                   # build every package and app (Turborepo)
 pnpm lint                    # ESLint incl. boundary rules
 pnpm typecheck
 pnpm test                    # unit tests
 pnpm test:integration        # Testcontainers-backed tests (needs Docker)
 pnpm test:privacy            # leakage tests (logs, events, notifications)
-pnpm db:migrate              # core + vault migrations (local)
-pnpm seed                    # synthetic data only
+pnpm test:e2e                # Playwright smoke tests for apps/web (starts the app itself)
+pnpm db:migrate              # NOT YET: core + vault migrations (arrives with M1.1 / M2.1)
+pnpm seed                    # NOT YET: synthetic data only, from tools/seed (arrives with M1.5)
 pnpm check:deps              # banned third-party SDKs (rule 7); also runs in CI
 pnpm new:service <name>      # generate a service from the template (--restricted for restricted/)
 pnpm test:service-template   # build, run, harden-check and scan a generated service image (needs Docker)

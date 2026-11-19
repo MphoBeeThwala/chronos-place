@@ -3,7 +3,7 @@
  * WCAG 2.2: minimum 44×44 CSS px touch target, visible focus ring.
  * Uses design tokens from @chronos/ui.
  */
-import { cn } from '@/lib/cn.js';
+import { cn } from '@/lib/cn';
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'destructive';
 type ButtonSize = 'sm' | 'md' | 'lg';
@@ -19,10 +19,14 @@ const baseStyles =
   'inline-flex items-center justify-center font-semibold rounded-lg transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 touch-target';
 
 const variantStyles: Record<ButtonVariant, string> = {
-  primary: 'bg-[var(--color-primary)] text-[var(--color-text-on-brand)] hover:bg-[var(--color-primary-hover)] focus-visible:outline-[var(--color-primary)] active:bg-[var(--color-primary-active)]',
-  secondary: 'bg-[var(--color-bg-muted)] text-[var(--color-text)] border border-[var(--color-border-strong)] hover:bg-[var(--color-bg-subtle)]',
-  ghost: 'bg-transparent text-[var(--color-text-muted)] hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-text)]',
-  destructive: 'bg-[var(--color-destructive)] text-white hover:opacity-90 focus-visible:outline-[var(--color-destructive)]',
+  primary:
+    'bg-[var(--color-primary)] text-[var(--color-text-on-brand)] hover:bg-[var(--color-primary-hover)] focus-visible:outline-[var(--color-primary)] active:bg-[var(--color-primary-active)]',
+  secondary:
+    'bg-[var(--color-bg-muted)] text-[var(--color-text)] border border-[var(--color-border-strong)] hover:bg-[var(--color-bg-subtle)]',
+  ghost:
+    'bg-transparent text-[var(--color-text-muted)] hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-text)]',
+  destructive:
+    'bg-[var(--color-destructive)] text-white hover:opacity-90 focus-visible:outline-[var(--color-destructive)]',
 };
 
 const sizeStyles: Record<ButtonSize, string> = {

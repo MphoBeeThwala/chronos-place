@@ -3,28 +3,30 @@
 /**
  * Apollo Client provider for Client Components.
  * Server Components use getClient() from lib/apollo directly.
+ *
+ * The browser only ever calls the same-origin /api/graphql path (rewritten to the gateway in
+ * next.config.ts), so the session cookie stays first-party and the CSP keeps connect-src 'self'.
  */
-import { ApolloNextAppProvider } from '@apollo/experimental-nextjs-app-support';
-import { ApolloClient, HttpLink, InMemoryCache } from '@apollo/client';
+import { HttpLink } from '@apollo/client';
+import {
+  ApolloClient,
+  ApolloNextAppProvider,
+  InMemoryCache,
+} from '@apollo/experimental-nextjs-app-support';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Apollo type mismatch between RSC and client packages
-function makeClient(): ApolloClient<any> {
-  const httpLink = new HttpLink({
-    uri: process.env['NEXT_PUBLIC_GATEWAY_URL'] ?? '/api/graphql',
-    credentials: 'include',
-    fetchOptions: { cache: 'no-store' },
-  });
+const GRAPHQL_PATH = '/api/graphql';
 
+function makeClient(): ApolloClient<unknown> {
   return new ApolloClient({
     cache: new InMemoryCache(),
-    link: httpLink,
+    link: new HttpLink({
+      uri: GRAPHQL_PATH,
+      credentials: 'same-origin',
+      fetchOptions: { cache: 'no-store' },
+    }),
   });
 }
 
 export function ApolloWrapper({ children }: { children: React.ReactNode }) {
-  return (
-    <ApolloNextAppProvider makeClient={makeClient}>
-      {children}
-    </ApolloNextAppProvider>
-  );
+  return <ApolloNextAppProvider makeClient={makeClient}>{children}</ApolloNextAppProvider>;
 }

@@ -1,49 +1,35 @@
 /**
- * Next.js middleware.
- * Responsibilities:
- *   1. next-intl locale routing (adds locale prefix to URLs where needed).
- *   2. Auth guard: unauthenticated users are redirected to /sign-in.
+ * Next.js middleware: auth guard.
  *
- * The session token lives in a httpOnly cookie set by the gateway.
- * We check for the cookie's presence here (the gateway validates the JWT).
+ * The session token lives in an httpOnly cookie set by the gateway. Here we only check that the
+ * cookie is present; the gateway validates it on every request. Unauthenticated visitors are
+ * sent to /sign-in. The original path is not put in the query string: paths such as /health
+ * can say something about the member (CLAUDE.md rule 3: nothing implying health in URLs).
  */
 import { type NextRequest, NextResponse } from 'next/server';
-import createMiddleware from 'next-intl/middleware';
-import { routing } from './i18n/routing.js';
 
-const intlMiddleware = createMiddleware(routing);
+const SESSION_COOKIE = 'chronos_session';
 
-/** Routes that do NOT require authentication. */
-const PUBLIC_PATHS = [
-  '/sign-in',
-  '/consent',
-  '/api/health',
-  // Static assets handled by Next.js directly.
-];
+/** Routes that do not require a session. */
+const PUBLIC_PATHS = ['/sign-in', '/consent'];
 
 function isPublicPath(pathname: string): boolean {
-  return PUBLIC_PATHS.some((p) => pathname.startsWith(p) || pathname === p);
+  return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
 export function middleware(request: NextRequest): NextResponse {
-  const { pathname } = request.nextUrl;
-
-  // Strip locale prefix before path checks.
-  const stripped = pathname.replace(/^\/(en|zu|xh|af|st)/, '') || '/';
-
-  // Auth guard: redirect to sign-in if no session cookie.
-  const hasSession = request.cookies.has('chronos_session');
-  if (!hasSession && !isPublicPath(stripped)) {
+  if (!request.cookies.has(SESSION_COOKIE) && !isPublicPath(request.nextUrl.pathname)) {
     const signInUrl = request.nextUrl.clone();
     signInUrl.pathname = '/sign-in';
-    signInUrl.searchParams.set('from', pathname);
+    signInUrl.search = '';
     return NextResponse.redirect(signInUrl);
   }
-
-  return intlMiddleware(request);
+  return NextResponse.next();
 }
 
 export const config = {
-  // Run on all routes except Next.js internals and static files.
-  matcher: ['/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)'],
+  // Every route except Next.js internals, the GraphQL rewrite and static files.
+  matcher: [
+    '/((?!_next|api/graphql|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|webmanifest)).*)',
+  ],
 };

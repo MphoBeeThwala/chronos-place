@@ -1,6 +1,6 @@
 # Chronos Place — Technical Specification
 
-Version 0.1 · 2026-10-01 · Companion to `PRD.md`
+Version 0.1 · 2026-10-01 · Companion to `PRD.pdf`
 
 This document defines how Chronos Place is built. The PRD defines what and why. Where this spec is silent, ask before inventing behaviour.
 
@@ -11,7 +11,7 @@ This document defines how Chronos Place is built. The PRD defines what and why. 
 Chronos Place is a set of domain services on Kubernetes (Amazon EKS) in AWS af-south-1 (Cape Town). Clients talk to a single GraphQL gateway. Services talk to each other over gRPC (synchronous) and Kafka (asynchronous). Health data is isolated in a **restricted zone**: a separate AWS account, VPC and database that only the Disclosure Service can reach.
 
 ```
-Mobile app / Admin console / Partner portal
+Member web app (native app later) / Admin console / Partner portal
                   |
         API gateway + WAF (edge)
                   |
@@ -383,6 +383,8 @@ Consumers are idempotent (event ID + dedupe table). Erasure is orchestrated by i
 
 ## 9. Mobile app specifics
 
+The member app ships first on the web (ADR-0017). This section is the target for the native app (M8); ADR-0017 lists the web equivalents that apply until then.
+
 - Expo dev client, EAS Build/Submit, OTA updates restricted to JS-only fixes.
 - Secure storage: Expo SecureStore (Keychain/Keystore) for tokens and Signal keys.
 - **Screen protection** on any screen showing health data: Android `FLAG_SECURE`; iOS blur on app switcher plus screenshot detection notice.
@@ -459,7 +461,8 @@ GitHub Actions → build, lint, typecheck, test, scan → container images to EC
 | Integration | Testcontainers | Real Postgres/Redis/Kafka; migrations; gRPC allow-lists |
 | Contract | Buf breaking-change checks, GraphQL schema diff | No unreviewed breaking changes |
 | Privacy | Custom suite | Leakage through logs, events, notifications, errors, analytics |
-| E2E mobile | Maestro | Onboarding, consent, health profile, disclosure card, block/report |
+| E2E web | Playwright | Onboarding, consent, health profile, disclosure card, block/report |
+| E2E native (M8) | Maestro | Same journeys on iOS and Android |
 | E2E web | Playwright | Moderation console flows |
 | Load | k6 | Feed, like, messaging at 10x expected peak |
 | Security | ZAP baseline, pen test | OWASP Top 10, OWASP MASVS for mobile |

@@ -5,7 +5,11 @@
  * M2.8 will add the full health profile UX.
  */
 import type { Metadata } from 'next';
-import { ScreenProtect } from '@/components/health/ScreenProtect.js';
+import { ScreenProtect } from '@/components/health/ScreenProtect';
+
+// Always rendered per request and served with Cache-Control: no-store, so no browser, proxy or
+// back/forward cache keeps a copy of a health view (ADR-0009).
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Health profile',

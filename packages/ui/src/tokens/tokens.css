@@ -7,7 +7,7 @@
  */
 
 :root,
-[data-theme="light"] {
+[data-theme='light'] {
   /* Brand */
   --color-brand-50: #fdf4ff;
   --color-brand-100: #fae8ff;
@@ -67,7 +67,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
+  :root:not([data-theme='light']) {
     --color-bg: #09090b;
     --color-bg-subtle: #0f172a;
     --color-bg-muted: #1e293b;
@@ -102,7 +102,7 @@
   }
 }
 
-[data-theme="dark"] {
+[data-theme='dark'] {
   --color-bg: #09090b;
   --color-bg-subtle: #0f172a;
   --color-bg-muted: #1e293b;

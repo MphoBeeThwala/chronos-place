@@ -38,7 +38,17 @@ pnpm dev:infra:down    # stop; dev:infra:reset also deletes volumes
 
 Credentials are random per machine and live in `tools/.env`, which is git-ignored. Everything binds to `127.0.0.1`.
 
-Database migrations, seed data and privacy tests arrive with their tasks (M2.1, M0.10) and are added to `CLAUDE.md` then.
+Database migrations and seed data arrive with their tasks (M1.1 / M2.1, M1.5) and are added to `CLAUDE.md` then.
+
+## Web app
+
+The member app is web-first ([ADR-0017](docs/adr/0017-web-first-member-app.md)).
+
+```sh
+cp apps/web/.env.example apps/web/.env.local
+pnpm --filter @chronos/web dev   # http://localhost:3000
+pnpm test:e2e                     # Playwright smoke tests (run `pnpm exec playwright install chromium` in apps/web once)
+```
 
 ## CI
 
@@ -58,3 +68,5 @@ Workspaces are `apps/*`, `services/*`, `restricted/*`, `packages/*` and `tools/*
 | `@chronos/contracts`       | Protobuf (Buf, ts-proto), event schemas, GraphQL schema                                   |
 | `@chronos/service-kit`     | NestJS bootstrap: probes, gRPC, graceful shutdown, safe errors, scrubbed telemetry        |
 | `@chronos/privacy-harness` | Synthetic-marker leak detection across logs, events, errors, traces, URLs, notifications  |
+| `@chronos/ui`              | Design tokens (TypeScript values and CSS custom properties)                               |
+| `@chronos/web`             | Next.js member app (web-first, ADR-0017)                                                  |
