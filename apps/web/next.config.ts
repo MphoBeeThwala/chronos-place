@@ -11,8 +11,8 @@ const config: NextConfig = {
   // No default locale prefix on URLs — /feed not /en/feed.
 
   // Security headers.
-  async headers() {
-    return [
+  headers() {
+    return Promise.resolve([
       {
         source: '/(.*)',
         headers: [
@@ -39,7 +39,19 @@ const config: NextConfig = {
           },
         ],
       },
-    ];
+    ]);
+  },
+
+  // The browser calls the gateway through this same-origin path, so the session cookie stays
+  // first-party and the CSP keeps connect-src 'self'. GATEWAY_URL is validated at runtime by
+  // src/lib/config.ts; this default only applies to local development.
+  rewrites() {
+    return Promise.resolve([
+      {
+        source: '/api/graphql',
+        destination: process.env['GATEWAY_URL'] ?? 'http://localhost:4000/graphql',
+      },
+    ]);
   },
 
   // Image optimisation — only allow our own media CDN and local.
@@ -52,6 +64,11 @@ const config: NextConfig = {
       },
     ],
   },
+
+  // Lint and typecheck run as their own CI steps (pnpm lint, pnpm typecheck) with the repository
+  // config, including the restricted-zone boundary rule; the build does not repeat them.
+  eslint: { ignoreDuringBuilds: true },
+  typescript: { ignoreBuildErrors: true },
 
   // Suppress powered-by header.
   poweredByHeader: false,

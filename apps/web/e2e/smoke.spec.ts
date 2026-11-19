@@ -56,9 +56,7 @@ test.describe('Smoke test', () => {
     await page.goto('/sign-in');
     // The sign-in page does not render the top-nav — but the theme is set by ThemeScript.
     // Verify the data-theme attribute is present on <html>.
-    const theme = await page.evaluate(() =>
-      document.documentElement.getAttribute('data-theme'),
-    );
+    const theme = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
     expect(['light', 'dark', null]).toContain(theme);
   });
 });

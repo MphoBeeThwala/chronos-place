@@ -4,7 +4,7 @@
  * Never import this in Client Components (it uses Node.js APIs).
  */
 import { createLogger } from '@chronos/logger';
-import { config } from './config.js';
+import { config } from './config';
 
 export const logger = createLogger({
   service: config.SERVICE_NAME,

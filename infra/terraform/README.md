@@ -59,26 +59,32 @@ terraform apply
 ## Module reference
 
 ### `kms`
+
 Creates one CMK per data domain. The `vault_data` key is the highest-sensitivity
 key — it wraps every member's health DEK. In production, set `vault_key_store_id`
 to a CloudHSM custom key store ARN (spec §4.4).
 
 ### `aurora`
+
 Used twice per environment with `tier = "core"` (PostGIS) and `tier = "vault"`
 (restricted account). Backup retention is capped at 30 days (POPIA/spec §4.4).
 
 ### `s3`
+
 The `erasure_ledger` bucket uses S3 Object Lock in COMPLIANCE mode (ADR-0014).
 Objects written there cannot be deleted during the retention period — not even
 by account root. Only the disclosure-service role may PUT to it.
 
 ### `privatelink`
+
 Creates an NLB + VPC Endpoint Service in the restricted account. The core account
 creates a corresponding `aws_vpc_endpoint` pointing at it. mTLS (via Istio, ADR-0004)
 runs on top of the PrivateLink network boundary.
 
 ### `eks`
+
 Post-apply Helm/Argo CD installs (not managed by Terraform, lives in `infra/k8s/`):
+
 - Istio ambient mesh (ADR-0004)
 - External Secrets Operator (syncs from Secrets Manager)
 - AWS Load Balancer Controller
@@ -86,18 +92,18 @@ Post-apply Helm/Argo CD installs (not managed by Terraform, lives in `infra/k8s/
 
 ## Security controls
 
-| Control | Where |
-|---------|-------|
-| Data residency SCP (af-south-1 only) | `modules/org` |
-| CloudTrail / GuardDuty cannot be disabled | `modules/org` |
-| All storage encrypted at rest (KMS) | All modules |
-| IMDSv2 required on EC2 nodes | `modules/eks` launch template |
-| No public DB endpoints | `modules/aurora`, `modules/elasticache` |
-| Object Lock COMPLIANCE on erasure ledger | `modules/s3` |
-| VPC Flow Logs | `modules/vpc` |
-| Aurora SSL enforced (`rds.force_ssl=1`) | `modules/aurora` parameter group |
-| ECR image scanning on push | `modules/ecr` |
-| Checkov IaC scan gates CI | `.github/workflows/ci.yml` |
+| Control                                   | Where                                   |
+| ----------------------------------------- | --------------------------------------- |
+| Data residency SCP (af-south-1 only)      | `modules/org`                           |
+| CloudTrail / GuardDuty cannot be disabled | `modules/org`                           |
+| All storage encrypted at rest (KMS)       | All modules                             |
+| IMDSv2 required on EC2 nodes              | `modules/eks` launch template           |
+| No public DB endpoints                    | `modules/aurora`, `modules/elasticache` |
+| Object Lock COMPLIANCE on erasure ledger  | `modules/s3`                            |
+| VPC Flow Logs                             | `modules/vpc`                           |
+| Aurora SSL enforced (`rds.force_ssl=1`)   | `modules/aurora` parameter group        |
+| ECR image scanning on push                | `modules/ecr`                           |
+| Checkov IaC scan gates CI                 | `.github/workflows/ci.yml`              |
 
 ## Adding a new environment (staging / prod)
 

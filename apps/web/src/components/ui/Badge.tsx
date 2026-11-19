@@ -2,7 +2,7 @@
  * Badge — small status indicator.
  * Uses stigma-free indicator colour for health-related badges.
  */
-import { cn } from '@/lib/cn.js';
+import { cn } from '@/lib/cn';
 
 type BadgeVariant = 'default' | 'indicator' | 'success' | 'warning' | 'muted';
 

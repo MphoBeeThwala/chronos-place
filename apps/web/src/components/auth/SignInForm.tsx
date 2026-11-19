@@ -6,7 +6,7 @@
  * This is the accessible form shell with correct ARIA structure.
  */
 import { useState } from 'react';
-import { Button } from '@/components/ui/Button.js';
+import { Button } from '@/components/ui/Button';
 
 type Step = 'phone' | 'otp';
 
@@ -14,13 +14,13 @@ export function SignInForm() {
   const [step, setStep] = useState<Step>('phone');
   const [phone, setPhone] = useState('');
 
-  function handlePhoneSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function handlePhoneSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault();
     // TODO(M1.1): call requestOtp mutation.
     setStep('otp');
   }
 
-  function handleOtpSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function handleOtpSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault();
     // TODO(M1.1): call verifyOtp mutation, set session cookie, redirect.
   }
@@ -44,7 +44,9 @@ export function SignInForm() {
             required
             placeholder="+27 81 234 5678"
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            onChange={(e) => {
+              setPhone(e.target.value);
+            }}
             className="w-full rounded-lg border px-4 py-3 text-base transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1"
             style={{
               backgroundColor: 'var(--color-bg-muted)',
@@ -56,7 +58,11 @@ export function SignInForm() {
             aria-required="true"
             aria-describedby="phone-hint"
           />
-          <p id="phone-hint" className="mt-1.5 text-xs" style={{ color: 'var(--color-text-subtle)' }}>
+          <p
+            id="phone-hint"
+            className="mt-1.5 text-xs"
+            style={{ color: 'var(--color-text-subtle)' }}
+          >
             We&apos;ll send a one-time code. Standard rates may apply.
           </p>
         </div>
@@ -84,13 +90,24 @@ export function SignInForm() {
     <form onSubmit={handleOtpSubmit} noValidate>
       <button
         type="button"
-        onClick={() => setStep('phone')}
+        onClick={() => {
+          setStep('phone');
+        }}
         className="mb-5 flex items-center gap-1 text-sm"
         style={{ color: 'var(--color-text-muted)' }}
         aria-label="Back to phone number entry"
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
           <path d="M19 12H5M12 5l-7 7 7 7" />
         </svg>
         Back

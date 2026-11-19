@@ -138,7 +138,8 @@ jobs:
           key: turbo-e2e-${{ runner.os }}-${{ github.sha }}
           restore-keys: turbo-e2e-${{ runner.os }}-
       - run: pnpm install --frozen-lockfile
-      - run: pnpm build --filter @chronos/web...
+      - name: Build the web app's workspace dependencies
+        run: pnpm build --filter '@chronos/web^...'
       - name: Install Playwright browsers
         run: pnpm --filter @chronos/web exec playwright install --with-deps chromium
       - name: Build web app
@@ -147,15 +148,15 @@ jobs:
           NODE_ENV: production
           SERVICE_NAME: web
           GATEWAY_URL: http://localhost:4000/graphql
-          NEXT_PUBLIC_APP_URL: http://localhost:3000
-          NEXT_PUBLIC_MEDIA_CDN: http://localhost:8333
-          NEXT_PUBLIC_GATEWAY_URL: http://localhost:4000/graphql
       - name: Run Playwright smoke tests
         run: pnpm --filter @chronos/web test:e2e
         env:
           CI: true
+          NODE_ENV: production
+          SERVICE_NAME: web
+          GATEWAY_URL: http://localhost:4000/graphql
           PLAYWRIGHT_BASE_URL: http://localhost:3000
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: playwright-report
@@ -174,7 +175,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269ef065 # v3.1.2
         with:
-          terraform_version: "1.9.8"
+          terraform_version: '1.9.8'
 
       - name: Terraform fmt check
         run: terraform fmt -check -recursive infra/terraform

@@ -1,23 +1,13 @@
 'use client';
 
-import { useEffect } from 'react';
-
 interface ErrorProps {
   error: Error & { digest?: string };
   reset: () => void;
 }
 
-export default function GlobalError({ error, reset }: ErrorProps) {
-  useEffect(() => {
-    // Log to Sentry (self-hosted, server-side) in production.
-    // Client-side error boundary — no health data should ever reach here
-    // but we log conservatively: no message, no stack.
-    if (process.env['NODE_ENV'] === 'production') {
-      // TODO(M5): capture to self-hosted Sentry with PII scrubbing.
-      void Promise.resolve(error.digest);
-    }
-  }, [error]);
-
+// Error reporting to self-hosted Sentry (with scrubbing) arrives in M5. The error itself is not
+// used or logged here: error text can echo input, and the browser console is not a safe sink.
+export default function GlobalError({ reset }: ErrorProps) {
   return (
     <main
       id="main-content"

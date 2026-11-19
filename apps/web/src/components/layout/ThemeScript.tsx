@@ -15,10 +15,5 @@ export function ThemeScript() {
 })();
 `.trim();
 
-  return (
-    <script
-      // eslint-disable-next-line react/no-danger -- intentional inline theme bootstrap
-      dangerouslySetInnerHTML={{ __html: script }}
-    />
-  );
+  return <script dangerouslySetInnerHTML={{ __html: script }} />;
 }

@@ -1,7 +1,7 @@
 # ADR-0001: Stack baseline and scope boundaries
 
 ## Decision
-Keep the stack in `CLAUDE.md` unchanged: TypeScript everywhere, pnpm + Turborepo, NestJS services, Apollo GraphQL at the gateway, gRPC between services, Kafka events, Postgres/PostGIS with Drizzle, Redis, Expo React Native, Next.js consoles, AWS af-south-1 on EKS with Terraform and Argo CD.
+Keep the stack in `CLAUDE.md` unchanged: TypeScript everywhere, pnpm + Turborepo, NestJS services, Apollo GraphQL at the gateway, gRPC between services, Kafka events, Postgres/PostGIS with Drizzle, Redis, Expo React Native, Next.js consoles (amended by ADR-0017: the member app ships first on Next.js, with Expo deferred), AWS af-south-1 on EKS with Terraform and Argo CD.
 
 ## Why
 - One language end to end lets a small team share zod schemas, types and tooling, and avoids a polyglot rewrite later. The PRD's "NestJS or Go" is closed in favour of NestJS.

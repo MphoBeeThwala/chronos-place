@@ -55,9 +55,10 @@ Tasks marked **[approval]** touch auth, crypto, the restricted zone, schemas or 
 - Modules: organisation SCPs, VPC, EKS, Aurora (core + vault), ElastiCache, MSK, S3/CloudFront, KMS, Secrets Manager, PrivateLink; `envs/dev` wired up. State in S3 with locking.
 - AC: `terraform plan` clean for dev; Checkov passes; no apply without approval.
 
-### M0.12 Mobile app shell
-- Expo app with Expo Router, TanStack Query, i18n scaffold, design-system tokens from `packages/ui`, accessibility lint, light/dark themes.
-- AC: runs on iOS simulator and Android emulator; Maestro smoke test opens the app.
+### M0.12 Web app shell (ADR-0017)
+- Next.js (App Router) member app in `apps/web`: auth guard, same-origin GraphQL path, Apollo Client, i18n scaffold, design tokens from `packages/ui`, accessibility lint (jsx-a11y), light/dark themes, security headers.
+- AC: `pnpm lint`, `pnpm typecheck` and `pnpm build` pass; Playwright smoke test opens the sign-in page and proves unauthenticated routes redirect; health routes are served with `Cache-Control: no-store`.
+- The Expo shell moves to M8.
 
 ---
 
@@ -69,8 +70,9 @@ Tasks marked **[approval]** touch auth, crypto, the restricted zone, schemas or 
 - **M1.4 Liveness verification** — Smile ID (or Onfido) integration behind an interface; store result and reference only; verified badge. AC: messaging blocked until verified; selfie retention job deletes images.
 - **M1.5 Profile service** — profiles, prompts, preferences, approximate location (PostGIS), private mode. AC: other members never receive coordinates; distance rounded to at least 1 km.
 - **M1.6 Photo pipeline** — signed S3 uploads, EXIF/GPS stripping, size variants, moderation status hook. AC: GPS metadata absent in stored images (test).
-- **M1.7 Mobile onboarding** — sign-up, consent, privacy walkthrough before any health question, profile creation, photo upload. AC: Maestro E2E; screen reader labels pass audit.
+- **M1.7 Web onboarding** — sign-up, consent, privacy walkthrough before any health question, profile creation, photo upload. AC: Playwright E2E; axe accessibility checks and screen reader labels pass audit.
 - **M1.8 Data export and account deletion** — export bundle and erasure orchestration via events. AC: erasure completes across services within SLA in integration test.
+- **M1.9 Web hardening (ADR-0017)** — nonce-based CSP with `'strict-dynamic'` (no `'unsafe-inline'` scripts), `img-src` limited to the app and media CDN, quick-exit control, neutral titles, idle session timeout. AC: CSP test fails on an inline script without a nonce; Playwright proves quick exit replaces the history entry. Must be done before M2.8.
 
 ---
 
@@ -83,7 +85,7 @@ Tasks marked **[approval]** touch auth, crypto, the restricted zone, schemas or 
 - **M2.5 mTLS and allow-list interceptor [approval]** — per-method caller allow-list. AC: disallowed caller receives PERMISSION_DENIED in integration test.
 - **M2.6 Filter eligibility with k-threshold** — per spec 4.3. AC: below-threshold returns empty; viewer must share to use filters.
 - **M2.7 Erasure and crypto-shred** — EraseSubject deletes key then rows. AC: test proves data unrecoverable after erasure.
-- **M2.8 Mobile health profile UX** — add conditions, choose visibility, view who has seen my health info; screen protection on these screens. AC: Maestro E2E; FLAG_SECURE verified on Android.
+- **M2.8 Web health profile UX** — add conditions, choose visibility, view who has seen my health info; screen protection on these screens (ADR-0017: blur when hidden, print placeholder, plain notice that the web cannot block screenshots). AC: Playwright E2E; health responses carry `Cache-Control: no-store`; nothing health-related reaches browser storage (test).
 
 ---
 
@@ -93,14 +95,14 @@ Tasks marked **[approval]** touch auth, crypto, the restricted zone, schemas or 
 - **M3.2 Discovery candidate generation** — geo + age + intent filters, exclusions (seen, blocked, private mode). AC: p95 under 300 ms at seeded scale.
 - **M3.3 Ranking v1** — rules-based (recency, activity, completeness, mutual preference fit). AC: deterministic tests; ranking features contain no health data.
 - **M3.4 Condition-aware filtering** — integrate FilterEligibleSubjects. AC: privacy tests confirm no inference via counts.
-- **M3.5 Mobile discovery UX** — cards with button alternatives to swipes, match moment, accessibility. AC: E2E like → match.
+- **M3.5 Web discovery UX** — cards with button alternatives to swipes, match moment, accessibility. AC: Playwright E2E like → match.
 
 ---
 
 ## M4 — Messaging (outline)
-- M4.1 Spike: libsignal on React Native (native module vs audited binding) → ADR
+- M4.1 Spike: libsignal in the browser (self-built WebAssembly with audit, or chat held until native) and on React Native → ADR (ADR-0017 open question)
 - M4.2 Key directory and envelope relay service
-- M4.3 Mobile chat (text, photos, voice notes with transcription)
+- M4.3 Web chat (text, photos, voice notes with transcription)
 - M4.4 Disclosure card flow
 - M4.5 Report with forwarded decrypted messages
 
@@ -112,3 +114,6 @@ Tasks marked **[approval]** touch auth, crypto, the restricted zone, schemas or 
 
 ## M7 — Beta hardening (outline)
 - Load tests, external penetration test, DR drill, observability SLOs, legal review sign-off, private beta release.
+
+## M8 — Native mobile app (outline, ADR-0017)
+- Expo app in `apps/mobile` with Expo Router, TanStack Query and tokens from `packages/ui`; SecureStore, `FLAG_SECURE` / iOS snapshot blur, app lock, alternate icons (spec section 9); Maestro E2E; EAS Build.

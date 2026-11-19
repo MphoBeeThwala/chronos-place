@@ -1,29 +1,26 @@
 /**
- * Apollo Client setup for Next.js App Router.
- * Uses @apollo/experimental-nextjs-app-support for RSC + Client Component support.
+ * Apollo Client for Server Components (request-scoped, so no cache is shared between members).
+ * Client Components use ApolloWrapper (components/layout).
  *
- * Server Components use `getClient()` (request-scoped, no cache leaks).
- * Client Components use `ApolloWrapper` (defined in components/layout).
- *
- * Headers: the access token is attached in the auth link.
- * We never send health data in cache keys, local state, or analytics events.
+ * Health data never goes into cache keys, local state, logs or analytics events.
  */
-import { ApolloClient, HttpLink, InMemoryCache, from } from '@apollo/client';
-import { registerApolloClient } from '@apollo/experimental-nextjs-app-support/rsc';
-import { config } from './config.js';
-
-const httpLink = new HttpLink({
-  uri: config.GATEWAY_URL,
-  // Credentials: include cookies so the session cookie travels with requests.
-  credentials: 'include',
-});
+import {
+  ApolloClient,
+  InMemoryCache,
+  registerApolloClient,
+} from '@apollo/experimental-nextjs-app-support';
+import { HttpLink } from '@apollo/client';
+import { config } from './config';
 
 export const { getClient } = registerApolloClient(
   () =>
     new ApolloClient({
       cache: new InMemoryCache(),
-      link: from([httpLink]),
-      // Never log responses — they may contain health data.
+      link: new HttpLink({
+        uri: config.GATEWAY_URL,
+        // Server-side fetches must never be cached by Next.js: responses can carry personal data.
+        fetchOptions: { cache: 'no-store' },
+      }),
       defaultOptions: {
         query: { errorPolicy: 'none' },
         mutate: { errorPolicy: 'none' },

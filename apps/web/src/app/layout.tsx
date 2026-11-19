@@ -6,16 +6,15 @@ import type { Metadata, Viewport } from 'next';
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages, getLocale } from 'next-intl/server';
 import '@/styles/globals.css';
-import { ThemeScript } from '@/components/layout/ThemeScript.js';
-import { ApolloWrapper } from '@/components/layout/ApolloWrapper.js';
+import { ThemeScript } from '@/components/layout/ThemeScript';
+import { ApolloWrapper } from '@/components/layout/ApolloWrapper';
 
 export const metadata: Metadata = {
   title: {
     default: 'Chronos Place',
     template: '%s — Chronos Place',
   },
-  description:
-    'A connection platform for people living with or beyond chronic health conditions.',
+  description: 'A connection platform for people living with or beyond chronic health conditions.',
   robots: { index: false, follow: false }, // No indexing until public launch.
   manifest: '/site.webmanifest',
 };

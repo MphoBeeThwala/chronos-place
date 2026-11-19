@@ -6,12 +6,23 @@
  * This shell demonstrates the accessible card structure with keyboard-navigable
  * Like/Pass buttons (WCAG: button alternatives to swipes, CLAUDE.md accessibility).
  */
-import { Card } from '@/components/ui/Card.js';
-import { Button } from '@/components/ui/Button.js';
-import { Badge } from '@/components/ui/Badge.js';
+import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
+
+interface CardProfile {
+  id: string;
+  displayName: string;
+  age: number;
+  areaLabel: string | null;
+  /** Whole kilometres, never finer than 1 km (CLAUDE.md rule 8); null when location is hidden. */
+  distanceKm: number | null;
+  verified: boolean;
+  bio: string;
+}
 
 /** Placeholder profile for shell demonstration. */
-const PLACEHOLDER_PROFILE = {
+const PLACEHOLDER_PROFILE: CardProfile = {
   id: 'placeholder',
   displayName: 'Placeholder Profile',
   age: 28,
@@ -62,9 +73,7 @@ export function FeedShell() {
               {profile.areaLabel && (
                 <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
                   {profile.areaLabel}
-                  {profile.distanceKm !== null && (
-                    <span> · {profile.distanceKm} km away</span>
-                  )}
+                  {profile.distanceKm !== null && <span> · {profile.distanceKm} km away</span>}
                 </p>
               )}
             </div>

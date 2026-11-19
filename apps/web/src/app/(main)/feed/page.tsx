@@ -4,7 +4,7 @@
  * Shell shows the accessible card structure.
  */
 import type { Metadata } from 'next';
-import { FeedShell } from '@/components/feed/FeedShell.js';
+import { FeedShell } from '@/components/feed/FeedShell';
 
 export const metadata: Metadata = { title: 'Discover' };
 
