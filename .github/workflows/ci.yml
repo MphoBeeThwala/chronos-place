@@ -119,11 +119,61 @@ jobs:
           AGAINST_REF: origin/${{ github.base_ref }}
         run: pnpm --filter @chronos/contracts contracts:breaking
 
+  terraform:
+    name: Terraform validate & Checkov
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269ef065 # v3.1.2
+        with:
+          terraform_version: "1.9.8"
+
+      - name: Terraform fmt check
+        run: terraform fmt -check -recursive infra/terraform
+
+      - name: Terraform validate (modules)
+        run: |
+          for dir in infra/terraform/modules/*/; do
+            echo "--- Validating $dir ---"
+            cd "$dir"
+            terraform init -backend=false -input=false
+            terraform validate
+            cd - > /dev/null
+          done
+
+      - name: Terraform validate (dev env, no backend)
+        run: |
+          cd infra/terraform/envs/dev
+          terraform init -backend=false -input=false
+          terraform validate
+          cd -
+
+      - name: Checkov IaC scan
+        uses: bridgecrewio/checkov-action@18b75ad18cf92c20f2b5b7695e5d53c72e9dc03f # v12.2922.0
+        with:
+          directory: infra/terraform
+          config_file: infra/terraform/.checkov.yaml
+          output_format: cli,sarif
+          output_file_path: console,checkov-results.sarif
+          soft_fail: false
+
+      - name: Upload Checkov SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@181d5eefc20863364f96762470ba6f862bdef56b # v3.28.9
+        with:
+          sarif_file: checkov-results.sarif
+          category: checkov
+
   # The single check branch protection requires for this workflow.
   ci-gate:
     name: CI gate
     if: always()
-    needs: [verify, integration, privacy, contracts-breaking]
+    needs: [verify, integration, privacy, contracts-breaking, terraform]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:

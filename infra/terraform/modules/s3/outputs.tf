@@ -1,0 +1,11 @@
+output "media_bucket_name" { value = aws_s3_bucket.media.id }
+output "media_bucket_arn" { value = aws_s3_bucket.media.arn }
+output "assets_bucket_name" { value = aws_s3_bucket.assets.id }
+output "assets_bucket_arn" { value = aws_s3_bucket.assets.arn }
+output "logs_bucket_name" { value = aws_s3_bucket.logs.id }
+output "erasure_ledger_bucket_name" { value = aws_s3_bucket.erasure_ledger.id }
+output "erasure_ledger_bucket_arn" { value = aws_s3_bucket.erasure_ledger.arn }
+output "media_cloudfront_domain" { value = aws_cloudfront_distribution.media.domain_name }
+output "media_cloudfront_id" { value = aws_cloudfront_distribution.media.id }
+output "assets_cloudfront_domain" { value = aws_cloudfront_distribution.assets.domain_name }
+output "assets_cloudfront_id" { value = aws_cloudfront_distribution.assets.id }
