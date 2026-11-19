@@ -1,0 +1,40 @@
+{
+  "name": "@chronos/web",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Chronos Place web application (Next.js 15, App Router).",
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint --max-warnings 0",
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@apollo/client": "^3.13.4",
+    "@apollo/experimental-nextjs-app-support": "^0.11.3",
+    "@chronos/config": "workspace:*",
+    "@chronos/logger": "workspace:*",
+    "@chronos/ui": "workspace:*",
+    "clsx": "^2.1.1",
+    "graphql": "^16.11.0",
+    "next": "^15.3.3",
+    "next-intl": "^4.1.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "tailwind-merge": "^3.3.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@chronos/tsconfig": "workspace:*",
+    "@playwright/test": "^1.52.0",
+    "@types/node": "^22.19.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "eslint": "^10.11.0",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "tailwindcss": "^4.1.10",
+    "typescript": "~6.0.3"
+  }
+}

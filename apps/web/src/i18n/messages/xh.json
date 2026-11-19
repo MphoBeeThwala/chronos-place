@@ -1,0 +1,28 @@
+{
+  "common": {
+    "appName": "Chronos Place",
+    "loading": "Iyalayisha…",
+    "error": "Kukho into engahambanga kakuhle. Nceda uzame kwakhona.",
+    "retry": "Zama kwakhona",
+    "back": "Emva",
+    "close": "Vala",
+    "save": "Gcina",
+    "cancel": "Rhoxisa",
+    "continue": "Qhubeka",
+    "skip": "Yeqa",
+    "learnMore": "Funda ngakumbi",
+    "required": "Iyafuneka"
+  },
+  "nav": {
+    "feed": "Fumanisa",
+    "matches": "Iimatch",
+    "profile": "Iprofayile",
+    "settings": "Izicwangciso",
+    "signOut": "Phuma"
+  },
+  "auth": {
+    "signIn": "Ngena",
+    "sendCode": "Thumela ikhowudi",
+    "verify": "Qinisekisa"
+  }
+}

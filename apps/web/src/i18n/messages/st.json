@@ -1,0 +1,28 @@
+{
+  "common": {
+    "appName": "Chronos Place",
+    "loading": "E a loding…",
+    "error": "Ho entswe phoso. Ka kopo leka hape.",
+    "retry": "Leka hape",
+    "back": "Morao",
+    "close": "Koala",
+    "save": "Boloka",
+    "cancel": "Hlaola",
+    "continue": "Tswela pele",
+    "skip": "Tlola",
+    "learnMore": "Ithuta haholoanyane",
+    "required": "E hlokeha"
+  },
+  "nav": {
+    "feed": "Fumana",
+    "matches": "Ditshwanelo",
+    "profile": "Profaele",
+    "settings": "Dipeelo",
+    "signOut": "Tswa"
+  },
+  "auth": {
+    "signIn": "Kena",
+    "sendCode": "Romela khoutu",
+    "verify": "Tiisa"
+  }
+}

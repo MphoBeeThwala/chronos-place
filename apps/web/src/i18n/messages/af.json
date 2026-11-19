@@ -1,0 +1,28 @@
+{
+  "common": {
+    "appName": "Chronos Place",
+    "loading": "Laai tans…",
+    "error": "Iets het verkeerd gegaan. Probeer asseblief weer.",
+    "retry": "Probeer weer",
+    "back": "Terug",
+    "close": "Sluit",
+    "save": "Stoor",
+    "cancel": "Kanselleer",
+    "continue": "Gaan voort",
+    "skip": "Oorslaan",
+    "learnMore": "Lees meer",
+    "required": "Vereis"
+  },
+  "nav": {
+    "feed": "Ontdek",
+    "matches": "Passings",
+    "profile": "Profiel",
+    "settings": "Instellings",
+    "signOut": "Teken uit"
+  },
+  "auth": {
+    "signIn": "Teken in",
+    "sendCode": "Stuur kode",
+    "verify": "Bevestig"
+  }
+}

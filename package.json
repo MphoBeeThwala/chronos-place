@@ -24,7 +24,8 @@
     "new:service": "node packages/service-kit/dist/cli/main.js",
     "test:service-template": "bash tools/scripts/check-service-template.sh",
     "check:deps": "pnpm --filter @chronos/repo-checks check:deps",
-    "test:privacy": "turbo run test:privacy"
+    "test:privacy": "turbo run test:privacy",
+    "test:e2e": "turbo run test:e2e"
   },
   "devDependencies": {
     "@chronos/eslint-config": "workspace:*",

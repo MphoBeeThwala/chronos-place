@@ -12,6 +12,7 @@ gen/
 
 # Terraform
 **/.terraform/
+**/.terraform/
 *.tfstate
 *.tfstate.*
 *.tfvars
@@ -25,3 +26,11 @@ override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
+
+# Next.js
+apps/web/.next/
+apps/web/out/
+apps/web/playwright-report/
+apps/web/test-results/
+.env.local
+*.tsbuildinfo
