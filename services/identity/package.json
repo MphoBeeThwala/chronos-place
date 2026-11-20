@@ -20,6 +20,7 @@
     "test:privacy": "vitest run --config vitest.privacy.config.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-kms": "^3.1145.0",
     "@chronos/config": "workspace:*",
     "@chronos/contracts": "workspace:*",
     "@chronos/crypto": "workspace:*",
@@ -32,16 +33,18 @@
     "ioredis": "^5.11.1",
     "pg": "^8.23.1",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.2",
     "zod": "^4.6.5"
   },
   "devDependencies": {
     "@chronos/privacy-harness": "workspace:*",
     "@chronos/tsconfig": "workspace:*",
+    "@grpc/grpc-js": "^1.14.5",
+    "@grpc/proto-loader": "^0.8.1",
     "@testcontainers/postgresql": "^12.2.2",
     "@testcontainers/redis": "^12.2.2",
     "@types/pg": "^8.23.1",
     "drizzle-kit": "^0.31.11",
+    "rxjs": "^7.8.2",
     "testcontainers": "^12.2.0"
   }
 }
