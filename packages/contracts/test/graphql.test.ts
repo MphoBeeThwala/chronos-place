@@ -12,7 +12,7 @@ import {
 import { describe, expect, it } from 'vitest';
 import * as proto from '../gen/chronos/disclosure/v1/disclosure.js';
 import type { ConditionStatus, GrantScope, HealthVisibility, Tier } from '../gen/graphql/types.js';
-import { PUBLIC_MUTATIONS, schemaPath } from '../src/graphql/index.js';
+import { ONBOARDING_FIELDS, PUBLIC_MUTATIONS, schemaPath } from '../src/graphql/index.js';
 
 const schema: GraphQLSchema = buildSchema(readFileSync(schemaPath, 'utf8'));
 
@@ -226,5 +226,16 @@ describe('generated types and public operations', () => {
     const mutations = Object.keys(schema.getMutationType()?.getFields() ?? {});
     for (const name of PUBLIC_MUTATIONS) expect(mutations).toContain(name);
     expect([...PUBLIC_MUTATIONS]).toEqual(['requestOtp', 'verifyOtp', 'refreshSession']);
+  });
+
+  it('lists only real root fields as allowed during onboarding', () => {
+    const roots = [
+      ...Object.keys(schema.getQueryType()?.getFields() ?? {}),
+      ...Object.keys(schema.getMutationType()?.getFields() ?? {}),
+    ];
+    for (const name of ONBOARDING_FIELDS) expect(roots).toContain(name);
+    // Nothing that reads or writes a profile, a match or health data is reachable before onboarding.
+    for (const name of ONBOARDING_FIELDS)
+      expect(name).not.toMatch(/health|profile|feed|match|like/i);
   });
 });

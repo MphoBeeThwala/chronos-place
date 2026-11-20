@@ -26,6 +26,7 @@
     "@chronos/crypto": "workspace:*",
     "@chronos/logger": "workspace:*",
     "@chronos/service-kit": "workspace:*",
+    "@chronos/session-tokens": "workspace:*",
     "@nestjs/common": "^12.1.2",
     "@nestjs/core": "^12.1.2",
     "@nestjs/microservices": "^12.1.2",
