@@ -107,7 +107,7 @@ export const sessions = identity.table(
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     lastUsedAt: timestamp('last_used_at', { withTimezone: true }).notNull().defaultNow(),
     revokedAt: timestamp('revoked_at', { withTimezone: true }),
-    /** sign_out | sign_out_all | refresh_reuse | ineligible | suspended */
+    /** See RevokeReason in src/sessions/session-store.ts. */
     revokeReason: text('revoke_reason'),
     createdAt,
   },

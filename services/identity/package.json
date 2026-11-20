@@ -20,6 +20,7 @@
     "test:privacy": "vitest run --config vitest.privacy.config.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-kms": "^3.1145.0",
     "@chronos/config": "workspace:*",
     "@chronos/contracts": "workspace:*",
     "@chronos/crypto": "workspace:*",

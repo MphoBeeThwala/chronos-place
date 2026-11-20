@@ -16,6 +16,8 @@ Status: Accepted (2026-11-20, product owner approved the M1.1 plan). Items marke
 - **Codes:** 6 digits from `crypto.randomInt`, 5-minute expiry, stored only as HMAC-SHA256 over challenge id and code with a server key, compared in constant time. A database leak alone does not reveal codes. SMS text is fixed and never names the app (ADR-0006).
 - **Access tokens:** JWT, ES256, signed by a KMS asymmetric key, 10 minutes. Claims: `iss`, `aud`, `sub` (account id), `sid` (session id), `iat`, `exp`, `jti`. No phone number, status or other personal data. The gateway verifies them locally with keys from `GetSigningKeys`.
 - **Refresh tokens:** 32 random bytes, stored as SHA-256, single use, 30 days, bound to a hash of the client's device id. Each refresh issues a new pair. Presenting a refresh token that was already exchanged revokes the whole session (theft detection). Sign-out and "sign out everywhere" revoke sessions; access tokens die within 10 minutes, and the gateway checks the session on sensitive actions.
+- **Parallel refreshes:** each refresh token is exchanged at most once, atomically. A second request racing with the same token counts as reuse and ends the session, so clients (the gateway, M1.3) must refresh one request at a time per session. A refresh token used from a device other than the one it was issued to also ends the session.
+- **Account state is checked on refresh:** only `PENDING_ONBOARDING` and `ACTIVE` accounts keep sessions. An ineligible or suspended account's next refresh fails and ends the session.
 - **Errors are generic.** No response says whether a number already has an account.
 
 ## Consequences
