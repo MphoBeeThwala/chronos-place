@@ -74,11 +74,11 @@ Illustrative DDL; implement with Drizzle schema files. All tables have `created_
 ```sql
 CREATE TABLE accounts (
   id               uuid PRIMARY KEY,
-  phone_e164       text UNIQUE,              -- encrypted at rest (pgcrypto/app-level)
+  phone_e164       text UNIQUE,              -- stored sealed + keyed lookup hash (ADR-0018)
   email            citext UNIQUE,
   status           text NOT NULL,            -- active | suspended | pending_erasure | erased
   verified_at      timestamptz,              -- liveness passed
-  date_of_birth    date NOT NULL,            -- 18+ enforced
+  date_of_birth    date,                     -- set straight after first sign-in; 18+ enforced (ADR-0018)
   locale           text NOT NULL DEFAULT 'en-ZA'
 );
 
