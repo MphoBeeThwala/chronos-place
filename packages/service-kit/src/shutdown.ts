@@ -58,8 +58,10 @@ export class ShutdownCoordinator {
         } catch (error) {
           state.failed = true;
           logger.error(
-            error instanceof Error ? error : { thrown: typeof error },
-            `shutdown step failed: ${name}`,
+            error instanceof Error
+              ? { err: error, step: name }
+              : { thrown: typeof error, step: name },
+            'shutdown step failed',
           );
         }
       };
