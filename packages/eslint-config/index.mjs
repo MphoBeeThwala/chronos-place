@@ -1,5 +1,6 @@
 import js from '@eslint/js';
 import comments from '@eslint-community/eslint-plugin-eslint-comments/configs';
+import jsxA11y from 'eslint-plugin-jsx-a11y';
 import globals from 'globals';
 import path from 'node:path';
 import tseslint from 'typescript-eslint';
@@ -21,7 +22,18 @@ export function createConfig(options = {}) {
   return tseslint.config(
     // `gen/` holds generated code (protobuf); it is reviewed as .proto source, not as TypeScript.
     {
-      ignores: ['**/dist/**', '**/node_modules/**', '**/.turbo/**', '**/coverage/**', '**/gen/**'],
+      ignores: [
+        '**/dist/**',
+        '**/node_modules/**',
+        '**/.turbo/**',
+        '**/coverage/**',
+        '**/gen/**',
+        // Next.js build output and generated types; Playwright reports.
+        '**/.next/**',
+        '**/next-env.d.ts',
+        '**/playwright-report/**',
+        '**/test-results/**',
+      ],
     },
     js.configs.recommended,
     comments.recommended,
@@ -68,6 +80,21 @@ export function createConfig(options = {}) {
             message: 'Read configuration through @chronos/config, not process.env.',
           },
         ],
+      },
+    },
+    {
+      // Build and test tooling of the web apps runs outside the app, so it may read process.env.
+      // Runtime code under src/ still reads configuration through @chronos/config.
+      files: ['apps/*/next.config.ts', 'apps/*/playwright.config.ts'],
+      rules: { 'no-restricted-syntax': 'off' },
+    },
+    {
+      // WCAG 2.2 AA (CLAUDE.md coding standards): accessibility lint on every web component.
+      files: ['apps/**/*.tsx'],
+      ...jsxA11y.flatConfigs.strict,
+      languageOptions: {
+        ...jsxA11y.flatConfigs.strict.languageOptions,
+        globals: { ...globals.browser },
       },
     },
     {
