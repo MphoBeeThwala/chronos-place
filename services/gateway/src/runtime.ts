@@ -1,7 +1,9 @@
 import type { Logger } from '@chronos/logger';
 import type { ServiceConfig } from '@chronos/service-kit';
 import { AccountStatus } from '@chronos/contracts/identity';
+import { Redis } from 'ioredis';
 import type { AccountState } from './auth/guard.js';
+import { type RefreshLock, RedisRefreshLock } from './auth/refresh-lock.js';
 import { SigningKeyCache } from './auth/signing-keys.js';
 import type { gatewayConfig } from './config.js';
 import { IdentityClient } from './identity/identity-client.js';
@@ -17,6 +19,7 @@ export interface GatewayRuntime {
   keys: SigningKeyCache;
   accountState: (accountId: string) => Promise<AccountState>;
   forgetAccountState: (accountId: string) => void;
+  refreshLock: RefreshLock;
   close: () => void;
 }
 
@@ -30,7 +33,7 @@ const stateOf = (status: AccountStatus): AccountState =>
 export function createGatewayRuntime(
   config: GatewayConfig,
   logger: Logger,
-  overrides: { identity?: IdentityClient } = {},
+  overrides: { identity?: IdentityClient; refreshLock?: RefreshLock } = {},
 ): GatewayRuntime {
   const identity =
     overrides.identity ??
@@ -40,6 +43,11 @@ export function createGatewayRuntime(
       (await identity.call<{ keys: { kid: string; jwkJson: string }[] }>('getSigningKeys', {}))
         .keys,
   });
+
+  const redis = overrides.refreshLock
+    ? undefined
+    : new Redis(config.REDIS_URL.reveal(), { maxRetriesPerRequest: 2 });
+  const refreshLock = overrides.refreshLock ?? new RedisRefreshLock(redis as Redis);
 
   const states = new Map<string, { state: AccountState; at: number }>();
   const accountState = async (accountId: string): Promise<AccountState> => {
@@ -67,8 +75,10 @@ export function createGatewayRuntime(
     keys,
     accountState,
     forgetAccountState: (accountId) => states.delete(accountId),
+    refreshLock,
     close: () => {
       identity.close();
+      redis?.disconnect();
     },
   };
 }

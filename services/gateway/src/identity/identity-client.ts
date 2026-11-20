@@ -2,13 +2,19 @@ import { credentials, loadPackageDefinition, Metadata, type ServiceError } from 
 import { loadSync } from '@grpc/proto-loader';
 
 /** google.protobuf.Timestamp as proto-loader returns it (longs as strings). */
-interface WireTimestamp {
+export interface WireTimestamp {
   seconds: string;
   nanos: number;
 }
 
-export const toDate = (t: WireTimestamp | null | undefined): Date =>
-  new Date(Number(t?.seconds ?? 0) * 1000 + Math.floor((t?.nanos ?? 0) / 1_000_000));
+/**
+ * A google.protobuf.Timestamp as a Date. The protobuf runtime can be configured (by the contracts'
+ * generated code) to hand Timestamps over as Date objects; plain {seconds, nanos} is handled too.
+ */
+export const toDate = (t: Date | WireTimestamp | null | undefined): Date => {
+  if (t instanceof Date) return t;
+  return new Date(Number(t?.seconds ?? 0) * 1000 + Math.floor((t?.nanos ?? 0) / 1_000_000));
+};
 
 type Unary = (
   request: object,

@@ -1,8 +1,10 @@
-import { flag } from '@chronos/config';
+import { flag, redisUrl } from '@chronos/config';
 import { z } from 'zod';
 
 /** The gateway's own settings, merged with the kit's. */
 export const gatewayConfig = {
+  /** Refresh locks across replicas now; rate limits next (ADR-0021). */
+  REDIS_URL: redisUrl,
   /** host:port of the identity service's gRPC API. */
   IDENTITY_GRPC_ADDRESS: z
     .string()
