@@ -34,6 +34,7 @@ describe('identity migrations', () => {
       'account_keys',
       'accounts',
       'otp_challenges',
+      'outbox',
       'refresh_tokens',
       'sessions',
     ]);

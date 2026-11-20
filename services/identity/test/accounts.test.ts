@@ -1,3 +1,4 @@
+import { parseEvent } from '@chronos/contracts/events';
 import { KeyDestroyedError } from '@chronos/crypto';
 import { DomainError } from '@chronos/service-kit';
 import { describe, expect, it } from 'vitest';
@@ -69,6 +70,25 @@ describe('sign-in', () => {
     await expect(
       otp.keyring.decrypt(again.prospectiveAccountId, PHONE_FIELD, sealedPhone(again)),
     ).rejects.toBeInstanceOf(KeyDestroyedError);
+  });
+});
+
+describe('account.created event', () => {
+  it('is written with a new account and carries ids and a timestamp only', async () => {
+    const { service, verify, accounts } = setup();
+    const { account } = await service.signIn(await verify());
+    expect(accounts.events).toHaveLength(1);
+    const [event] = accounts.events;
+    expect(parseEvent('account.created', event)).toEqual(event);
+    expect(event?.data).toEqual({ accountId: account.id, createdAt: NOW.toISOString() });
+    expect(event?.producer).toBe('identity');
+  });
+
+  it('is not written when an existing member signs in again', async () => {
+    const { service, verify, accounts } = setup();
+    await service.signIn(await verify());
+    await service.signIn(await verify());
+    expect(accounts.events).toHaveLength(1);
   });
 });
 

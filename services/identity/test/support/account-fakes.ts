@@ -1,5 +1,6 @@
 import type { AccountRecord, AccountStore, NewAccount } from '../../src/accounts/account-store.js';
 import type { AccountStatus } from '../../src/db/schema.js';
+import type { OutboxEvent } from '../../src/events/outbox.js';
 
 export class InMemoryAccountStore implements AccountStore {
   readonly rows = new Map<
@@ -21,10 +22,13 @@ export class InMemoryAccountStore implements AccountStore {
     return Promise.resolve(this.#record(id));
   }
 
-  insertPending(account: NewAccount): Promise<boolean> {
+  readonly events: OutboxEvent[] = [];
+
+  insertPending(account: NewAccount, events: readonly OutboxEvent[]): Promise<boolean> {
     if ([...this.rows.values()].some((r) => r.phoneLookup.equals(account.phoneLookup)))
       return Promise.resolve(false);
     this.rows.set(account.id, { ...account, status: 'pending_onboarding', dateOfBirth: null });
+    this.events.push(...events);
     return Promise.resolve(true);
   }
 
