@@ -8,8 +8,12 @@
 # - Persisted queries only in production; depth and complexity limits at the gateway.
 
 scalar DateTime
+"A calendar date (YYYY-MM-DD) with no time zone."
+scalar Date
 
 type Query {
+  "The signed-in account's state. Available during onboarding, before a profile exists."
+  account: Account!
   me: Me!
   feed(first: Int = 20, after: String): FeedConnection!
   profile(id: ID!): PublicProfile
@@ -28,10 +32,14 @@ type Query {
 }
 
 type Mutation {
+  "Sends a code to a South African mobile number (+27). Other numbers are rejected at launch."
   requestOtp(phone: String!): OtpChallenge!
   verifyOtp(challengeId: ID!, code: String!): Session!
-  refreshSession(refreshToken: String!): Session!
+  "Uses the refresh cookie; the token itself never passes through JavaScript."
+  refreshSession: Session!
   signOut: Boolean!
+  "Applies the 18+ rule. Required once, straight after the first sign-in."
+  setDateOfBirth(dateOfBirth: Date!): Account!
 
   recordConsent(input: ConsentInput!): Boolean!
   updateProfile(input: ProfileInput!): Me!
@@ -61,11 +69,27 @@ type OtpChallenge {
   retryAfterSeconds: Int!
 }
 
+# Tokens are never in the response body. The gateway sets them as httpOnly, Secure,
+# SameSite=Strict cookies, so browser JavaScript cannot read them (ADR-0017, ADR-0018).
 type Session {
-  accessToken: String!
-  refreshToken: String!
+  "When the access cookie expires. The client calls refreshSession before then."
   expiresAt: DateTime!
-  me: Me!
+  account: Account!
+}
+
+enum AccountStatus {
+  "Signed in; the date of birth is still needed."
+  PENDING_ONBOARDING
+  ACTIVE
+  "The date of birth given is under 18."
+  INELIGIBLE
+  SUSPENDED
+  PENDING_ERASURE
+}
+
+type Account {
+  id: ID!
+  status: AccountStatus!
 }
 
 # ---- Members and profiles ----------------------------------------------------------------------

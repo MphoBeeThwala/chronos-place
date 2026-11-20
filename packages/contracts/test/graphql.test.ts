@@ -79,6 +79,7 @@ describe('client API schema', () => {
       expect.arrayContaining([
         'requestOtp',
         'verifyOtp',
+        'setDateOfBirth',
         'recordConsent',
         'updateProfile',
         'updatePreferences',
@@ -206,6 +207,19 @@ describe('generated types and public operations', () => {
     const status: ConditionStatus = 'IN_REMISSION';
     const tier: Tier = 'PREMIUM';
     expect([visibility, scope, status, tier]).toHaveLength(4);
+  });
+
+  it('never returns session tokens in a response body (ADR-0017: httpOnly cookies only)', () => {
+    const offenders: string[] = [];
+    for (const type of userTypes()) {
+      for (const field of fieldNames(type))
+        if (/token|secret|password/i.test(field)) offenders.push(`${type.name}.${field}`);
+    }
+    const mutation = schema.getMutationType();
+    for (const [name, field] of Object.entries(mutation?.getFields() ?? {}))
+      for (const arg of field.args)
+        if (/token/i.test(arg.name)) offenders.push(`Mutation.${name}(${arg.name})`);
+    expect(offenders).toEqual([]);
   });
 
   it('lists only real mutations as public, and only the sign-in ones', () => {

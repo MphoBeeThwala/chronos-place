@@ -6,6 +6,7 @@ generates:
     config:
       scalars:
         DateTime: string
+        Date: string
       strictScalars: true
       enumsAsTypes: true
       skipTypename: true
