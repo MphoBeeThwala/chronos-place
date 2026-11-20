@@ -1,6 +1,6 @@
 # ADR-0019: Kafka client for Node.js services
 
-Status: **Proposed** (2026-11-20, revised the same day). Needs product-owner approval before any service depends on it.
+Status: Accepted (2026-11-20, product owner). Hosting stays undecided (see below).
 
 ## Context
 Services publish events (spec 7). The identity service already writes `account.created` to a transactional outbox (`identity.outbox`) and relays it through an `EventPublisher` interface. No Kafka client is in the repository yet. Choosing one is a major dependency (CLAUDE.md). Until this ADR is accepted, events wait safely in the outbox: nothing is lost, and no other service consumes them yet.
