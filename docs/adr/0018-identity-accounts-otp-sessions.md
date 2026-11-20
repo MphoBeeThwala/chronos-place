@@ -22,6 +22,11 @@ Status: Accepted (2026-11-20, product owner approved the M1.1 plan). Items marke
 
 ## Consequences
 - M1.1 ships in four parts: contracts, schema and migrations; OTP; accounts and sessions; events and integration and privacy tests.
+- **Events:** `account.created` is written to `identity.outbox` in the same transaction as the account and relayed to Kafka (at least once; consumers dedupe on `eventId`). The Kafka client is proposed in ADR-0019; until it is accepted, events wait in the outbox.
+- **Cleanup** runs every 15 minutes on every replica (rows are claimed with `SKIP LOCKED`):
+  - Codes that expired more than 10 minutes ago are deleted. Their prospective keys are shredded unless the prospective id became an account.
+  - Sessions are deleted a day after expiry, or 30 days after revocation.
+  - Published events are deleted after 7 days.
 - The real SMS provider is still pending its commercial terms (ADR-0006, **needs external input**). Locally, codes go to Mailpit and never to logs.
 - The lookup-hash key cannot be rotated without rehashing every account. Rotation is a planned job, not a config change.
 - An erasure ledger for identity's keys (ADR-0014 applies to identity too) arrives with M1.8.

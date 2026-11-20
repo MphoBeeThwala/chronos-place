@@ -9,6 +9,9 @@ import { DrizzleAccountStore } from './accounts/account-store.js';
 import { AccountService, SIGN_IN_STATUSES } from './accounts/account.service.js';
 import { DEVELOPMENT_ENVIRONMENTS, type identityConfig } from './config.js';
 import { DrizzleAccountKeyStore } from './crypto/account-key-store.js';
+import { type EventPublisher, OutboxRelay } from './events/outbox.js';
+import { IdentityCleanup } from './maintenance/cleanup.js';
+import { every } from './maintenance/scheduler.js';
 import { DrizzleChallengeStore } from './otp/challenge-store.js';
 import { CodeHasher } from './otp/code.js';
 import { KeyedHasher } from './otp/keyed-hash.js';
@@ -45,7 +48,13 @@ function keyFrom(name: string, base64: string): Buffer {
   return key;
 }
 
+/** How often background work runs. */
+export const RELAY_INTERVAL_MS = 1_000;
+export const CLEANUP_INTERVAL_MS = 15 * 60 * 1000;
+
 export interface RuntimeOverrides {
+  /** Where outbox events go. Kafka once ADR-0019 is accepted; until then events wait in the outbox. */
+  publisher?: EventPublisher;
   sender?: OtpSender;
   signer?: AccessTokenSigner;
   keyring?: SubjectKeyring;
@@ -124,12 +133,28 @@ export function createIdentityRuntime(
     logger,
   });
 
+  const stopCleanup = every(
+    'identity-cleanup',
+    CLEANUP_INTERVAL_MS,
+    () => new IdentityCleanup({ db, keyring, logger }).runOnce(),
+    logger,
+  );
+  let stopRelay: () => Promise<void> = () => Promise.resolve();
+  if (overrides.publisher) {
+    const relay = new OutboxRelay({ db, publisher: overrides.publisher, logger });
+    stopRelay = every('outbox-relay', RELAY_INTERVAL_MS, () => relay.runOnce(), logger);
+  } else {
+    // Nothing is lost: events stay in identity.outbox until a publisher is configured.
+    logger.warn('event relay disabled: no Kafka publisher yet (ADR-0019)');
+  }
+
   return {
     otp,
     accounts,
     sessions,
     signer,
     close: async () => {
+      await Promise.all([stopCleanup(), stopRelay()]);
       keyring.clearCache();
       redis.disconnect();
       await pool.end();

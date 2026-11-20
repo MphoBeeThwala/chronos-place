@@ -1,4 +1,5 @@
 import type { SubjectKeyring } from '@chronos/crypto';
+import { createEvent } from '@chronos/contracts/events';
 import type { Logger } from '@chronos/logger';
 import { DomainError } from '@chronos/service-kit';
 import type { AccountStatus } from '../db/schema.js';
@@ -49,12 +50,22 @@ export class AccountService {
     const existing = await this.#d.accounts.findByPhoneLookup(verified.phoneLookup);
     if (existing) return this.#useExisting(existing, verified);
 
-    const inserted = await this.#d.accounts.insertPending({
-      id: verified.prospectiveAccountId,
-      phoneLookup: verified.phoneLookup,
-      phoneCiphertext: verified.phoneCiphertext,
-      phoneNonce: verified.phoneNonce,
-    });
+    const now = this.#d.now();
+    const created = createEvent(
+      'account.created',
+      'identity',
+      { accountId: verified.prospectiveAccountId, createdAt: now.toISOString() },
+      { now },
+    );
+    const inserted = await this.#d.accounts.insertPending(
+      {
+        id: verified.prospectiveAccountId,
+        phoneLookup: verified.phoneLookup,
+        phoneCiphertext: verified.phoneCiphertext,
+        phoneNonce: verified.phoneNonce,
+      },
+      [created],
+    );
     if (!inserted) {
       // Two sign-ins for one new number raced; the other one created the account.
       const winner = await this.#d.accounts.findByPhoneLookup(verified.phoneLookup);

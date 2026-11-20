@@ -12,6 +12,8 @@ import {
   customType,
   date,
   index,
+  integer,
+  jsonb,
   pgSchema,
   smallint,
   text,
@@ -129,4 +131,25 @@ export const refreshTokens = identity.table(
     createdAt,
   },
   (t) => [index('refresh_tokens_session_id_idx').on(t.sessionId)],
+);
+
+/**
+ * Transactional outbox (spec 7). Events are written in the same transaction as the change they
+ * describe and published to Kafka afterwards, so an event is never lost or sent for a rolled-back
+ * change. Payloads follow @chronos/contracts event schemas: ids and timestamps only.
+ */
+export const outbox = identity.table(
+  'outbox',
+  {
+    /** The event's eventId, which consumers dedupe on. */
+    id: uuid('id').primaryKey(),
+    topic: text('topic').notNull(),
+    partitionKey: text('partition_key').notNull(),
+    payload: jsonb('payload').notNull(),
+    attempts: integer('attempts').notNull().default(0),
+    nextAttemptAt: timestamp('next_attempt_at', { withTimezone: true }).notNull().defaultNow(),
+    publishedAt: timestamp('published_at', { withTimezone: true }),
+    createdAt,
+  },
+  (t) => [index('outbox_pending_idx').on(t.publishedAt, t.nextAttemptAt)],
 );

@@ -1,6 +1,7 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { accounts, type AccountStatus } from '../db/schema.js';
+import { accounts, type AccountStatus, outbox } from '../db/schema.js';
+import { type OutboxEvent, outboxValues } from '../events/outbox.js';
 
 export interface AccountRecord {
   id: string;
@@ -18,8 +19,11 @@ export interface NewAccount {
 export interface AccountStore {
   findByPhoneLookup(lookup: Buffer): Promise<AccountRecord | undefined>;
   get(id: string): Promise<AccountRecord | undefined>;
-  /** Creates a pending account, or returns false if the number already has one (a race). */
-  insertPending(account: NewAccount): Promise<boolean>;
+  /**
+   * Creates a pending account and writes its events to the outbox in the same transaction, or
+   * returns false (writing nothing) if the number already has an account (a race).
+   */
+  insertPending(account: NewAccount, events: readonly OutboxEvent[]): Promise<boolean>;
   /** Stores the date and activates. Only from pending with no date yet; false otherwise. */
   activateWithDateOfBirth(id: string, isoDate: string): Promise<boolean>;
   /** Marks a pending account ineligible for good. The date of birth is not stored. */
@@ -54,13 +58,17 @@ export class DrizzleAccountStore implements AccountStore {
     return row && record(row);
   }
 
-  async insertPending(account: NewAccount): Promise<boolean> {
-    const rows = await this.#db
-      .insert(accounts)
-      .values({ ...account, status: 'pending_onboarding' })
-      .onConflictDoNothing({ target: accounts.phoneLookup })
-      .returning({ id: accounts.id });
-    return rows.length === 1;
+  async insertPending(account: NewAccount, events: readonly OutboxEvent[]): Promise<boolean> {
+    return this.#db.transaction(async (tx) => {
+      const rows = await tx
+        .insert(accounts)
+        .values({ ...account, status: 'pending_onboarding' })
+        .onConflictDoNothing({ target: accounts.phoneLookup })
+        .returning({ id: accounts.id });
+      if (rows.length !== 1) return false;
+      if (events.length > 0) await tx.insert(outbox).values(events.map(outboxValues));
+      return true;
+    });
   }
 
   async activateWithDateOfBirth(id: string, isoDate: string): Promise<boolean> {
