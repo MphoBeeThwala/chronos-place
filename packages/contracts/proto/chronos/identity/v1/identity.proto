@@ -36,6 +36,15 @@ service IdentityService {
   rpc GetAccount(GetAccountRequest) returns (GetAccountResponse);
   // Public keys the gateway uses to verify access tokens locally. Contains no member data. Caller: gateway.
   rpc GetSigningKeys(GetSigningKeysRequest) returns (GetSigningKeysResponse);
+
+  // Consent (TASKS M1.2). History is append-only: a withdrawal is a new record. Caller: gateway.
+  // Records a grant or withdrawal of the current policy version. Withdrawing health processing
+  // queues erasure of the member's health data; withdrawing terms or privacy starts account deletion.
+  rpc RecordConsent(RecordConsentRequest) returns (RecordConsentResponse);
+  // The member's full consent history, oldest first. Caller: gateway.
+  rpc ListConsents(ListConsentsRequest) returns (ListConsentsResponse);
+  // The policy versions members must accept now. Contains no member data. Caller: gateway.
+  rpc GetCurrentPolicies(GetCurrentPoliciesRequest) returns (GetCurrentPoliciesResponse);
 }
 
 enum AccountStatus {
@@ -158,4 +167,51 @@ message SigningKey {
 
 message GetSigningKeysResponse {
   repeated SigningKey keys = 1;
+}
+
+enum ConsentType {
+  CONSENT_TYPE_UNSPECIFIED = 0;
+  CONSENT_TYPE_TERMS = 1;
+  CONSENT_TYPE_PRIVACY = 2;
+  // Separate, optional consent to process health information (POPIA special personal information).
+  CONSENT_TYPE_HEALTH_PROCESSING = 3;
+  CONSENT_TYPE_MARKETING = 4;
+}
+
+message RecordConsentRequest {
+  string account_id = 1;
+  ConsentType type = 2;
+  // Must be the current version of that policy (GetCurrentPolicies).
+  string policy_version = 3;
+  bool granted = 4;
+}
+
+message RecordConsentResponse {
+  Account account = 1;
+}
+
+message ConsentRecord {
+  ConsentType type = 1;
+  string policy_version = 2;
+  bool granted = 3;
+  google.protobuf.Timestamp recorded_at = 4;
+}
+
+message ListConsentsRequest {
+  string account_id = 1;
+}
+
+message ListConsentsResponse {
+  repeated ConsentRecord records = 1;
+}
+
+message PolicyVersion {
+  ConsentType type = 1;
+  string version = 2;
+}
+
+message GetCurrentPoliciesRequest {}
+
+message GetCurrentPoliciesResponse {
+  repeated PolicyVersion policies = 1;
 }

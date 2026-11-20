@@ -16,6 +16,7 @@ describe('account events privacy', () => {
     const service = new AccountService({
       accounts,
       keyring: otp.keyring,
+      hasActivationConsents: () => Promise.resolve(true),
       revokeAllSessions: () => Promise.resolve(),
       logger,
     });

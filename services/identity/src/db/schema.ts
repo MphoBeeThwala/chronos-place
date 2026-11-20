@@ -12,6 +12,7 @@ import {
   customType,
   date,
   index,
+  boolean,
   integer,
   jsonb,
   pgSchema,
@@ -152,4 +153,53 @@ export const outbox = identity.table(
     createdAt,
   },
   (t) => [index('outbox_pending_idx').on(t.publishedAt, t.nextAttemptAt)],
+);
+
+export const CONSENT_TYPES = ['terms', 'privacy', 'health_processing', 'marketing'] as const;
+export type ConsentType = (typeof CONSENT_TYPES)[number];
+
+/**
+ * Consent history (TASKS M1.2). Append-only: a trigger (migration 0003) refuses updates, so the
+ * record of what a member agreed to, and when, cannot be rewritten. Rows go only when the account
+ * is erased (cascade). Consent records are Confidential (spec 2).
+ */
+export const consentRecords = identity.table(
+  'consent_records',
+  {
+    id: uuid('id').primaryKey(),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => accounts.id, { onDelete: 'cascade' }),
+    consentType: text('consent_type', { enum: CONSENT_TYPES }).notNull(),
+    policyVersion: text('policy_version').notNull(),
+    granted: boolean('granted').notNull(),
+    recordedAt: timestamp('recorded_at', { withTimezone: true }).notNull(),
+  },
+  (t) => [
+    index('consent_records_account_idx').on(t.accountId, t.recordedAt),
+    check(
+      'consent_records_type_check',
+      sql.raw(`${t.consentType.name} in (${CONSENT_TYPES.map((c) => `'${c}'`).join(', ')})`),
+    ),
+  ],
+);
+
+/**
+ * Requests to erase a member's health data, sent to the Disclosure Service's EraseSubject
+ * (spec 4.1: identity is an allowed caller). Written in the same transaction as the withdrawal
+ * and retried until the vault confirms. The row says only "erase this subject"; the reason is
+ * not stored, because even that would imply health data (CLAUDE.md rule 3).
+ */
+export const vaultErasureRequests = identity.table(
+  'vault_erasure_requests',
+  {
+    /** Idempotency key sent as EraseSubjectRequest.request_id. */
+    id: uuid('id').primaryKey(),
+    accountId: uuid('account_id').notNull(),
+    attempts: integer('attempts').notNull().default(0),
+    nextAttemptAt: timestamp('next_attempt_at', { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    createdAt,
+  },
+  (t) => [index('vault_erasure_pending_idx').on(t.completedAt, t.nextAttemptAt)],
 );

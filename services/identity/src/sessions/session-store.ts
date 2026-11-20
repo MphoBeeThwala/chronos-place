@@ -8,6 +8,7 @@ export type RevokeReason =
   | 'refresh_reuse'
   | 'device_mismatch'
   | 'account_unavailable'
+  | 'consent_withdrawn'
   | 'ineligible';
 
 export interface NewRefreshToken {

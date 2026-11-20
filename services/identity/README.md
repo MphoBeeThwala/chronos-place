@@ -7,6 +7,7 @@ Accounts, phone OTP and sessions (TASKS M1.1, [ADR-0018](../../docs/adr/0018-ide
 - South African mobile numbers only (`+27`). The SMS text never names the app.
 - No under-18s under any circumstance. `MINIMUM_AGE` is a code constant, the date of birth is taken once, and an under-18 account is blocked for good.
 - Numbers are stored sealed (per-account key, crypto-shredded on erasure) and found by a keyed hash. Codes and refresh tokens are stored only as hashes.
+- Consent ([ADR-0020](../../docs/adr/0020-consent-records.md)): terms and privacy come before the date of birth. History is append-only. Withdrawing health consent queues erasure of health data in the vault, and withdrawing terms or privacy starts account deletion.
 - Access tokens are ES256 JWTs signed by KMS, valid for 10 minutes, with no personal data. Refresh tokens are single use and bound to the device. Reuse ends the session.
 
 ## Configuration

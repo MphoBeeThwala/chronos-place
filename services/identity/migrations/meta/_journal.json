@@ -15,6 +15,20 @@
       "when": 1795186809350,
       "tag": "0001_outbox",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795203646176,
+      "tag": "0002_consent",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1795203646940,
+      "tag": "0003_consent_append_only",
+      "breakpoints": true
     }
   ]
 }

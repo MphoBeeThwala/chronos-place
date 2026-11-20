@@ -8,6 +8,9 @@ import pg from 'pg';
 import { DrizzleAccountStore } from './accounts/account-store.js';
 import { AccountService, SIGN_IN_STATUSES } from './accounts/account.service.js';
 import { DEVELOPMENT_ENVIRONMENTS, type identityConfig } from './config.js';
+import { ConsentService } from './consent/consent.service.js';
+import { DrizzleConsentStore } from './consent/consent-store.js';
+import { type VaultEraser, VaultErasureRelay } from './consent/vault-erasure-relay.js';
 import { DrizzleAccountKeyStore } from './crypto/account-key-store.js';
 import { type EventPublisher, OutboxRelay } from './events/outbox.js';
 import { IdentityCleanup } from './maintenance/cleanup.js';
@@ -29,6 +32,7 @@ import { SessionService } from './sessions/session.service.js';
 export type IdentityConfig = ServiceConfig<typeof identityConfig>;
 
 export interface IdentityRuntime {
+  consents: ConsentService;
   otp: OtpService;
   accounts: AccountService;
   sessions: SessionService;
@@ -51,10 +55,13 @@ function keyFrom(name: string, base64: string): Buffer {
 /** How often background work runs. */
 export const RELAY_INTERVAL_MS = 1_000;
 export const CLEANUP_INTERVAL_MS = 15 * 60 * 1000;
+export const VAULT_ERASURE_INTERVAL_MS = 30_000;
 
 export interface RuntimeOverrides {
   /** Where outbox events go. Kafka once ADR-0019 is accepted; until then events wait in the outbox. */
   publisher?: EventPublisher;
+  /** The Disclosure Service's EraseSubject (M2). Until then, erasure requests wait in the queue. */
+  vaultEraser?: VaultEraser;
   sender?: OtpSender;
   signer?: AccessTokenSigner;
   keyring?: SubjectKeyring;
@@ -126,9 +133,17 @@ export function createIdentityRuntime(
     allowedStatuses: SIGN_IN_STATUSES,
     logger,
   });
-  const accounts = new AccountService({
+  // Accounts and consents depend on each other only through these closures, called after start-up.
+  const accounts: AccountService = new AccountService({
     accounts: accountStore,
     keyring,
+    revokeAllSessions: (id, reason) => sessions.revokeAll(id, reason),
+    hasActivationConsents: (id): Promise<boolean> => consents.hasActivationConsents(id),
+    logger,
+  });
+  const consents: ConsentService = new ConsentService({
+    consents: new DrizzleConsentStore(db),
+    getAccount: (id): ReturnType<AccountService['get']> => accounts.get(id),
     revokeAllSessions: (id, reason) => sessions.revokeAll(id, reason),
     logger,
   });
@@ -148,13 +163,28 @@ export function createIdentityRuntime(
     logger.warn('event relay disabled: no Kafka publisher yet (ADR-0019)');
   }
 
+  let stopVaultErasure: () => Promise<void> = () => Promise.resolve();
+  if (overrides.vaultEraser) {
+    const relay = new VaultErasureRelay({ db, eraser: overrides.vaultEraser, logger });
+    stopVaultErasure = every(
+      'vault-erasure',
+      VAULT_ERASURE_INTERVAL_MS,
+      () => relay.runOnce(),
+      logger,
+    );
+  } else {
+    // Requests are kept in identity.vault_erasure_requests until the Disclosure Service exists.
+    logger.warn('vault erasure relay disabled: no Disclosure Service yet (M2)');
+  }
+
   return {
+    consents,
     otp,
     accounts,
     sessions,
     signer,
     close: async () => {
-      await Promise.all([stopCleanup(), stopRelay()]);
+      await Promise.all([stopCleanup(), stopRelay(), stopVaultErasure()]);
       keyring.clearCache();
       redis.disconnect();
       await pool.end();

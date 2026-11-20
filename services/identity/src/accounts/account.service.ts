@@ -20,6 +20,7 @@ export const SIGN_IN_STATUSES: readonly AccountStatus[] = ['pending_onboarding',
 const ACCOUNT_UNAVAILABLE = 'This account cannot be used.';
 const INVALID_DATE = 'Enter a valid date of birth.';
 const ALREADY_SET = 'The date of birth has already been given.';
+const CONSENT_FIRST = 'Accept the terms and the privacy policy first.';
 
 export interface SignInResult {
   account: AccountRecord;
@@ -31,6 +32,8 @@ export interface AccountServiceDeps {
   keyring: SubjectKeyring;
   /** Ends every session of an account (SessionService.revokeAll). */
   revokeAllSessions: (accountId: string, reason: 'ineligible') => Promise<void>;
+  /** True when terms and privacy are granted at their current versions (ConsentService). */
+  hasActivationConsents: (accountId: string) => Promise<boolean>;
   logger: Logger;
   now?: () => Date;
 }
@@ -117,6 +120,10 @@ export class AccountService {
     const account = await this.get(accountId);
     if (account.status !== 'pending_onboarding' || account.hasDateOfBirth) {
       throw new DomainError('failed_precondition', ALREADY_SET);
+    }
+    // Onboarding order (M1.2): code, then terms and privacy, then date of birth.
+    if (!(await this.#d.hasActivationConsents(accountId))) {
+      throw new DomainError('failed_precondition', CONSENT_FIRST);
     }
 
     if (!isAdult(dateOfBirth, now)) {
