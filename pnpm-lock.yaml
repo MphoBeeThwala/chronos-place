@@ -408,9 +408,6 @@ importers:
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
-      rxjs:
-        specifier: ^7.8.2
-        version: 7.8.2
       zod:
         specifier: ^4.6.5
         version: 4.6.5
@@ -421,6 +418,12 @@ importers:
       '@chronos/tsconfig':
         specifier: workspace:*
         version: link:../../packages/tsconfig
+      '@grpc/grpc-js':
+        specifier: ^1.14.5
+        version: 1.14.5
+      '@grpc/proto-loader':
+        specifier: ^0.8.1
+        version: 0.8.1
       '@testcontainers/postgresql':
         specifier: ^12.2.2
         version: 12.2.2
@@ -433,6 +436,9 @@ importers:
       drizzle-kit:
         specifier: ^0.31.11
         version: 0.31.11
+      rxjs:
+        specifier: ^7.8.2
+        version: 7.8.2
       testcontainers:
         specifier: ^12.2.0
         version: 12.2.0

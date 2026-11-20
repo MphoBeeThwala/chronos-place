@@ -24,7 +24,8 @@
     "./graphql/types": {
       "types": "./dist/gen/graphql/types.d.ts"
     },
-    "./graphql/schema.graphql": "./graphql/schema.graphql"
+    "./graphql/schema.graphql": "./graphql/schema.graphql",
+    "./proto/*": "./proto/*"
   },
   "files": [
     "dist",
