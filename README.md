@@ -38,7 +38,7 @@ pnpm dev:infra:down    # stop; dev:infra:reset also deletes volumes
 
 Credentials are random per machine and live in `tools/.env`, which is git-ignored. Everything binds to `127.0.0.1`.
 
-Database migrations and seed data arrive with their tasks (M1.1 / M2.1, M1.5) and are added to `CLAUDE.md` then.
+`pnpm db:migrate` applies the core-database migrations (identity so far) to the local stack. Vault migrations arrive with M2.1 and seed data with M1.5.
 
 ## Web app
 

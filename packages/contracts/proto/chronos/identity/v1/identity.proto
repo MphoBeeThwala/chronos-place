@@ -1,0 +1,161 @@
+syntax = "proto3";
+
+package chronos.identity.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Accounts, phone OTP and sessions (TASKS M1.1, ADR-0018).
+//
+// Conventions
+// - Callers are authenticated by mTLS identity and checked against a per-method allow-list (M2.5).
+//   Only the gateway calls this service in M1.1.
+// - Phone numbers cross this boundary only in RequestOtpRequest. Responses never echo them.
+// - Client context (device id, IP) is passed by the gateway, which takes it from the request; it
+//   feeds rate limits and binds refresh tokens to a device. It is never returned.
+// - Tokens are returned to the gateway only. The gateway puts them in httpOnly cookies and never
+//   exposes them to browser JavaScript (ADR-0017).
+// - gRPC status codes: INVALID_ARGUMENT for malformed input (including numbers outside South
+//   Africa), RESOURCE_EXHAUSTED when a rate limit or lockout applies, UNAUTHENTICATED for a wrong,
+//   expired or used code or token, FAILED_PRECONDITION for an action the account's state does not
+//   allow. Error messages are fixed and generic: they never say whether a number has an account.
+service IdentityService {
+  // Sends a one-time code to a South African mobile number. Caller: gateway.
+  rpc RequestOtp(RequestOtpRequest) returns (RequestOtpResponse);
+  // Checks a code. Creates the account on first sign-in and opens a session. Caller: gateway.
+  rpc VerifyOtp(VerifyOtpRequest) returns (VerifyOtpResponse);
+  // Exchanges a refresh token for a new pair. The old refresh token stops working. Reusing a
+  // refresh token that was already exchanged revokes the whole session. Caller: gateway.
+  rpc RefreshSession(RefreshSessionRequest) returns (RefreshSessionResponse);
+  // Ends one session (sign out). Idempotent. Caller: gateway.
+  rpc RevokeSession(RevokeSessionRequest) returns (RevokeSessionResponse);
+  // Ends every session of an account. Idempotent. Caller: gateway.
+  rpc RevokeAllSessions(RevokeAllSessionsRequest) returns (RevokeAllSessionsResponse);
+  // Records the date of birth after sign-in and applies the 18+ rule. Caller: gateway.
+  rpc SetDateOfBirth(SetDateOfBirthRequest) returns (SetDateOfBirthResponse);
+  // Returns the account's state. Caller: gateway.
+  rpc GetAccount(GetAccountRequest) returns (GetAccountResponse);
+  // Public keys the gateway uses to verify access tokens locally. Contains no member data. Caller: gateway.
+  rpc GetSigningKeys(GetSigningKeysRequest) returns (GetSigningKeysResponse);
+}
+
+enum AccountStatus {
+  ACCOUNT_STATUS_UNSPECIFIED = 0;
+  // Signed in, but the date of birth has not been given yet. Only onboarding actions are allowed.
+  ACCOUNT_STATUS_PENDING_ONBOARDING = 1;
+  ACCOUNT_STATUS_ACTIVE = 2;
+  // The date of birth given is under 18. The account cannot be used.
+  ACCOUNT_STATUS_INELIGIBLE = 3;
+  ACCOUNT_STATUS_SUSPENDED = 4;
+  ACCOUNT_STATUS_PENDING_ERASURE = 5;
+}
+
+// Request context supplied by the gateway.
+message ClientContext {
+  // Random id the client keeps for this browser or device. Not a hardware identifier.
+  string device_id = 1;
+  // The caller's IP address as seen by the edge.
+  string ip = 2;
+}
+
+message RequestOtpRequest {
+  // E.164, South African mobile numbers only at launch (+27, 9 digits after the country code).
+  string phone_e164 = 1;
+  ClientContext client = 2;
+}
+
+message RequestOtpResponse {
+  string challenge_id = 1;
+  google.protobuf.Timestamp expires_at = 2;
+  // How long the client must wait before asking for another code.
+  int32 retry_after_seconds = 3;
+}
+
+message VerifyOtpRequest {
+  string challenge_id = 1;
+  string code = 2;
+  ClientContext client = 3;
+}
+
+// Access and refresh tokens. Handed to the gateway, which keeps them in httpOnly cookies.
+message SessionTokens {
+  // Signed JWT, valid for 10 minutes.
+  string access_token = 1;
+  google.protobuf.Timestamp access_expires_at = 2;
+  // Opaque, single use, valid for 30 days, bound to the device in ClientContext.
+  string refresh_token = 3;
+  google.protobuf.Timestamp refresh_expires_at = 4;
+}
+
+message Account {
+  string account_id = 1;
+  AccountStatus status = 2;
+}
+
+message VerifyOtpResponse {
+  Account account = 1;
+  SessionTokens tokens = 2;
+  // True when this sign-in created the account.
+  bool created = 3;
+}
+
+message RefreshSessionRequest {
+  string refresh_token = 1;
+  ClientContext client = 2;
+}
+
+message RefreshSessionResponse {
+  Account account = 1;
+  SessionTokens tokens = 2;
+}
+
+message RevokeSessionRequest {
+  // The session to end, taken from the access token's claims by the gateway.
+  string session_id = 1;
+  string account_id = 2;
+}
+
+message RevokeSessionResponse {}
+
+message RevokeAllSessionsRequest {
+  string account_id = 1;
+}
+
+message RevokeAllSessionsResponse {}
+
+// A calendar date with no time zone.
+message CalendarDate {
+  int32 year = 1;
+  int32 month = 2;
+  int32 day = 3;
+}
+
+message SetDateOfBirthRequest {
+  string account_id = 1;
+  CalendarDate date_of_birth = 2;
+}
+
+message SetDateOfBirthResponse {
+  // ACTIVE when the member is 18 or older, INELIGIBLE otherwise.
+  Account account = 1;
+}
+
+message GetAccountRequest {
+  string account_id = 1;
+}
+
+message GetAccountResponse {
+  Account account = 1;
+}
+
+message GetSigningKeysRequest {}
+
+message SigningKey {
+  // Key id, matching the "kid" header of access tokens.
+  string kid = 1;
+  // Public key as a JSON Web Key (JWK) document.
+  string jwk_json = 2;
+}
+
+message GetSigningKeysResponse {
+  repeated SigningKey keys = 1;
+}

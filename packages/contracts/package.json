@@ -9,6 +9,10 @@
       "types": "./dist/gen/chronos/disclosure/v1/disclosure.d.ts",
       "default": "./dist/gen/chronos/disclosure/v1/disclosure.js"
     },
+    "./identity": {
+      "types": "./dist/gen/chronos/identity/v1/identity.d.ts",
+      "default": "./dist/gen/chronos/identity/v1/identity.js"
+    },
     "./events": {
       "types": "./dist/src/events/index.d.ts",
       "default": "./dist/src/events/index.js"

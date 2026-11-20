@@ -21,3 +21,4 @@ Status values: Proposed, Accepted, Superseded. Decisions below were taken by the
 | 0015 | Contracts toolchain (Buf, ts-proto) and Disclosure API design | Accepted |
 | 0016 | Service template, telemetry and container image | Accepted |
 | 0017 | Web-first member app; native app deferred | Accepted (E2EE on web needs external input) |
+| 0018 | Identity: accounts, phone OTP and sessions | Accepted (minors' data retention needs counsel) |
