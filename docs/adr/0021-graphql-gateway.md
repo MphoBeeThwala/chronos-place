@@ -17,7 +17,9 @@ Status: Accepted (2026-11-21, product owner approved the M1.3 plan and decisions
   - Before onboarding is finished, only the onboarding steps are allowed (`ONBOARDING_FIELDS` in `@chronos/contracts`).
   - An account that may no longer sign in is treated as signed out.
   - Fragments cannot hide a field from the guard.
-- **Silent refresh (decision c):** members stay signed in for 30 days of activity on a device; the 10-minute access token is renewed through `refreshSession` without the member noticing. The gateway lets only one refresh per session run at a time (ADR-0018).
+- **Silent refresh (decision c):** members stay signed in for 30 days of activity on a device; the 10-minute access token is renewed through `refreshSession` without the member noticing. The gateway lets only one refresh per refresh token run at a time (ADR-0018), so a burst of parallel requests never looks like token theft:
+  - Refreshes arriving at the same replica share one exchange, and every response carries the new cookies.
+  - A refresh arriving at another replica while one is in flight (a Redis lock, keyed by a hash of the token) gets `REFRESH_IN_PROGRESS` without reaching identity. The client retries; by then the browser holds the new cookies.
 - **Not yet built (decision d):** schema fields whose service does not exist answer `NOT_AVAILABLE`.
 - **Errors:**
   - Clients see only known codes, with their fixed messages.

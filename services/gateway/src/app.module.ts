@@ -9,10 +9,14 @@ import { buildContext, type GatewayContext, type RequestLike } from './auth/cont
 import { authGuard } from './auth/guard.js';
 import { DEVELOPMENT_ENVIRONMENTS } from './config.js';
 import { formatError } from './graphql/errors.js';
+import { identityResolvers } from './graphql/identity-resolvers.js';
 import { type ResolverMap, rootResolvers } from './graphql/not-available.js';
 import { createGatewayRuntime, type GatewayConfig, type GatewayRuntime } from './runtime.js';
 
 export const GATEWAY_RUNTIME = Symbol('GATEWAY_RUNTIME');
+
+/** Fields served today. Others answer NOT_AVAILABLE until their services exist. */
+const defaultResolvers = (runtime: GatewayRuntime): ResolverMap => identityResolvers(runtime);
 
 const SDL = readFileSync(schemaPath, 'utf8');
 
@@ -54,7 +58,7 @@ export function createAppModule(options: AppModuleOptions = {}): Type {
           };
           return {
             typeDefs: SDL,
-            resolvers: rootResolvers(SDL, options.resolvers?.(runtime)),
+            resolvers: rootResolvers(SDL, (options.resolvers ?? defaultResolvers)(runtime)),
             path: '/graphql',
             playground: false,
             graphiql: false,

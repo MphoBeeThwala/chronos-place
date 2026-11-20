@@ -13,6 +13,7 @@ Shared settings come from `@chronos/service-kit`. The gateway's own settings (`s
 | Variable                | Default           | Notes                                                          |
 | ----------------------- | ----------------- | -------------------------------------------------------------- |
 | `IDENTITY_GRPC_ADDRESS` | `127.0.0.1:50052` | Identity's gRPC API.                                           |
+| `REDIS_URL`             | (required)        | Refresh locks across replicas; rate limits next.               |
 | `GRAPHQL_PUBLIC_PATH`   | `/api/graphql`    | The path the browser uses; the refresh cookie is scoped to it. |
 | `COOKIE_SECURE`         | `true`            | Only local HTTP development may set `false`.                   |
 | `TRUSTED_PROXY_HOPS`    | `1`               | Proxies whose `X-Forwarded-For` entries are trusted.           |
@@ -20,5 +21,7 @@ Shared settings come from `@chronos/service-kit`. The gateway's own settings (`s
 ## Tests
 
 ```sh
-pnpm --filter @chronos/gateway test   # unit and HTTP end-to-end (against a fake identity gRPC server)
+pnpm --filter @chronos/gateway test               # unit and HTTP end-to-end (against a fake identity gRPC server)
+pnpm --filter @chronos/gateway test:privacy       # leak harness over logs and responses
+pnpm --filter @chronos/gateway test:integration   # Redis lock (Testcontainers, or TEST_REDIS_URL)
 ```
