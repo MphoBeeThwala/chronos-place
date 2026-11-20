@@ -1,19 +1,26 @@
 version: 2
 updates:
+  # One root entry for the whole pnpm workspace. Dependabot reads pnpm-workspace.yaml and updates
+  # pnpm-lock.yaml with every bump; per-package directories produced PRs without lockfile changes,
+  # which fail `pnpm install --frozen-lockfile` in CI.
   - package-ecosystem: npm
-    directories:
-      - /
-      - /packages/*
-      - /tools/*
+    directory: /
     schedule:
       interval: weekly
     open-pull-requests-limit: 10
     groups:
       minor-and-patch:
         update-types: [minor, patch]
-    # Pinned together: OpenTelemetry's Node packages are on the 0.2xx experimental line.
+      # OpenTelemetry's Node packages are on the 0.2xx experimental line and must move together
+      # (ADR-0016).
+      opentelemetry:
+        patterns: ['@opentelemetry/*']
     ignore:
+      # Majors are planned upgrades, not automatic ones.
       - dependency-name: typescript
+        update-types: [version-update:semver-major]
+      # Types must match the Node.js runtime major (.nvmrc), not the newest Node.
+      - dependency-name: '@types/node'
         update-types: [version-update:semver-major]
   - package-ecosystem: github-actions
     directory: /
