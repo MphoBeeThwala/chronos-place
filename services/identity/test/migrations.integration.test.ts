@@ -33,10 +33,12 @@ describe('identity migrations', () => {
     expect(rows.map((r) => r.table_name)).toEqual([
       'account_keys',
       'accounts',
+      'consent_records',
       'otp_challenges',
       'outbox',
       'refresh_tokens',
       'sessions',
+      'vault_erasure_requests',
     ]);
   });
 

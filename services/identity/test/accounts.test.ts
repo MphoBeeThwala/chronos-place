@@ -10,13 +10,14 @@ import { client, createOtpHarness, syntheticPhone } from './support/otp-fakes.js
 // 20 November 2026, midday in South Africa.
 const NOW = new Date('2026-11-20T10:00:00.000Z');
 
-function setup() {
+function setup(options: { consented?: boolean } = {}) {
   const otp = createOtpHarness();
   const accounts = new InMemoryAccountStore();
   const revoked: string[] = [];
   const service = new AccountService({
     accounts,
     keyring: otp.keyring,
+    hasActivationConsents: () => Promise.resolve(options.consented ?? true),
     revokeAllSessions: (accountId) => {
       revoked.push(accountId);
       return Promise.resolve();
@@ -93,6 +94,19 @@ describe('account.created event', () => {
 });
 
 describe('date of birth and the 18+ rule', () => {
+  it('needs terms and privacy accepted first, and changes nothing until then', async () => {
+    const { service, verify, accounts } = setup({ consented: false });
+    const { account } = await service.signIn(await verify());
+    const error = await domainError(
+      service.setDateOfBirth(account.id, { year: 1990, month: 1, day: 1 }),
+    );
+    expect(error).toMatchObject({
+      code: 'failed_precondition',
+      message: 'Accept the terms and the privacy policy first.',
+    });
+    expect(accounts.rows.get(account.id)?.status).toBe('pending_onboarding');
+  });
+
   it('activates an adult and keeps the date', async () => {
     const { service, verify, accounts } = setup();
     const { account } = await service.signIn(await verify());

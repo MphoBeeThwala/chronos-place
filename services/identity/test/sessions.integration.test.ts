@@ -52,6 +52,7 @@ function setup(clock = { now: new Date() }) {
   const accounts = new AccountService({
     accounts: accountStore,
     keyring,
+    hasActivationConsents: () => Promise.resolve(true),
     revokeAllSessions: (id, reason) => sessions.revokeAll(id, reason),
     logger,
     now: () => clock.now,

@@ -2,7 +2,7 @@ import type { SubjectKeyring } from '@chronos/crypto';
 import type { Logger } from '@chronos/logger';
 import { sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { accounts, otpChallenges, outbox, sessions } from '../db/schema.js';
+import { accounts, otpChallenges, outbox, sessions, vaultErasureRequests } from '../db/schema.js';
 
 /** Expired challenges are kept this long, so a sign-in finishing at the expiry edge is never cut off. */
 export const CHALLENGE_GRACE_MS = 10 * 60 * 1000;
@@ -11,6 +11,8 @@ export const EXPIRED_SESSION_GRACE_MS = 24 * 60 * 60 * 1000;
 export const REVOKED_SESSION_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 /** Published events are kept a week for replays, then deleted. */
 export const PUBLISHED_EVENT_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+/** Confirmed vault erasures are kept 30 days as proof the request was carried out, then deleted. */
+export const COMPLETED_ERASURE_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const BATCH = 500;
 
 export interface CleanupResult {
@@ -61,6 +63,10 @@ export class IdentityCleanup {
       delete from ${outbox}
        where published_at < ${new Date(now - PUBLISHED_EVENT_RETENTION_MS)}`);
     result.events = deletedEvents.rowCount ?? 0;
+
+    await this.#db.execute(sql`
+      delete from ${vaultErasureRequests}
+       where completed_at < ${new Date(now - COMPLETED_ERASURE_RETENTION_MS)}`);
 
     if (Object.values(result).some((n) => n > 0)) this.#logger.info(result, 'identity cleanup');
     return result;

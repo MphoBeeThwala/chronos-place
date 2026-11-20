@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { createServer } from 'node:net';
-import { AccountStatus } from '@chronos/contracts/identity';
+import { AccountStatus, ConsentType } from '@chronos/contracts/identity';
 import { SubjectKeyring } from '@chronos/crypto';
 import { InMemoryKeyWrapper } from '@chronos/crypto/testing';
 import { bootstrapService, type RunningService } from '@chronos/service-kit';
@@ -57,6 +57,15 @@ interface IdentityClient {
   >;
   getAccount: Call<{ accountId: string }, { account: Account }>;
   getSigningKeys: Call<object, { keys: { kid: string; jwkJson: string }[] }>;
+  recordConsent: Call<
+    { accountId: string; type: ConsentType; policyVersion: string; granted: boolean },
+    { account: Account }
+  >;
+  listConsents: Call<
+    { accountId: string },
+    { records?: { type: ConsentType; policyVersion: string; granted: boolean; recordedAt: Date }[] }
+  >;
+  getCurrentPolicies: Call<object, { policies: { type: ConsentType; version: string }[] }>;
 }
 
 const freePort = (): Promise<number> =>
@@ -153,6 +162,15 @@ async function signIn(phone: string) {
   return call(identity.verifyOtp({ challengeId, code: sender.lastCode(), client: CLIENT }));
 }
 
+/** Accepts the current terms and privacy policy, as onboarding requires before the date of birth. */
+async function acceptRequired(accountId: string) {
+  const { policies } = await call(identity.getCurrentPolicies({}));
+  for (const type of [ConsentType.CONSENT_TYPE_TERMS, ConsentType.CONSENT_TYPE_PRIVACY]) {
+    const version = policies.find((p) => p.type === type)?.version ?? '';
+    await call(identity.recordConsent({ accountId, type, policyVersion: version, granted: true }));
+  }
+}
+
 const sid = (accessToken: string) =>
   (
     JSON.parse(Buffer.from(accessToken.split('.')[1] ?? '', 'base64url').toString()) as {
@@ -167,6 +185,7 @@ describe('identity gRPC API', () => {
     expect(first.account.status).toBe(AccountStatus.ACCOUNT_STATUS_PENDING_ONBOARDING);
     expect(new Date(first.tokens.accessExpiresAt).getTime()).toBeGreaterThan(Date.now());
 
+    await acceptRequired(first.account.accountId);
     const { account } = await call(
       identity.setDateOfBirth({
         accountId: first.account.accountId,
@@ -188,6 +207,7 @@ describe('identity gRPC API', () => {
   it('blocks an under-18 member for good', async () => {
     const first = await signIn('082 000 0102');
     const year = new Date().getUTCFullYear() - 16;
+    await acceptRequired(first.account.accountId);
     const { account } = await call(
       identity.setDateOfBirth({
         accountId: first.account.accountId,
@@ -257,5 +277,62 @@ describe('identity gRPC API', () => {
     const jwk = JSON.parse(keys[0]?.jwkJson ?? '{}') as Record<string, unknown>;
     expect(jwk).toMatchObject({ kty: 'EC', crv: 'P-256' });
     expect(jwk).not.toHaveProperty('d');
+  });
+
+  it('takes the date of birth only after terms and privacy are accepted', async () => {
+    const first = await signIn('082 000 0105');
+    const refused = await grpcError(
+      call(
+        identity.setDateOfBirth({
+          accountId: first.account.accountId,
+          dateOfBirth: { year: 1990, month: 1, day: 1 },
+        }),
+      ),
+    );
+    expect(refused).toEqual({
+      code: status.FAILED_PRECONDITION,
+      details: 'Accept the terms and the privacy policy first.',
+    });
+    await acceptRequired(first.account.accountId);
+    const { records } = await call(identity.listConsents({ accountId: first.account.accountId }));
+    expect(records?.map((r) => [r.type, r.granted])).toEqual([
+      [ConsentType.CONSENT_TYPE_TERMS, true],
+      [ConsentType.CONSENT_TYPE_PRIVACY, true],
+    ]);
+  });
+
+  it('refuses an outdated policy version, and ends the account when terms are withdrawn', async () => {
+    const first = await signIn('082 000 0106');
+    const outdated = await grpcError(
+      call(
+        identity.recordConsent({
+          accountId: first.account.accountId,
+          type: ConsentType.CONSENT_TYPE_TERMS,
+          policyVersion: 'terms-2020-01-01',
+          granted: true,
+        }),
+      ),
+    );
+    expect(outdated.code).toBe(status.FAILED_PRECONDITION);
+    const { policies } = await call(identity.getCurrentPolicies({}));
+    const terms = policies.find((p) => p.type === ConsentType.CONSENT_TYPE_TERMS)?.version ?? '';
+    const { account } = await call(
+      identity.recordConsent({
+        accountId: first.account.accountId,
+        type: ConsentType.CONSENT_TYPE_TERMS,
+        policyVersion: terms,
+        granted: false,
+      }),
+    );
+    expect(account.status).toBe(AccountStatus.ACCOUNT_STATUS_PENDING_ERASURE);
+    expect(
+      (
+        await grpcError(
+          call(
+            identity.refreshSession({ refreshToken: first.tokens.refreshToken, client: CLIENT }),
+          ),
+        )
+      ).code,
+    ).toBe(status.UNAUTHENTICATED);
   });
 });

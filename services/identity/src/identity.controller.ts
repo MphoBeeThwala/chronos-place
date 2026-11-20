@@ -1,10 +1,10 @@
-import { AccountStatus } from '@chronos/contracts/identity';
+import { AccountStatus, ConsentType } from '@chronos/contracts/identity';
 import { DomainError } from '@chronos/service-kit';
 import { Controller, Inject } from '@nestjs/common';
 import { GrpcMethod } from '@nestjs/microservices';
 import { z } from 'zod';
 import type { AccountRecord } from './accounts/account-store.js';
-import type { AccountStatus as StoredStatus } from './db/schema.js';
+import type { ConsentType as StoredConsent, AccountStatus as StoredStatus } from './db/schema.js';
 import type { IdentityRuntime } from './runtime.js';
 import type { SessionTokens } from './sessions/session.service.js';
 
@@ -29,6 +29,12 @@ const schemas = {
   refresh: z.object({ refreshToken: z.string().max(128), client: clientContext }),
   revoke: z.object({ sessionId: uuid, accountId: uuid }),
   account: z.object({ accountId: uuid }),
+  consent: z.object({
+    accountId: uuid,
+    type: z.number().int(),
+    policyVersion: z.string().min(1).max(64),
+    granted: z.boolean(),
+  }),
   dateOfBirth: z.object({
     accountId: uuid,
     dateOfBirth: z.object({
@@ -52,6 +58,16 @@ const STATUS: Record<StoredStatus, AccountStatus> = {
   suspended: AccountStatus.ACCOUNT_STATUS_SUSPENDED,
   pending_erasure: AccountStatus.ACCOUNT_STATUS_PENDING_ERASURE,
 };
+
+const CONSENT: Record<StoredConsent, ConsentType> = {
+  terms: ConsentType.CONSENT_TYPE_TERMS,
+  privacy: ConsentType.CONSENT_TYPE_PRIVACY,
+  health_processing: ConsentType.CONSENT_TYPE_HEALTH_PROCESSING,
+  marketing: ConsentType.CONSENT_TYPE_MARKETING,
+};
+const CONSENT_FROM_WIRE = new Map<number, StoredConsent>(
+  (Object.entries(CONSENT) as [StoredConsent, ConsentType][]).map(([k, v]) => [v, k]),
+);
 
 /** google.protobuf.Timestamp fields are passed as Date; the transport encodes them. */
 const timestamp = (date: Date): Date => date;
@@ -138,6 +154,43 @@ export class IdentityController {
     const { signer } = this.#runtime;
     return {
       keys: [{ kid: await signer.keyId(), jwkJson: JSON.stringify(await signer.publicJwk()) }],
+    };
+  }
+
+  @GrpcMethod(SERVICE, 'RecordConsent')
+  async recordConsent(request: unknown) {
+    const { accountId, type, policyVersion, granted } = parse(schemas.consent, request);
+    const consentType = CONSENT_FROM_WIRE.get(type);
+    if (consentType === undefined) throw new DomainError('invalid_argument', INVALID_REQUEST);
+    const result = await this.#runtime.consents.record(
+      accountId,
+      consentType,
+      policyVersion,
+      granted,
+    );
+    return { account: account(result.account) };
+  }
+
+  @GrpcMethod(SERVICE, 'ListConsents')
+  async listConsents(request: unknown) {
+    const { accountId } = parse(schemas.account, request);
+    const records = await this.#runtime.consents.history(accountId);
+    return {
+      records: records.map((r) => ({
+        type: CONSENT[r.type],
+        policyVersion: r.policyVersion,
+        granted: r.granted,
+        recordedAt: timestamp(r.recordedAt),
+      })),
+    };
+  }
+
+  @GrpcMethod(SERVICE, 'GetCurrentPolicies')
+  getCurrentPolicies() {
+    return {
+      policies: this.#runtime.consents
+        .currentPolicies()
+        .map((p) => ({ type: CONSENT[p.type], version: p.version })),
     };
   }
 }
