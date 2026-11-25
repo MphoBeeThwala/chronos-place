@@ -155,7 +155,13 @@ export const outbox = identity.table(
   (t) => [index('outbox_pending_idx').on(t.publishedAt, t.nextAttemptAt)],
 );
 
-export const CONSENT_TYPES = ['terms', 'privacy', 'health_processing', 'marketing'] as const;
+export const CONSENT_TYPES = [
+  'terms',
+  'privacy',
+  'health_processing',
+  'marketing',
+  'biometric_verification',
+] as const;
 export type ConsentType = (typeof CONSENT_TYPES)[number];
 
 /**
@@ -202,4 +208,64 @@ export const vaultErasureRequests = identity.table(
     createdAt,
   },
   (t) => [index('vault_erasure_pending_idx').on(t.completedAt, t.nextAttemptAt)],
+);
+
+export const VERIFICATION_OUTCOMES = ['pending', 'passed', 'failed', 'unavailable'] as const;
+export type VerificationOutcome = (typeof VERIFICATION_OUTCOMES)[number];
+
+export const VERIFICATION_FAILURES = ['poor_quality', 'not_confirmed'] as const;
+export type VerificationFailure = (typeof VERIFICATION_FAILURES)[number];
+
+/**
+ * Liveness checks (TASKS M1.4, ADR-0022). One row per capture submitted. Stores the outcome and a
+ * coarse reason only: no scores, face templates or vendor responses. The row id is the random
+ * reference sent to the vendor, so the vendor never sees the account id. The vendor's job id is
+ * sealed under the account key. The capture itself lives in object storage, sealed the same way,
+ * and is deleted after 30 days, when the biometric consent is withdrawn, or (by crypto-shred) when
+ * the account is erased.
+ */
+export const verificationAttempts = identity.table(
+  'verification_attempts',
+  {
+    id: uuid('id').primaryKey(),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => accounts.id, { onDelete: 'cascade' }),
+    provider: text('provider').notNull(),
+    outcome: text('outcome', { enum: VERIFICATION_OUTCOMES }).notNull(),
+    failure: text('failure', { enum: VERIFICATION_FAILURES }),
+    /** The vendor's job id, sealed under the account key. Null until the vendor accepts the capture. */
+    jobCiphertext: bytea('job_ciphertext'),
+    jobNonce: bytea('job_nonce'),
+    /** Object-storage key of the sealed capture. Null once it has been deleted. */
+    captureKey: text('capture_key'),
+    nextCheckAt: timestamp('next_check_at', { withTimezone: true }),
+    checks: integer('checks').notNull().default(0),
+    decidedAt: timestamp('decided_at', { withTimezone: true }),
+    /** The member asked for a person to review this failed check. */
+    reviewRequestedAt: timestamp('review_requested_at', { withTimezone: true }),
+    /**
+     * Set when the capture and the vendor's copy must be deleted before the 30 days are up
+     * (consent withdrawn, or a check that could not be completed).
+     */
+    purgeRequestedAt: timestamp('purge_requested_at', { withTimezone: true }),
+    createdAt,
+  },
+  (t) => [
+    index('verification_attempts_account_idx').on(t.accountId, t.createdAt),
+    index('verification_attempts_check_idx').on(t.outcome, t.nextCheckAt),
+    index('verification_attempts_capture_idx')
+      .on(t.createdAt)
+      .where(sql`capture_key is not null`),
+    check(
+      'verification_attempts_outcome_check',
+      sql.raw(`${t.outcome.name} in (${VERIFICATION_OUTCOMES.map((o) => `'${o}'`).join(', ')})`),
+    ),
+    check(
+      'verification_attempts_failure_check',
+      sql.raw(
+        `${t.failure.name} is null or ${t.failure.name} in (${VERIFICATION_FAILURES.map((f) => `'${f}'`).join(', ')})`,
+      ),
+    ),
+  ],
 );

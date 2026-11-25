@@ -39,6 +39,7 @@ describe('identity migrations', () => {
       'refresh_tokens',
       'sessions',
       'vault_erasure_requests',
+      'verification_attempts',
     ]);
   });
 

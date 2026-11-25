@@ -4,6 +4,9 @@ import { ReadinessRegistry, serviceConfigSchema } from '@chronos/service-kit';
 import { describe, expect, it } from 'vitest';
 import { identityConfig } from '../src/config.js';
 import { createIdentityRuntime, type IdentityConfig, IdentityConfigError } from '../src/runtime.js';
+import { InMemoryCaptureStore } from '../src/verification/capture-store.js';
+import { FakeLivenessProvider } from '../src/verification/provider.js';
+import { RecordingOtpSender } from './support/otp-fakes.js';
 
 const logger = createLogger({ service: 'identity-test', destination: { write: () => undefined } });
 
@@ -38,6 +41,23 @@ describe('start-up refuses unsafe configuration', () => {
         new ReadinessRegistry(),
       ),
     ).toThrow(/no SMS provider/);
+  });
+
+  it('keeps a liveness vendor off outside development while the biometric consent text is a draft', () => {
+    const production = config({ ACCESS_TOKEN_KEY_ID: 'alias/access-tokens' });
+    const edges = {
+      sender: new RecordingOtpSender(),
+      livenessProvider: new FakeLivenessProvider(),
+    };
+    expect(() => createIdentityRuntime(production, logger, new ReadinessRegistry(), edges)).toThrow(
+      /a capture store is required/,
+    );
+    expect(() =>
+      createIdentityRuntime(production, logger, new ReadinessRegistry(), {
+        ...edges,
+        captureStore: new InMemoryCaptureStore(),
+      }),
+    ).toThrow(/biometric consent text is a draft/);
   });
 
   it('rejects hash keys shorter than 32 bytes', () => {

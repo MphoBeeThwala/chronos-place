@@ -15,7 +15,7 @@ function setup(status: AccountStatus = 'pending_onboarding') {
   const revoked: string[] = [];
   const lines: string[] = [];
   let clock = Date.parse('2026-11-20T10:00:00Z');
-  const account: AccountRecord = { id: ACCOUNT, status, hasDateOfBirth: false };
+  const account: AccountRecord = { id: ACCOUNT, status, hasDateOfBirth: false, verified: false };
   const service = new ConsentService({
     consents: store,
     getAccount: () => Promise.resolve(account),
@@ -79,7 +79,43 @@ describe('recording consent', () => {
       'privacy',
       'health_processing',
       'marketing',
+      'biometric_verification',
     ]);
+  });
+});
+
+describe('biometric verification consent (ADR-0022)', () => {
+  it('is current only when granted at the current version', async () => {
+    const { service } = setup('active');
+    const version = CURRENT_POLICIES.biometric_verification;
+    expect(await service.hasCurrentConsent(ACCOUNT, 'biometric_verification')).toBe(false);
+    await service.record(ACCOUNT, 'biometric_verification', version, true);
+    expect(await service.hasCurrentConsent(ACCOUNT, 'biometric_verification')).toBe(true);
+    await service.record(ACCOUNT, 'biometric_verification', version, false);
+    expect(await service.hasCurrentConsent(ACCOUNT, 'biometric_verification')).toBe(false);
+  });
+
+  it('deletes verification data on withdrawal, and only then', async () => {
+    const forgotten: string[] = [];
+    const store = new InMemoryConsentStore();
+    const service = new ConsentService({
+      consents: store,
+      getAccount: () =>
+        Promise.resolve({ id: ACCOUNT, status: 'active', hasDateOfBirth: true, verified: true }),
+      revokeAllSessions: () => Promise.resolve(),
+      forgetVerification: (id) => {
+        forgotten.push(id);
+        return Promise.resolve();
+      },
+      logger: createLogger({ service: 'identity-test', destination: { write: () => undefined } }),
+    });
+    const version = CURRENT_POLICIES.biometric_verification;
+    await service.record(ACCOUNT, 'biometric_verification', version, true);
+    await service.record(ACCOUNT, 'marketing', CURRENT_POLICIES.marketing, false);
+    expect(forgotten).toEqual([]);
+    const result = await service.record(ACCOUNT, 'biometric_verification', version, false);
+    expect(forgotten).toEqual([ACCOUNT]);
+    expect(result.account.status).toBe('active');
   });
 });
 

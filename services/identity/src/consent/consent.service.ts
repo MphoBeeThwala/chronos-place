@@ -17,6 +17,8 @@ export interface ConsentServiceDeps {
   getAccount: (accountId: string) => Promise<AccountRecord>;
   /** Ends every session (SessionService.revokeAll). */
   revokeAllSessions: (accountId: string, reason: 'consent_withdrawn') => Promise<void>;
+  /** Biometric consent withdrawn: delete the selfie captures and the badge (ADR-0022). */
+  forgetVerification?: (accountId: string) => Promise<void>;
   logger: Logger;
   now?: () => Date;
   newId?: () => string;
@@ -36,7 +38,12 @@ export class ConsentService {
   readonly #d: Required<ConsentServiceDeps>;
 
   constructor(deps: ConsentServiceDeps) {
-    this.#d = { now: () => new Date(), newId: randomUUID, ...deps };
+    this.#d = {
+      now: () => new Date(),
+      newId: randomUUID,
+      forgetVerification: () => Promise.resolve(),
+      ...deps,
+    };
   }
 
   currentPolicies(): { type: ConsentType; version: string }[] {
@@ -81,6 +88,7 @@ export class ConsentService {
 
     await this.#d.consents.record(this.#d.newId(), accountId, entry, effects);
     if (endsAccount) await this.#d.revokeAllSessions(accountId, 'consent_withdrawn');
+    if (!granted && type === 'biometric_verification') await this.#d.forgetVerification(accountId);
     this.#d.logger.info({ accountId }, 'consent recorded');
     return {
       account: endsAccount ? { ...account, status: 'pending_erasure' } : account,
@@ -89,6 +97,12 @@ export class ConsentService {
 
   history(accountId: string): Promise<ConsentEntry[]> {
     return this.#d.consents.history(accountId);
+  }
+
+  /** True when the consent is granted at its current version. */
+  async hasCurrentConsent(accountId: string, type: ConsentType): Promise<boolean> {
+    const entry = (await this.#d.consents.latest(accountId))[type];
+    return entry?.granted === true && entry.policyVersion === CURRENT_POLICIES[type];
   }
 
   /** True when every consent required for activation is granted at its current version. */

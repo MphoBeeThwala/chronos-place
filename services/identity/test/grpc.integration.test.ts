@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { createServer } from 'node:net';
-import { AccountStatus, ConsentType } from '@chronos/contracts/identity';
+import { AccountStatus, ConsentType, VerificationStatus } from '@chronos/contracts/identity';
 import { SubjectKeyring } from '@chronos/crypto';
 import { InMemoryKeyWrapper } from '@chronos/crypto/testing';
 import { bootstrapService, type RunningService } from '@chronos/service-kit';
@@ -17,6 +17,7 @@ import { runMigrations } from '../src/db/migrate.js';
 import { IDENTITY_KEY_PURPOSE } from '../src/otp/otp.service.js';
 import { IDENTITY_PACKAGE, IDENTITY_PROTO } from '../src/proto.js';
 import { LocalAccessTokenSigner } from '../src/sessions/access-token.js';
+import { FakeLivenessProvider } from '../src/verification/provider.js';
 import { startTestDatabase, type TestDatabase } from './support/database.js';
 import { RecordingOtpSender } from './support/otp-fakes.js';
 import { startTestRedis, type TestRedis } from './support/redis.js';
@@ -31,6 +32,12 @@ interface Tokens {
 interface Account {
   accountId: string;
   status: number;
+  verified: boolean;
+}
+interface Verification {
+  status: VerificationStatus;
+  attemptsRemaining: number;
+  reviewAvailable: boolean;
 }
 interface Client {
   deviceId: string;
@@ -66,6 +73,14 @@ interface IdentityClient {
     { records?: { type: ConsentType; policyVersion: string; granted: boolean; recordedAt: Date }[] }
   >;
   getCurrentPolicies: Call<object, { policies: { type: ConsentType; version: string }[] }>;
+  submitLiveness: Call<
+    {
+      accountId: string;
+      capture: { selfieJpeg: Buffer; livenessFramesJpeg: Buffer[] };
+    },
+    { verification: Verification }
+  >;
+  getVerification: Call<{ accountId: string }, { verification: Verification }>;
 }
 
 const freePort = (): Promise<number> =>
@@ -87,6 +102,7 @@ let identity: IdentityClient;
 let closeClient: () => void;
 let keyPool: pg.Pool;
 const sender = new RecordingOtpSender();
+const liveness = new FakeLivenessProvider();
 const CLIENT = { deviceId: 'device-e2e', ip: '192.0.2.10' };
 
 beforeAll(async () => {
@@ -99,6 +115,7 @@ beforeAll(async () => {
   service = await bootstrapService({
     module: createAppModule({
       sender,
+      livenessProvider: liveness,
       signer: new LocalAccessTokenSigner(),
       keyring: new SubjectKeyring({
         wrapper: new InMemoryKeyWrapper(),
@@ -334,5 +351,42 @@ describe('identity gRPC API', () => {
         )
       ).code,
     ).toBe(status.UNAUTHENTICATED);
+  });
+
+  it('takes a liveness capture over the wire once the member has agreed to the check', async () => {
+    const first = await signIn('082 000 0107');
+    const accountId = first.account.accountId;
+    await acceptRequired(accountId);
+    await call(
+      identity.setDateOfBirth({ accountId, dateOfBirth: { year: 1990, month: 1, day: 1 } }),
+    );
+    const jpeg = (tag: string) =>
+      Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(1_000, tag)]);
+    const capture = { selfieJpeg: jpeg('S'), livenessFramesJpeg: [jpeg('A'), jpeg('B')] };
+
+    const refused = await grpcError(call(identity.submitLiveness({ accountId, capture })));
+    expect(refused).toEqual({
+      code: status.FAILED_PRECONDITION,
+      details: 'Agree to the selfie check before starting it.',
+    });
+
+    const { policies } = await call(identity.getCurrentPolicies({}));
+    const type = ConsentType.CONSENT_TYPE_BIOMETRIC_VERIFICATION;
+    const version = policies.find((p) => p.type === type)?.version ?? '';
+    await call(identity.recordConsent({ accountId, type, policyVersion: version, granted: true }));
+
+    const { verification } = await call(identity.submitLiveness({ accountId, capture }));
+    expect(verification.status).toBe(VerificationStatus.VERIFICATION_STATUS_PENDING);
+    expect(verification.attemptsRemaining).toBe(4);
+    const sent = liveness.submitted.at(-1);
+    expect(sent?.capture.selfie.equals(capture.selfieJpeg)).toBe(true);
+    expect(sent?.capture.frames).toHaveLength(2);
+    expect(sent?.reference).not.toBe(accountId);
+
+    const { account } = await call(identity.getAccount({ accountId }));
+    expect(account.verified).toBe(false);
+    expect((await call(identity.getVerification({ accountId }))).verification.status).toBe(
+      VerificationStatus.VERIFICATION_STATUS_PENDING,
+    );
   });
 });

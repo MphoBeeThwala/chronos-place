@@ -23,7 +23,13 @@ const args = {
   dateOfBirth: z.object({ dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }),
   consent: z.object({
     input: z.object({
-      type: z.enum(['TERMS', 'PRIVACY', 'HEALTH_PROCESSING', 'MARKETING']),
+      type: z.enum([
+        'TERMS',
+        'PRIVACY',
+        'HEALTH_PROCESSING',
+        'MARKETING',
+        'BIOMETRIC_VERIFICATION',
+      ]),
       policyVersion: z.string().min(1).max(64),
       granted: z.boolean(),
     }),
@@ -48,6 +54,7 @@ const CONSENT_TO_WIRE: Record<string, ConsentType> = {
   PRIVACY: ConsentType.CONSENT_TYPE_PRIVACY,
   HEALTH_PROCESSING: ConsentType.CONSENT_TYPE_HEALTH_PROCESSING,
   MARKETING: ConsentType.CONSENT_TYPE_MARKETING,
+  BIOMETRIC_VERIFICATION: ConsentType.CONSENT_TYPE_BIOMETRIC_VERIFICATION,
 };
 const CONSENT_FROM_WIRE = new Map<number, string>(
   Object.entries(CONSENT_TO_WIRE).map(([name, value]) => [value, name]),

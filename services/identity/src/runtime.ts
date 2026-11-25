@@ -28,6 +28,12 @@ import {
 } from './sessions/access-token.js';
 import { DrizzleSessionStore } from './sessions/session-store.js';
 import { SessionService } from './sessions/session.service.js';
+import { type CaptureStore, InMemoryCaptureStore } from './verification/capture-store.js';
+import { FakeLivenessProvider, type LivenessProvider } from './verification/provider.js';
+import { DrizzleVerificationStore } from './verification/verification-store.js';
+import { VerificationService } from './verification/verification.service.js';
+import { VerificationWorker } from './verification/verification-worker.js';
+import { isDraftPolicy } from './consent/policies.js';
 
 export type IdentityConfig = ServiceConfig<typeof identityConfig>;
 
@@ -36,6 +42,7 @@ export interface IdentityRuntime {
   otp: OtpService;
   accounts: AccountService;
   sessions: SessionService;
+  verification: VerificationService;
   signer: AccessTokenSigner;
   close: () => Promise<void>;
 }
@@ -56,6 +63,7 @@ function keyFrom(name: string, base64: string): Buffer {
 export const RELAY_INTERVAL_MS = 1_000;
 export const CLEANUP_INTERVAL_MS = 15 * 60 * 1000;
 export const VAULT_ERASURE_INTERVAL_MS = 30_000;
+export const VERIFICATION_INTERVAL_MS = 5_000;
 
 export interface RuntimeOverrides {
   /** Where outbox events go. Kafka once ADR-0019 is accepted; until then events wait in the outbox. */
@@ -65,6 +73,40 @@ export interface RuntimeOverrides {
   sender?: OtpSender;
   signer?: AccessTokenSigner;
   keyring?: SubjectKeyring;
+  /** The liveness vendor (ADR-0022). Development uses the fake one when none is given. */
+  livenessProvider?: LivenessProvider;
+  /** Object storage for sealed captures. Development keeps them in memory when none is given. */
+  captureStore?: CaptureStore;
+}
+
+/**
+ * Picks the liveness vendor and capture storage. Outside development a real vendor runs only when
+ * one is supplied, with object storage, and only once counsel has approved the biometric consent
+ * text; otherwise verification is switched off and SubmitLiveness answers UNAVAILABLE.
+ */
+function verificationEdges(
+  development: boolean,
+  overrides: RuntimeOverrides,
+  logger: Logger,
+): { provider: LivenessProvider | undefined; captures: CaptureStore } {
+  if (development) {
+    if (!overrides.livenessProvider) logger.warn('liveness: using the fake provider (development)');
+    return {
+      provider: overrides.livenessProvider ?? new FakeLivenessProvider(),
+      captures: overrides.captureStore ?? new InMemoryCaptureStore(),
+    };
+  }
+  if (!overrides.livenessProvider) {
+    logger.warn('liveness verification disabled: no vendor configured');
+    return { provider: undefined, captures: new InMemoryCaptureStore() };
+  }
+  if (!overrides.captureStore) {
+    throw new IdentityConfigError('a capture store is required with a liveness provider');
+  }
+  if (isDraftPolicy('biometric_verification')) {
+    throw new IdentityConfigError('the biometric consent text is a draft: counsel must approve it');
+  }
+  return { provider: overrides.livenessProvider, captures: overrides.captureStore };
 }
 
 /** Builds the service's dependencies from validated config. Tests can override the edges. */
@@ -83,6 +125,8 @@ export function createIdentityRuntime(
   if (!development && !overrides.sender) {
     throw new IdentityConfigError(`no SMS provider is available in ${config.NODE_ENV}`);
   }
+
+  const { provider, captures } = verificationEdges(development, overrides, logger);
 
   const pool = new pg.Pool({ connectionString: config.DATABASE_URL.reveal(), max: 10 });
   const db = drizzle(pool);
@@ -145,6 +189,17 @@ export function createIdentityRuntime(
     consents: new DrizzleConsentStore(db),
     getAccount: (id): ReturnType<AccountService['get']> => accounts.get(id),
     revokeAllSessions: (id, reason) => sessions.revokeAll(id, reason),
+    forgetVerification: (id) => verification.forget(id),
+    logger,
+  });
+  const verificationStore = new DrizzleVerificationStore(db);
+  const verification: VerificationService = new VerificationService({
+    store: verificationStore,
+    captures,
+    provider,
+    keyring,
+    getAccount: (id) => accounts.get(id),
+    hasConsent: (id) => consents.hasCurrentConsent(id, 'biometric_verification'),
     logger,
   });
 
@@ -161,6 +216,23 @@ export function createIdentityRuntime(
   } else {
     // Nothing is lost: events stay in identity.outbox until a publisher is configured.
     logger.warn('event relay disabled: no Kafka publisher yet (ADR-0019)');
+  }
+
+  let stopVerification: () => Promise<void> = () => Promise.resolve();
+  if (provider) {
+    const worker = new VerificationWorker({
+      store: verificationStore,
+      captures,
+      provider,
+      keyring,
+      logger,
+    });
+    stopVerification = every(
+      'verification',
+      VERIFICATION_INTERVAL_MS,
+      () => worker.runOnce(),
+      logger,
+    );
   }
 
   let stopVaultErasure: () => Promise<void> = () => Promise.resolve();
@@ -182,9 +254,10 @@ export function createIdentityRuntime(
     otp,
     accounts,
     sessions,
+    verification,
     signer,
     close: async () => {
-      await Promise.all([stopCleanup(), stopRelay(), stopVaultErasure()]);
+      await Promise.all([stopCleanup(), stopRelay(), stopVaultErasure(), stopVerification()]);
       keyring.clearCache();
       redis.disconnect();
       await pool.end();

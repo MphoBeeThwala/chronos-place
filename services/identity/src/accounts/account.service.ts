@@ -81,6 +81,7 @@ export class AccountService {
         id: verified.prospectiveAccountId,
         status: 'pending_onboarding',
         hasDateOfBirth: false,
+        verified: false,
       },
       created: true,
     };
@@ -133,13 +134,13 @@ export class AccountService {
       await this.#d.revokeAllSessions(accountId, 'ineligible');
       await this.#d.keyring.shred(accountId);
       this.#d.logger.info({ accountId }, 'account ineligible');
-      return { id: accountId, status: 'ineligible', hasDateOfBirth: false };
+      return { id: accountId, status: 'ineligible', hasDateOfBirth: false, verified: false };
     }
 
     if (!(await this.#d.accounts.activateWithDateOfBirth(accountId, toIsoDate(dateOfBirth)))) {
       throw new DomainError('failed_precondition', ALREADY_SET);
     }
     this.#d.logger.info({ accountId }, 'account activated');
-    return { id: accountId, status: 'active', hasDateOfBirth: true };
+    return { id: accountId, status: 'active', hasDateOfBirth: true, verified: false };
   }
 }
