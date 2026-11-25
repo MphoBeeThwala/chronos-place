@@ -26,3 +26,4 @@ Status values: Proposed, Accepted, Superseded. Decisions below were taken by the
 | 0020 | Consent records | Accepted |
 | 0021 | GraphQL gateway | Accepted |
 | 0022 | Liveness verification with Smile ID, browser never contacts the vendor | Accepted (vendor terms and consent text need counsel) |
+| 0023 | Profile service: blurred location, catalogue prompts and interests, private mode free | Accepted |

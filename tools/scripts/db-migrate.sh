@@ -17,5 +17,6 @@ if [[ -z "${DATABASE_URL:-}" ]]; then
 fi
 
 cd "$ROOT"
-pnpm turbo run build --filter='@chronos/identity...' --output-logs=errors-only
+pnpm turbo run build --filter='@chronos/identity...' --filter='@chronos/profile...' --output-logs=errors-only
 pnpm --filter '@chronos/identity' db:migrate
+pnpm --filter '@chronos/profile' db:migrate

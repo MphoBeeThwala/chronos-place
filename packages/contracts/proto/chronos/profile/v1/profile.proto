@@ -1,0 +1,155 @@
+syntax = "proto3";
+
+package chronos.profile.v1;
+
+// Profiles, prompts, interests and preferences (TASKS M1.5, ADR-0023).
+//
+// Conventions
+// - Callers are authenticated by mTLS identity and checked against a per-method allow-list (M2.5).
+//   Only the gateway calls these methods in M1.5.
+// - No health data, ever (CLAUDE.md rule 1). Health details live only in the Health Vault, behind
+//   the Disclosure Service. Free text written by members is never logged.
+// - Coordinates are write-only and are never returned (CLAUDE.md rule 8). Other members see only
+//   a rounded distance of at least 1 km.
+// - gRPC status codes: INVALID_ARGUMENT for input outside the limits, NOT_FOUND when the member has
+//   no profile yet. Error messages are fixed and never echo member input.
+service ProfileService {
+  // The member's own profile and preferences. NOT_FOUND until a profile is created. Caller: gateway.
+  rpc GetOwnProfile(GetOwnProfileRequest) returns (GetOwnProfileResponse);
+  // Creates or updates the member's profile. Only the fields that are set change. Creating a
+  // profile needs a display name and an intent; preferences start at their defaults. Caller: gateway.
+  rpc UpdateProfile(UpdateProfileRequest) returns (UpdateProfileResponse);
+  // Updates the member's preferences. Needs a profile. Caller: gateway.
+  rpc UpdatePreferences(UpdatePreferencesRequest) returns (UpdatePreferencesResponse);
+  // The prompt questions and interests members can choose from. Contains no member data. Caller: gateway.
+  rpc GetCatalogue(GetCatalogueRequest) returns (GetCatalogueResponse);
+}
+
+enum Intent {
+  INTENT_UNSPECIFIED = 0;
+  INTENT_LONG_TERM = 1;
+  INTENT_DATING = 2;
+  INTENT_FRIENDSHIP = 3;
+  INTENT_OPEN = 4;
+}
+
+message PromptAnswer {
+  // An id from the catalogue.
+  string prompt_id = 1;
+  // At most 300 characters.
+  string answer = 2;
+}
+
+message Profile {
+  string account_id = 1;
+  string display_name = 2;
+  string bio = 3;
+  Intent intent = 4;
+  string gender = 5;
+  string pronouns = 6;
+  // The member's own description of their area, such as "Johannesburg North". Optional.
+  string area_label = 7;
+  // Data flag only until discovery enforces it (ADR-0010): visible only to members they liked.
+  bool private_mode = 8;
+  // False while the member has paused their profile.
+  bool visible = 9;
+  // At most 3, in display order.
+  repeated PromptAnswer prompts = 10;
+  // Interest ids from the catalogue, at most 5.
+  repeated string interests = 11;
+  // True once the member has shared an approximate location (M1.5 part 2). The location itself is
+  // never returned, not even to its owner.
+  bool has_location = 12;
+}
+
+message Preferences {
+  // 18 to 99. 18 is a hard floor.
+  int32 age_min = 1;
+  int32 age_max = 2;
+  // 1 to 300.
+  int32 max_distance_km = 3;
+  // Empty means every intent.
+  repeated Intent intents = 4;
+  // Free-text genders the member wants to see. Empty means everyone.
+  repeated string genders = 5;
+}
+
+message GetOwnProfileRequest {
+  string account_id = 1;
+}
+
+message GetOwnProfileResponse {
+  Profile profile = 1;
+  Preferences preferences = 2;
+}
+
+message UpdateProfileResponse {
+  Profile profile = 1;
+  Preferences preferences = 2;
+}
+
+message UpdatePreferencesResponse {
+  Profile profile = 1;
+  Preferences preferences = 2;
+}
+
+message PromptList {
+  repeated PromptAnswer items = 1;
+}
+
+message InterestList {
+  repeated string ids = 1;
+}
+
+message UpdateProfileRequest {
+  string account_id = 1;
+  // Unset fields keep their value. An empty string clears an optional text field.
+  optional string display_name = 2;
+  optional string bio = 3;
+  Intent intent = 4;
+  optional string gender = 5;
+  optional string pronouns = 6;
+  optional string area_label = 7;
+  optional bool private_mode = 8;
+  optional bool visible = 9;
+  // When set, replaces all prompt answers.
+  PromptList prompts = 10;
+  // When set, replaces all interests.
+  InterestList interests = 11;
+}
+
+message StringList {
+  repeated string values = 1;
+}
+
+message IntentList {
+  repeated Intent values = 1;
+}
+
+message UpdatePreferencesRequest {
+  string account_id = 1;
+  optional int32 age_min = 2;
+  optional int32 age_max = 3;
+  optional int32 max_distance_km = 4;
+  // When set, replaces the intents. An empty list means every intent.
+  IntentList intents = 5;
+  // When set, replaces the genders. An empty list means everyone.
+  StringList genders = 6;
+}
+
+message PromptQuestion {
+  string id = 1;
+  string question = 2;
+}
+
+message Interest {
+  string id = 1;
+  string label = 2;
+}
+
+message GetCatalogueRequest {}
+
+message GetCatalogueResponse {
+  repeated PromptQuestion prompts = 1;
+  repeated Interest interests = 2;
+}
