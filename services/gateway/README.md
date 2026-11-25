@@ -4,6 +4,7 @@ The GraphQL front door for the member app (TASKS M1.3, [ADR-0021](../../docs/adr
 
 - Sessions live in `HttpOnly`, `SameSite=Strict` cookies only. Tokens never reach browser JavaScript.
 - Without a session, only `requestOtp`, `verifyOtp` and `refreshSession` work. Before onboarding is finished, only the onboarding steps work.
+- Selfie verification ([ADR-0022](../../docs/adr/0022-liveness-verification.md)): captures are posted as JSON to `POST /verification/capture` (signed-in, onboarded members; at most 3 MB of images; `Cache-Control: no-store`). Fields in `VERIFIED_FIELDS` answer `VERIFICATION_REQUIRED` until the member is verified.
 - Errors carry known codes and fixed messages only.
 - Limits: 300 requests a minute per IP and 600 per account, a query depth of 10 and complexity of 1,000, and size caps. Outside development, only approved operations run.
 

@@ -2,7 +2,7 @@ import type { Logger } from '@chronos/logger';
 import type { ServiceConfig } from '@chronos/service-kit';
 import { AccountStatus } from '@chronos/contracts/identity';
 import { Redis } from 'ioredis';
-import type { AccountState } from './auth/guard.js';
+import type { AccountInfo, AccountState } from './auth/guard.js';
 import { type RefreshLock, RedisRefreshLock } from './auth/refresh-lock.js';
 import { SigningKeyCache } from './auth/signing-keys.js';
 import { PersistedOperations } from './limits/persisted-operations.js';
@@ -13,13 +13,17 @@ import { IDENTITY_PROTO } from './identity/proto.js';
 
 export type GatewayConfig = ServiceConfig<typeof gatewayConfig>;
 
-/** How long an account's state is cached for the guard. Onboarding mutations clear it (PR 2). */
+/**
+ * How long an account's state and verified flag are cached for the guard. Onboarding and consent
+ * mutations clear it, so a withdrawn biometric consent closes the verified gate at once.
+ */
 export const ACCOUNT_STATE_TTL_MS = 15_000;
 
 export interface GatewayRuntime {
   identity: IdentityClient;
   keys: SigningKeyCache;
-  accountState: (accountId: string) => Promise<AccountState>;
+  /** State and verified flag of an account, cached briefly for the guard. */
+  accountInfo: (accountId: string) => Promise<AccountInfo>;
   forgetAccountState: (accountId: string) => void;
   refreshLock: RefreshLock;
   rateLimiter: RateLimiter;
@@ -78,31 +82,28 @@ export function createGatewayRuntime(
     Buffer.from(config.RATE_LIMIT_HASH_KEY.reveal(), 'base64'),
   );
 
-  const states = new Map<string, { state: AccountState; at: number }>();
-  const accountState = async (accountId: string): Promise<AccountState> => {
+  const states = new Map<string, { info: AccountInfo; at: number }>();
+  const accountInfo = async (accountId: string): Promise<AccountInfo> => {
     const cached = states.get(accountId);
-    if (cached && Date.now() - cached.at < ACCOUNT_STATE_TTL_MS) return cached.state;
+    if (cached && Date.now() - cached.at < ACCOUNT_STATE_TTL_MS) return cached.info;
     try {
-      const { account } = await identity.call<{ account: { status: AccountStatus } }>(
-        'getAccount',
-        {
-          accountId,
-        },
-      );
-      const state = stateOf(account.status);
-      states.set(accountId, { state, at: Date.now() });
+      const { account } = await identity.call<{
+        account: { status: AccountStatus; verified: boolean };
+      }>('getAccount', { accountId });
+      const info: AccountInfo = { state: stateOf(account.status), verified: account.verified };
+      states.set(accountId, { info, at: Date.now() });
       if (states.size > 50_000) states.clear();
-      return state;
+      return info;
     } catch (err) {
       logger.warn({ err }, 'account state lookup failed');
-      return 'unavailable';
+      return { state: 'unavailable', verified: false };
     }
   };
 
   return {
     identity,
     keys,
-    accountState,
+    accountInfo,
     forgetAccountState: (accountId) => states.delete(accountId),
     refreshLock,
     rateLimiter,

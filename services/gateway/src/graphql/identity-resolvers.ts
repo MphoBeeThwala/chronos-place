@@ -7,6 +7,7 @@ import { lockKey, type RefreshLock } from '../auth/refresh-lock.js';
 import { fromGrpc } from '../identity/errors.js';
 import { type IdentityClient, toDate, type WireTimestamp } from '../identity/identity-client.js';
 import type { ResolverMap } from './not-available.js';
+import { verificationView, type WireVerification } from './verification.js';
 
 /** How long one refresh may hold the lock. Longer than identity's deadline. */
 export const REFRESH_LOCK_TTL_MS = 5000;
@@ -63,6 +64,7 @@ const CONSENT_FROM_WIRE = new Map<number, string>(
 interface WireAccount {
   accountId: string;
   status: AccountStatus;
+  verified?: boolean;
 }
 interface WireTokens {
   accessToken: string;
@@ -75,7 +77,11 @@ interface SessionResult {
   tokens: WireTokens;
 }
 
-const account = (a: WireAccount) => ({ id: a.accountId, status: STATUS[a.status] ?? 'SUSPENDED' });
+const account = (a: WireAccount) => ({
+  id: a.accountId,
+  status: STATUS[a.status] ?? 'SUSPENDED',
+  verified: a.verified === true,
+});
 const usable = (status: AccountStatus) =>
   status === AccountStatus.ACCOUNT_STATUS_ACTIVE ||
   status === AccountStatus.ACCOUNT_STATUS_PENDING_ONBOARDING;
@@ -163,6 +169,13 @@ export function identityResolvers(deps: IdentityResolverDeps): ResolverMap {
           recordedAt: toDate(r.recordedAt).toISOString(),
         }));
       },
+      verification: async (_parent, _args, ctx) => {
+        const viewer = viewerOf(ctx as GatewayContext);
+        const result = await call<{ verification: WireVerification }>('getVerification', {
+          accountId: viewer.accountId,
+        });
+        return verificationView(result.verification);
+      },
       currentPolicies: async () => {
         const result = await call<{ policies: { type: number; version: string }[] }>(
           'getCurrentPolicies',
@@ -175,6 +188,13 @@ export function identityResolvers(deps: IdentityResolverDeps): ResolverMap {
       },
     },
     Mutation: {
+      requestVerificationReview: async (_parent, _args, ctx) => {
+        const viewer = viewerOf(ctx as GatewayContext);
+        const result = await call<{ verification: WireVerification }>('requestVerificationReview', {
+          accountId: viewer.accountId,
+        });
+        return verificationView(result.verification);
+      },
       requestOtp: async (_parent, raw, ctx) => {
         const { phone } = parse(args.requestOtp, raw);
         const c = ctx as GatewayContext;

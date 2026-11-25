@@ -3,7 +3,8 @@ import { ApolloDriver, type ApolloDriverConfig } from '@nestjs/apollo';
 import { schemaPath } from '@chronos/contracts/graphql';
 import type { Logger } from '@chronos/logger';
 import { SERVICE_CONFIG, SERVICE_LOGGER } from '@chronos/service-kit';
-import { Inject, Module, type OnModuleDestroy, type Type } from '@nestjs/common';
+import { Inject, Module, type OnModuleDestroy, type OnModuleInit, type Type } from '@nestjs/common';
+import { HttpAdapterHost } from '@nestjs/core';
 import { GraphQLModule } from '@nestjs/graphql';
 import { buildContext, type GatewayContext, type RequestLike } from './auth/context.js';
 import { authGuard } from './auth/guard.js';
@@ -19,6 +20,7 @@ import {
 import { identityResolvers } from './graphql/identity-resolvers.js';
 import { type ResolverMap, rootResolvers } from './graphql/not-available.js';
 import { createGatewayRuntime, type GatewayConfig, type GatewayRuntime } from './runtime.js';
+import { registerCaptureRoute, type RouteHost } from './verification/capture-route.js';
 
 export const GATEWAY_RUNTIME = Symbol('GATEWAY_RUNTIME');
 
@@ -31,6 +33,8 @@ export interface AppModuleOptions {
   /** Tests replace the identity client and add resolvers. */
   runtime?: (config: GatewayConfig, logger: Logger) => GatewayRuntime;
   resolvers?: (runtime: GatewayRuntime) => ResolverMap;
+  /** Tests gate their own fields; defaults to VERIFIED_FIELDS from the contracts. */
+  verifiedFields?: readonly string[];
 }
 
 /** Root module of the GraphQL gateway (TASKS M1.3). Clients reach it at /graphql. */
@@ -97,7 +101,7 @@ export function createAppModule(options: AppModuleOptions = {}): Type {
               }),
             plugins: [
               persistedOperationsPlugin(runtime.persistedOperations),
-              authGuard(runtime.accountState),
+              authGuard(runtime.accountInfo, options.verifiedFields),
               complexityLimit(),
               {
                 // Cookies set during the request (session, device) go out with the response.
@@ -116,11 +120,35 @@ export function createAppModule(options: AppModuleOptions = {}): Type {
       }),
     ],
   })
-  class AppModule implements OnModuleDestroy {
+  class AppModule implements OnModuleInit, OnModuleDestroy {
     readonly #runtime: GatewayRuntime;
+    readonly #adapter: HttpAdapterHost;
+    readonly #config: GatewayConfig;
+    readonly #logger: Logger;
 
-    constructor(@Inject(GATEWAY_RUNTIME) runtime: GatewayRuntime) {
+    constructor(
+      @Inject(GATEWAY_RUNTIME) runtime: GatewayRuntime,
+      @Inject(HttpAdapterHost) adapter: HttpAdapterHost,
+      @Inject(SERVICE_CONFIG) config: GatewayConfig,
+      @Inject(SERVICE_LOGGER) logger: Logger,
+    ) {
       this.#runtime = runtime;
+      this.#adapter = adapter;
+      this.#config = config;
+      this.#logger = logger;
+    }
+
+    /** The selfie capture upload (ADR-0022) is a plain route beside GraphQL. */
+    onModuleInit(): void {
+      registerCaptureRoute(this.#adapter.httpAdapter.getInstance<RouteHost>(), {
+        runtime: this.#runtime,
+        cookieOptions: {
+          secure: this.#config.COOKIE_SECURE,
+          graphqlPath: this.#config.GRAPHQL_PUBLIC_PATH,
+        },
+        trustedHops: this.#config.TRUSTED_PROXY_HOPS,
+        logger: this.#logger,
+      });
     }
 
     onModuleDestroy(): void {
