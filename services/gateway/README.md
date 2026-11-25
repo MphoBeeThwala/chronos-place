@@ -5,20 +5,26 @@ The GraphQL front door for the member app (TASKS M1.3, [ADR-0021](../../docs/adr
 - Sessions live in `HttpOnly`, `SameSite=Strict` cookies only. Tokens never reach browser JavaScript.
 - Without a session, only `requestOtp`, `verifyOtp` and `refreshSession` work. Before onboarding is finished, only the onboarding steps work.
 - Errors carry known codes and fixed messages only.
+- Limits: 300 requests a minute per IP and 600 per account, a query depth of 10 and complexity of 1,000, and size caps. Outside development, only approved operations run.
 
 ## Configuration
 
 Shared settings come from `@chronos/service-kit`. The gateway's own settings (`src/config.ts`):
 
-| Variable                | Default           | Notes                                                          |
-| ----------------------- | ----------------- | -------------------------------------------------------------- |
-| `IDENTITY_GRPC_ADDRESS` | `127.0.0.1:50052` | Identity's gRPC API.                                           |
-| `GRAPHQL_PUBLIC_PATH`   | `/api/graphql`    | The path the browser uses; the refresh cookie is scoped to it. |
-| `COOKIE_SECURE`         | `true`            | Only local HTTP development may set `false`.                   |
-| `TRUSTED_PROXY_HOPS`    | `1`               | Proxies whose `X-Forwarded-For` entries are trusted.           |
+| Variable                    | Default           | Notes                                                              |
+| --------------------------- | ----------------- | ------------------------------------------------------------------ |
+| `IDENTITY_GRPC_ADDRESS`     | `127.0.0.1:50052` | Identity's gRPC API.                                               |
+| `REDIS_URL`                 | (required)        | Refresh locks across replicas; rate limits next.                   |
+| `RATE_LIMIT_HASH_KEY`       | (required)        | Base64, at least 32 bytes. Keyed hashes of IPs in rate-limit keys. |
+| `PERSISTED_OPERATIONS_PATH` | (unset)           | The approved-operations manifest. Required outside development.    |
+| `GRAPHQL_PUBLIC_PATH`       | `/api/graphql`    | The path the browser uses; the refresh cookie is scoped to it.     |
+| `COOKIE_SECURE`             | `true`            | Only local HTTP development may set `false`.                       |
+| `TRUSTED_PROXY_HOPS`        | `1`               | Proxies whose `X-Forwarded-For` entries are trusted.               |
 
 ## Tests
 
 ```sh
-pnpm --filter @chronos/gateway test   # unit and HTTP end-to-end (against a fake identity gRPC server)
+pnpm --filter @chronos/gateway test               # unit and HTTP end-to-end (against a fake identity gRPC server)
+pnpm --filter @chronos/gateway test:privacy       # leak harness over logs and responses
+pnpm --filter @chronos/gateway test:integration   # Redis lock (Testcontainers, or TEST_REDIS_URL)
 ```

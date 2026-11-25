@@ -115,6 +115,24 @@ export class FakeIdentity {
     throw new GrpcFailure(status.UNIMPLEMENTED, 'not in fake');
   }
 
+  /** A session as identity's VerifyOtp and RefreshSession return it. */
+  async session(accountId: string, accountStatus: AccountStatus, refreshToken: string) {
+    const { token, expiresAt } = await issueAccessToken(
+      this.signer,
+      { accountId, sessionId: `s-${accountId}` },
+      new Date(),
+    );
+    return {
+      account: { accountId, status: accountStatus },
+      tokens: {
+        accessToken: token,
+        accessExpiresAt: expiresAt,
+        refreshToken,
+        refreshExpiresAt: new Date(Date.now() + 30 * 86_400_000),
+      },
+    };
+  }
+
   /** An access token for an account, as identity would issue it. */
   async token(accountId: string, now = new Date()): Promise<string> {
     return (await issueAccessToken(this.signer, { accountId, sessionId: `s-${accountId}` }, now))

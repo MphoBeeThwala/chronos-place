@@ -38,14 +38,14 @@ describe('sign-in guard (M1.3 AC: unauthenticated access blocked except OTP muta
   });
 
   it('lets the sign-in mutations through without a session', async () => {
-    for (const query of [
-      'mutation { requestOtp(phone: "0820000001") { challengeId } }',
+    identity.calls.length = 0;
+    await gql(gateway.url, 'mutation { requestOtp(phone: "0820000001") { challengeId } }');
+    await gql(
+      gateway.url,
       'mutation { verifyOtp(challengeId: "c", code: "123456") { expiresAt } }',
-      'mutation { refreshSession { expiresAt } }',
-    ]) {
-      // Past the guard; the resolvers arrive in the next PR.
-      expect(codes(await gql(gateway.url, query))).toEqual(['NOT_AVAILABLE']);
-    }
+    );
+    // Past the guard: each reached identity (the fake has no handler, so it fails there).
+    expect(identity.calls.map((c) => c.method)).toEqual(['requestOtp', 'verifyOtp']);
   });
 
   it('refuses a sign-in mutation bundled with anything else', async () => {
@@ -86,9 +86,9 @@ describe('sign-in guard (M1.3 AC: unauthenticated access blocked except OTP muta
 
   it('keeps a member who has not finished signing up to the onboarding steps', async () => {
     const cookie = await signedIn(PENDING);
-    expect(codes(await gql(gateway.url, '{ account { id } }', { cookie }))).toEqual([
-      'NOT_AVAILABLE',
-    ]);
+    expect(
+      (await gql(gateway.url, '{ account { status } }', { cookie })).body.data?.['account'],
+    ).toEqual({ status: 'PENDING_ONBOARDING' });
     for (const query of [
       '{ me { id } }',
       '{ feed { edges { cursor } } }',

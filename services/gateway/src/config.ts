@@ -1,8 +1,17 @@
-import { flag } from '@chronos/config';
+import { flag, redisUrl, secret } from '@chronos/config';
 import { z } from 'zod';
 
 /** The gateway's own settings, merged with the kit's. */
 export const gatewayConfig = {
+  /** Refresh locks across replicas now; rate limits next (ADR-0021). */
+  REDIS_URL: redisUrl,
+  /** Base64, at least 32 bytes: keyed hashes of IP addresses in rate-limit keys. */
+  RATE_LIMIT_HASH_KEY: secret(32),
+  /**
+   * The approved-operations manifest built from the web app (ADR-0021, decision b). Required
+   * outside development: only operations listed there run.
+   */
+  PERSISTED_OPERATIONS_PATH: z.string().min(1).optional(),
   /** host:port of the identity service's gRPC API. */
   IDENTITY_GRPC_ADDRESS: z
     .string()
