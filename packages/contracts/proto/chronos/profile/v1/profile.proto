@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package chronos.profile.v1;
 
+import "google/protobuf/timestamp.proto";
+
 // Profiles, prompts, interests and preferences (TASKS M1.5, ADR-0023).
 //
 // Conventions
@@ -33,6 +35,20 @@ service ProfileService {
   // discovery can tell whom the member liked, M3), accounts that are not active, and the viewer.
   // At most 50 ids; results keep the request order. Callers: gateway, discovery (M3).
   rpc GetPublicProfiles(GetPublicProfilesRequest) returns (GetPublicProfilesResponse);
+
+  // Photos (TASKS M1.6, ADR-0024). Caller: gateway.
+  // A presigned PUT into quarantine for one photo: valid 5 minutes, for exactly this content type
+  // and byte length (JPEG, PNG or WebP, at most 10 MB). Needs a profile and fewer than 6 photos.
+  rpc CreatePhotoUpload(CreatePhotoUploadRequest) returns (CreatePhotoUploadResponse);
+  // Processes an upload: re-encodes it without metadata (no GPS), stores three sizes, deletes the
+  // original and adds the photo last. New photos are PENDING until moderation approves them.
+  rpc CompletePhotoUpload(CompletePhotoUploadRequest) returns (CompletePhotoUploadResponse);
+  // The member's own photos, every status, in order, with links valid for 1 hour.
+  rpc ListOwnPhotos(ListOwnPhotosRequest) returns (ListOwnPhotosResponse);
+  // Puts the member's photos in the order given. The ids must be exactly their current photos.
+  rpc ReorderPhotos(ReorderPhotosRequest) returns (ReorderPhotosResponse);
+  // Deletes a photo and every size of it at once.
+  rpc DeletePhoto(DeletePhotoRequest) returns (DeletePhotoResponse);
 }
 
 enum Intent {
@@ -200,8 +216,85 @@ message PublicProfile {
   repeated PromptAnswer prompts = 10;
   repeated string interests = 11;
   bool verified = 12;
+  // Approved photos only, in the member's order (ADR-0024 decision e).
+  repeated Photo photos = 13;
 }
 
 message GetPublicProfilesResponse {
   repeated PublicProfile profiles = 1;
+}
+
+enum PhotoModeration {
+  PHOTO_MODERATION_UNSPECIFIED = 0;
+  PHOTO_MODERATION_PENDING = 1;
+  PHOTO_MODERATION_APPROVED = 2;
+  PHOTO_MODERATION_REJECTED = 3;
+}
+
+// One size of a photo. The URL is a presigned GET valid for 1 hour; never cache it longer.
+message PhotoVariant {
+  // Long side in pixels: 320, 640 or 1280 (smaller when the original was smaller).
+  int32 size = 1;
+  string url = 2;
+}
+
+message Photo {
+  string id = 1;
+  // 0 to 5, the first is the main photo.
+  int32 position = 2;
+  // Always APPROVED in another member's view.
+  PhotoModeration moderation = 3;
+  repeated PhotoVariant variants = 4;
+  // Of the largest size.
+  int32 width = 5;
+  int32 height = 6;
+}
+
+message CreatePhotoUploadRequest {
+  string account_id = 1;
+  // image/jpeg, image/png or image/webp. The stored file is checked from its bytes regardless.
+  string content_type = 2;
+  int32 byte_length = 3;
+}
+
+message CreatePhotoUploadResponse {
+  string upload_id = 1;
+  // PUT the file here with exactly this Content-Type and Content-Length.
+  string upload_url = 2;
+  google.protobuf.Timestamp expires_at = 3;
+}
+
+message CompletePhotoUploadRequest {
+  string account_id = 1;
+  string upload_id = 2;
+}
+
+message CompletePhotoUploadResponse {
+  Photo photo = 1;
+}
+
+message ListOwnPhotosRequest {
+  string account_id = 1;
+}
+
+message ListOwnPhotosResponse {
+  repeated Photo photos = 1;
+}
+
+message ReorderPhotosRequest {
+  string account_id = 1;
+  repeated string photo_ids = 2;
+}
+
+message ReorderPhotosResponse {
+  repeated Photo photos = 1;
+}
+
+message DeletePhotoRequest {
+  string account_id = 1;
+  string photo_id = 2;
+}
+
+message DeletePhotoResponse {
+  repeated Photo photos = 1;
 }

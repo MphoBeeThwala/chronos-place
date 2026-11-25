@@ -1,9 +1,13 @@
-import { Intent as WireIntent } from '@chronos/contracts/profile';
+import {
+  PhotoModeration as WireModeration,
+  Intent as WireIntent,
+} from '@chronos/contracts/profile';
 import { DomainError } from '@chronos/service-kit';
 import { Controller, Inject } from '@nestjs/common';
 import { GrpcMethod } from '@nestjs/microservices';
 import { z } from 'zod';
-import type { Intent } from './db/schema.js';
+import type { Intent, PhotoModeration } from './db/schema.js';
+import type { PhotoView } from './photos/photo.service.js';
 import type { OwnProfileRecord } from './profiles/profile-store.js';
 import type { PublicProfile } from './profiles/profile.service.js';
 import type { ProfileRuntime } from './runtime.js';
@@ -60,6 +64,14 @@ const schemas = {
     viewerAccountId: uuid,
     accountIds: z.array(uuid).max(100).default([]),
   }),
+  photoUpload: z.object({
+    accountId: uuid,
+    contentType: z.string().max(100),
+    byteLength: z.number().int().nonnegative(),
+  }),
+  photoComplete: z.object({ accountId: uuid, uploadId: uuid }),
+  photoReorder: z.object({ accountId: uuid, photoIds: z.array(uuid).max(6).default([]) }),
+  photoDelete: z.object({ accountId: uuid, photoId: uuid }),
   preferences: z.object({
     accountId: uuid,
     ageMin: z.number().int().optional(),
@@ -110,8 +122,24 @@ const own = ({ profile, preferences }: OwnProfileRecord) => ({
   },
 });
 
+const MODERATION: Record<PhotoModeration, WireModeration> = {
+  pending: WireModeration.PHOTO_MODERATION_PENDING,
+  approved: WireModeration.PHOTO_MODERATION_APPROVED,
+  rejected: WireModeration.PHOTO_MODERATION_REJECTED,
+};
+
+const photo = (p: PhotoView) => ({
+  id: p.id,
+  position: p.position,
+  moderation: MODERATION[p.moderation],
+  variants: p.variants,
+  width: p.width,
+  height: p.height,
+});
+const photoList = (photos: PhotoView[]) => ({ photos: photos.map(photo) });
+
 /** Another member's view: a rounded distance and age, never a coordinate (M1.5 AC). */
-const publicProfile = (p: PublicProfile) => ({
+const publicProfile = (p: PublicProfile, photos: PhotoView[] = []) => ({
   accountId: p.accountId,
   displayName: p.displayName,
   age: p.age,
@@ -124,6 +152,7 @@ const publicProfile = (p: PublicProfile) => ({
   prompts: p.prompts,
   interests: p.interests,
   verified: p.verified,
+  photos: photos.map(photo),
 });
 
 /** chronos.profile.v1.ProfileService. Only the gateway calls it (allow-list arrives with M2.5). */
@@ -188,6 +217,39 @@ export class ProfileController {
   async getPublicProfiles(request: unknown) {
     const { viewerAccountId, accountIds } = parse(schemas.publicProfiles, request);
     const profiles = await this.#runtime.profiles.publicProfiles(viewerAccountId, accountIds);
-    return { profiles: profiles.map(publicProfile) };
+    // Approved photos only (ADR-0024 decision e); pending and rejected ones are the owner's alone.
+    const photos = await this.#runtime.photos.approvedFor(profiles.map((p) => p.accountId));
+    return { profiles: profiles.map((p) => publicProfile(p, photos.get(p.accountId))) };
+  }
+
+  @GrpcMethod(SERVICE, 'CreatePhotoUpload')
+  async createPhotoUpload(request: unknown) {
+    const { accountId, contentType, byteLength } = parse(schemas.photoUpload, request);
+    const upload = await this.#runtime.photos.createUpload(accountId, contentType, byteLength);
+    return { uploadId: upload.uploadId, uploadUrl: upload.uploadUrl, expiresAt: upload.expiresAt };
+  }
+
+  @GrpcMethod(SERVICE, 'CompletePhotoUpload')
+  async completePhotoUpload(request: unknown) {
+    const { accountId, uploadId } = parse(schemas.photoComplete, request);
+    return { photo: photo(await this.#runtime.photos.completeUpload(accountId, uploadId)) };
+  }
+
+  @GrpcMethod(SERVICE, 'ListOwnPhotos')
+  async listOwnPhotos(request: unknown) {
+    const { accountId } = parse(schemas.account, request);
+    return photoList(await this.#runtime.photos.listOwn(accountId));
+  }
+
+  @GrpcMethod(SERVICE, 'ReorderPhotos')
+  async reorderPhotos(request: unknown) {
+    const { accountId, photoIds } = parse(schemas.photoReorder, request);
+    return photoList(await this.#runtime.photos.reorder(accountId, photoIds));
+  }
+
+  @GrpcMethod(SERVICE, 'DeletePhoto')
+  async deletePhoto(request: unknown) {
+    const { accountId, photoId } = parse(schemas.photoDelete, request);
+    return photoList(await this.#runtime.photos.remove(accountId, photoId));
   }
 }
