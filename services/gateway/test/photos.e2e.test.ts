@@ -232,4 +232,27 @@ describe('photos (M1.6, ADR-0024)', () => {
       'You can have up to 6 photos. Delete one to add another.',
     );
   });
+
+  it('allows 20 photo uploads per member per hour, then refuses before signing a link', async () => {
+    const id = member();
+    const auth = await session(id);
+    profile.handlers.set('createPhotoUpload', () => ({
+      uploadId: UPLOAD_ID,
+      uploadUrl: 'https://storage.test/u',
+      expiresAt: new Date(),
+    }));
+    const start =
+      'mutation { createPhotoUpload(contentType: "image/jpeg", byteLength: 10) { uploadId } }';
+    // Refused input is not counted.
+    await gql(gateway.url, start.replace('10', '-1'), auth);
+    for (let i = 0; i < 20; i += 1) {
+      expect(codes(await gql(gateway.url, start, auth))).toEqual([]);
+    }
+    const refused = await gql(gateway.url, start, auth);
+    expect(codes(refused)).toEqual(['RATE_LIMITED']);
+    expect(refused.body.errors?.[0]?.extensions?.['retryAfterSeconds']).toBeGreaterThan(3500);
+    expect(profile.calls.filter((c) => c.method === 'createPhotoUpload')).toHaveLength(20);
+    // Another member is unaffected.
+    expect(codes(await gql(gateway.url, start, await session(member())))).toEqual([]);
+  });
 });
