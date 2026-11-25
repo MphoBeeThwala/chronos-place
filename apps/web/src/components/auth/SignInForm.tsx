@@ -1,33 +1,96 @@
 'use client';
 
 /**
- * Sign-in form — OTP phone verification.
- * M1.1 will wire the actual requestOtp / verifyOtp GraphQL mutations.
- * This is the accessible form shell with correct ARIA structure.
+ * Sign-in form: phone number, then one-time code (TASKS M1.3, ADR-0018).
+ * Sessions live in httpOnly cookies set by the gateway; this form never sees a token.
  */
+import { gql, useMutation } from '@apollo/client';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import { OPERATIONS } from '@/graphql/operations.generated';
 
 type Step = 'phone' | 'otp';
 
+const REQUEST_OTP = gql(OPERATIONS.RequestOtp.text);
+const VERIFY_OTP = gql(OPERATIONS.VerifyOtp.text);
+
+interface RequestOtpData {
+  requestOtp: { challengeId: string; expiresAt: string; retryAfterSeconds: number };
+}
+interface VerifyOtpData {
+  verifyOtp: { account: { id: string; status: string } };
+}
+
+/** The gateway's messages are written for members; anything else gets a plain fallback. */
+function messageOf(error: unknown): string {
+  const graphQLErrors = (
+    error as { graphQLErrors?: { message: string; extensions?: { code?: string } }[] }
+  ).graphQLErrors;
+  const first = graphQLErrors?.[0];
+  if (first && first.extensions?.code !== 'INTERNAL_SERVER_ERROR') return first.message;
+  return 'Something went wrong. Try again.';
+}
+
 export function SignInForm() {
+  const router = useRouter();
   const [step, setStep] = useState<Step>('phone');
   const [phone, setPhone] = useState('');
+  const [code, setCode] = useState('');
+  const [challengeId, setChallengeId] = useState('');
+  const [error, setError] = useState<string | undefined>();
+  const [requestOtp, { loading: sending }] = useMutation<RequestOtpData>(REQUEST_OTP);
+  const [verifyOtp, { loading: verifying }] = useMutation<VerifyOtpData>(VERIFY_OTP);
 
-  function handlePhoneSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
+  async function handlePhoneSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault();
-    // TODO(M1.1): call requestOtp mutation.
-    setStep('otp');
+    setError(undefined);
+    try {
+      const { data } = await requestOtp({ variables: { phone } });
+      if (!data) throw new Error('no data');
+      setChallengeId(data.requestOtp.challengeId);
+      setCode('');
+      setStep('otp');
+    } catch (err) {
+      setError(messageOf(err));
+    }
   }
 
-  function handleOtpSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
+  async function handleOtpSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault();
-    // TODO(M1.1): call verifyOtp mutation, set session cookie, redirect.
+    setError(undefined);
+    try {
+      const { data } = await verifyOtp({ variables: { challengeId, code } });
+      if (!data) throw new Error('no data');
+      // A new member finishes signing up first (consents, then date of birth).
+      router.push(data.verifyOtp.account.status === 'ACTIVE' ? '/feed' : '/onboarding');
+    } catch (err) {
+      setError(messageOf(err));
+    }
   }
+
+  const alert = error ? (
+    <p
+      role="alert"
+      className="mb-5 rounded-lg px-4 py-3 text-sm"
+      style={{
+        backgroundColor: 'var(--color-bg-muted)',
+        color: 'var(--color-danger, var(--color-text))',
+      }}
+    >
+      {error}
+    </p>
+  ) : null;
 
   if (step === 'phone') {
     return (
-      <form onSubmit={handlePhoneSubmit} noValidate>
+      <form
+        onSubmit={(e) => {
+          void handlePhoneSubmit(e);
+        }}
+        noValidate
+      >
+        {alert}
         <div className="mb-5">
           <label
             htmlFor="phone"
@@ -42,7 +105,7 @@ export function SignInForm() {
             autoComplete="tel"
             inputMode="tel"
             required
-            placeholder="+27 81 234 5678"
+            placeholder="082 000 0000"
             value={phone}
             onChange={(e) => {
               setPhone(e.target.value);
@@ -63,11 +126,11 @@ export function SignInForm() {
             className="mt-1.5 text-xs"
             style={{ color: 'var(--color-text-subtle)' }}
           >
-            We&apos;ll send a one-time code. Standard rates may apply.
+            South African mobile numbers only for now. We&apos;ll send a one-time code.
           </p>
         </div>
 
-        <Button type="submit" fullWidth>
+        <Button type="submit" fullWidth isLoading={sending} disabled={sending}>
           Send code
         </Button>
 
@@ -87,10 +150,17 @@ export function SignInForm() {
   }
 
   return (
-    <form onSubmit={handleOtpSubmit} noValidate>
+    <form
+      onSubmit={(e) => {
+        void handleOtpSubmit(e);
+      }}
+      noValidate
+    >
+      {alert}
       <button
         type="button"
         onClick={() => {
+          setError(undefined);
           setStep('phone');
         }}
         className="mb-5 flex items-center gap-1 text-sm"
@@ -134,6 +204,10 @@ export function SignInForm() {
           maxLength={6}
           required
           placeholder="123456"
+          value={code}
+          onChange={(e) => {
+            setCode(e.target.value.replace(/\D/g, '').slice(0, 6));
+          }}
           className="w-full rounded-lg border px-4 py-3 text-base text-center tracking-[0.5em] transition-colors focus:outline-none"
           style={{
             backgroundColor: 'var(--color-bg-muted)',
@@ -144,11 +218,16 @@ export function SignInForm() {
           aria-describedby="otp-hint"
         />
         <p id="otp-hint" className="mt-1.5 text-xs" style={{ color: 'var(--color-text-subtle)' }}>
-          The code expires in 10 minutes.
+          The code expires in 5 minutes.
         </p>
       </div>
 
-      <Button type="submit" fullWidth>
+      <Button
+        type="submit"
+        fullWidth
+        isLoading={verifying}
+        disabled={verifying || code.length !== 6}
+      >
         Verify
       </Button>
     </form>

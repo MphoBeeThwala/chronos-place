@@ -35,6 +35,12 @@ Status: Accepted (2026-11-21, product owner approved the M1.3 plan and decisions
   - Complexity: at most 1,000. Paginated fields multiply their children's cost by the page size asked for.
 - **Approved operations (decision b).** The manifest maps the SHA-256 of each approved operation to its text, and is built from the web app's code. Outside development, a request must name an approved operation by hash. The gateway runs the manifest's text, ignoring any text the client sends, and refuses everything else with `PERSISTED_QUERY_NOT_FOUND`. Apollo's automatic persisted queries are off, so clients cannot register new operations. Development and test also accept free-form queries.
 - A query that selects only `__typename` is allowed without a session: it selects and reveals nothing.
+- **Where the manifest comes from.** Every operation the web app sends lives in `apps/web/src/graphql/operations.graphql`. `pnpm --filter @chronos/web operations:gen` writes:
+  - `persisted-operations.json`: the manifest the gateway loads as `PERSISTED_OPERATIONS_PATH`.
+  - `operations.generated.ts`: the hashes the web app attaches to each request.
+
+  The web app's tests fail when either file is out of date or when an operation does not validate against the schema.
+- **Silent refresh in the browser.** When a request fails with `UNAUTHENTICATED`, the web app refreshes once (shared by every request in the tab), then retries. If the session cannot be refreshed, it goes to `/sign-in`.
 
 ## Consequences
 - Access-token issuing and verifying moved to `@chronos/session-tokens`, shared by identity and the gateway, because services must not import each other.

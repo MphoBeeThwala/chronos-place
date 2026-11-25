@@ -1,0 +1,42 @@
+# Every GraphQL operation the web app sends. Outside development the gateway runs only these
+# (ADR-0021, approved operations). After editing, run `pnpm --filter @chronos/web operations:gen`;
+# a test fails if the generated files are out of date.
+
+mutation RequestOtp($phone: String!) {
+  requestOtp(phone: $phone) {
+    challengeId
+    expiresAt
+    retryAfterSeconds
+  }
+}
+
+mutation VerifyOtp($challengeId: ID!, $code: String!) {
+  verifyOtp(challengeId: $challengeId, code: $code) {
+    expiresAt
+    account {
+      id
+      status
+    }
+  }
+}
+
+mutation RefreshSession {
+  refreshSession {
+    expiresAt
+    account {
+      id
+      status
+    }
+  }
+}
+
+mutation SignOut {
+  signOut
+}
+
+query Account {
+  account {
+    id
+    status
+  }
+}

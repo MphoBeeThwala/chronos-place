@@ -28,3 +28,5 @@ pnpm --filter @chronos/gateway test               # unit and HTTP end-to-end (ag
 pnpm --filter @chronos/gateway test:privacy       # leak harness over logs and responses
 pnpm --filter @chronos/gateway test:integration   # Redis lock (Testcontainers, or TEST_REDIS_URL)
 ```
+
+Outside development, mount `apps/web/src/graphql/persisted-operations.json` and point `PERSISTED_OPERATIONS_PATH` at it. Rebuild it with `pnpm --filter @chronos/web operations:gen` whenever the web app's operations change.
