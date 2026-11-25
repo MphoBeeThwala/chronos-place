@@ -1,60 +1,24 @@
-import { CreateBucketCommand, type S3Client } from '@aws-sdk/client-s3';
-import { loadConfig } from '@chronos/config';
-import { GenericContainer, type StartedTestContainer, Wait } from 'testcontainers';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { z } from 'zod';
-import { createS3Client, S3PhotoStorage } from '../src/photos/photo-storage.js';
+import { S3PhotoStorage } from '../src/photos/photo-storage.js';
+import { startTestS3, type TestS3 } from './support/s3.js';
 
-/**
- * The S3 storage against SeaweedFS, the local S3 store (ADR-0013). Uses TEST_S3_ENDPOINT when
- * set (with TEST_S3_ACCESS_KEY and TEST_S3_SECRET_KEY), otherwise starts SeaweedFS in Docker.
- */
-let container: StartedTestContainer | undefined;
-let client: S3Client;
+/** The S3 storage against SeaweedFS, the local S3 store (ADR-0013). */
+let s3: TestS3;
 let storage: S3PhotoStorage;
-const env = loadConfig(
-  z.object({
-    TEST_S3_ENDPOINT: z.string().optional(),
-    TEST_S3_ACCESS_KEY: z.string().default('synthetictestkey'),
-    TEST_S3_SECRET_KEY: z.string().default('synthetictestsecretvalue0123456789'),
-  }),
-);
-const ACCESS = env.TEST_S3_ACCESS_KEY;
-const SECRET = env.TEST_S3_SECRET_KEY;
-// Fixed buckets (SeaweedFS reserves volumes per bucket) and a fresh key prefix per run.
-const uploadBucket = 'test-photo-uploads';
-const mediaBucket = 'test-photo-media';
 const run = Date.now().toString(36);
 const key = (name: string) => `${run}/${name}`;
 
 beforeAll(async () => {
-  let endpoint = env.TEST_S3_ENDPOINT;
-  if (!endpoint) {
-    container = await new GenericContainer('chrislusf/seaweedfs:4.01')
-      .withCommand(['server', '-s3', '-s3.port=8333', '-ip.bind=0.0.0.0'])
-      .withEnvironment({ AWS_ACCESS_KEY_ID: ACCESS, AWS_SECRET_ACCESS_KEY: SECRET })
-      .withExposedPorts(8333)
-      .withWaitStrategy(Wait.forListeningPorts())
-      .start();
-    endpoint = `http://${container.getHost()}:${String(container.getMappedPort(8333))}`;
-  }
-  client = createS3Client({
-    endpoint,
-    region: 'af-south-1',
-    credentials: { accessKeyId: ACCESS, secretAccessKey: SECRET },
+  s3 = await startTestS3();
+  storage = new S3PhotoStorage({
+    client: s3.client,
+    uploadBucket: s3.uploadBucket,
+    mediaBucket: s3.mediaBucket,
   });
-  for (const Bucket of [uploadBucket, mediaBucket]) {
-    await client.send(new CreateBucketCommand({ Bucket })).catch((error: unknown) => {
-      const name = (error as { name?: string }).name;
-      if (name !== 'BucketAlreadyOwnedByYou' && name !== 'BucketAlreadyExists') throw error;
-    });
-  }
-  storage = new S3PhotoStorage({ client, uploadBucket, mediaBucket });
 }, 120_000);
 
 afterAll(async () => {
-  client.destroy();
-  await container?.stop();
+  await s3.stop();
 });
 
 const jpegish = (size: number) =>
