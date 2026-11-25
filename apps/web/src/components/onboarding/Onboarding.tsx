@@ -11,18 +11,34 @@ import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { OPERATIONS } from '@/graphql/operations.generated';
 import { messageOf } from '@/lib/graphql-errors';
-import { type AccountStatus, type OnboardingState, onboardingStep } from '@/lib/onboarding';
+import {
+  type AccountStatus,
+  afterActivation,
+  type OnboardingState,
+  onboardingStep,
+  stepLabel,
+} from '@/lib/onboarding';
 import { type ConsentChoice, ConsentStep } from './ConsentStep';
 import { DateOfBirthStep } from './DateOfBirthStep';
+import { PrivacyWalkthrough } from './PrivacyWalkthrough';
+import { type ProfileDraft, ProfileStep } from './ProfileStep';
 
 const STATE = gql(OPERATIONS.OnboardingState.text);
 const RECORD_CONSENT = gql(OPERATIONS.RecordConsent.text);
 const SET_DATE_OF_BIRTH = gql(OPERATIONS.SetDateOfBirth.text);
 const SIGN_OUT = gql(OPERATIONS.SignOut.text);
+const PROFILE = gql(OPERATIONS.OnboardingProfile.text);
+const CREATE_PROFILE = gql(OPERATIONS.CreateProfile.text);
+
+const codeOf = (error: unknown): string | undefined =>
+  (error as { graphQLErrors?: { extensions?: { code?: string } }[] } | undefined)
+    ?.graphQLErrors?.[0]?.extensions?.code;
 
 const TITLES = {
-  consent: { step: 'Step 1 of 2', title: 'Before we begin' },
-  dateOfBirth: { step: 'Step 2 of 2', title: 'Your date of birth' },
+  consent: { step: stepLabel('consent'), title: 'Before we begin' },
+  dateOfBirth: { step: stepLabel('dateOfBirth'), title: 'Your date of birth' },
+  walkthrough: { step: stepLabel('walkthrough'), title: 'How your privacy works' },
+  profile: { step: stepLabel('profile'), title: 'Your profile' },
   ineligible: { step: undefined, title: 'Chronos Place is for adults' },
   closed: { step: undefined, title: 'This account is closed' },
   active: { step: undefined, title: 'You’re all set' },
@@ -40,24 +56,45 @@ export function Onboarding() {
     setDateOfBirth: { id: string; status: AccountStatus };
   }>(SET_DATE_OF_BIRTH);
   const [signOut] = useMutation(SIGN_OUT);
+  const [walkthroughDone, setWalkthroughDone] = useState(false);
+  const [createProfile, { loading: creating }] = useMutation(CREATE_PROFILE);
 
-  const step =
+  const accountStep =
     finalStatus === 'INELIGIBLE'
       ? 'ineligible'
       : state.data
         ? onboardingStep(state.data)
         : undefined;
+  // Once active: does the member have a profile yet? `me` answers PROFILE_REQUIRED if not.
+  const profile = useQuery<{ me: { id: string } }>(PROFILE, {
+    skip: accountStep !== 'active',
+    fetchPolicy: 'network-only',
+    errorPolicy: 'all',
+  });
+  const noProfile = codeOf(profile.error) === 'PROFILE_REQUIRED';
+  const next =
+    accountStep !== 'active'
+      ? accountStep
+      : profile.data?.me
+        ? 'done'
+        : noProfile
+          ? afterActivation(false, walkthroughDone)
+          : undefined;
+  const step = next === 'done' ? 'active' : next;
 
   useEffect(() => {
-    if (step === 'active') router.replace('/feed');
+    if (next === 'done') router.replace('/feed');
     else if (step) heading.current?.focus();
-  }, [step, router]);
+  }, [next, step, router]);
 
-  if (state.error && !step) {
+  if ((state.error || (profile.error && !noProfile)) && !step) {
     return (
       <p role="alert">
-        {messageOf(state.error)}{' '}
-        <Button variant="secondary" onClick={() => void state.refetch()}>
+        {messageOf(state.error ?? profile.error)}{' '}
+        <Button
+          variant="secondary"
+          onClick={() => void (state.error ? state.refetch() : profile.refetch())}
+        >
           Try again
         </Button>
       </p>
@@ -84,6 +121,16 @@ export function Onboarding() {
       const status = data?.setDateOfBirth.status;
       if (status === 'INELIGIBLE') setFinalStatus(status);
       else await state.refetch();
+    } catch (err) {
+      setError(messageOf(err));
+    }
+  };
+
+  const saveProfile = async (draft: ProfileDraft) => {
+    setError(undefined);
+    try {
+      await createProfile({ variables: { input: draft } });
+      router.replace('/feed');
     } catch (err) {
       setError(messageOf(err));
     }
@@ -134,6 +181,16 @@ export function Onboarding() {
       {step === 'dateOfBirth' && (
         <DateOfBirthStep busy={saving} onConfirm={(iso) => void confirmDateOfBirth(iso)} />
       )}
+      {step === 'walkthrough' && (
+        <PrivacyWalkthrough
+          onDone={() => {
+            setWalkthroughDone(true);
+          }}
+        />
+      )}
+      {step === 'profile' && (
+        <ProfileStep busy={creating} onSave={(draft) => void saveProfile(draft)} />
+      )}
       {step === 'ineligible' && (
         <p style={muted}>
           You need to be 18 or older to use Chronos Place, so we can&apos;t open an account for you.
@@ -147,7 +204,7 @@ export function Onboarding() {
         </p>
       )}
 
-      {(step === 'consent' || step === 'dateOfBirth' || step === 'closed') && (
+      {step !== 'ineligible' && step !== 'active' && (
         <Button
           variant="ghost"
           fullWidth

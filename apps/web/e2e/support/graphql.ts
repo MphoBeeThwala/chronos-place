@@ -2,6 +2,12 @@ import type { Page, Route } from '@playwright/test';
 
 type Handler = (variables: Record<string, unknown>) => unknown;
 
+const ERRORS = Symbol('graphql errors');
+/** A handler result that answers with a GraphQL error instead of data. */
+export const gqlError = (code: string, message = 'Synthetic error.') => ({
+  [ERRORS]: [{ message, extensions: { code } }],
+});
+
 /**
  * Answers the app's GraphQL calls by operation name, so a flow can be tested in the browser
  * without the services running. Synthetic data only (CLAUDE.md rule 6).
@@ -22,7 +28,12 @@ export async function mockGraphQL(page: Page, handlers: Record<string, Handler>)
       });
       return;
     }
-    await route.fulfill({ json: { data: handler(variables) } });
+    const result = handler(variables) as Record<symbol, unknown> | undefined;
+    if (result && ERRORS in result) {
+      await route.fulfill({ json: { data: null, errors: result[ERRORS] } });
+      return;
+    }
+    await route.fulfill({ json: { data: result } });
   });
   return calls;
 }

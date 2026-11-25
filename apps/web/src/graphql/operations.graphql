@@ -101,3 +101,18 @@ mutation SetDateOfBirth($dateOfBirth: Date!) {
     status
   }
 }
+
+# After activation (TASKS M1.7): PROFILE_REQUIRED from `me` means no profile yet.
+query OnboardingProfile {
+  me {
+    id
+  }
+}
+
+mutation CreateProfile($input: ProfileInput!) {
+  updateProfile(input: $input) {
+    id
+    displayName
+    sharesDistance
+  }
+}

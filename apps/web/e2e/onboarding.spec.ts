@@ -3,7 +3,7 @@
  * The gateway is mocked; the full stack runs in the end-to-end suite of PR 4.
  */
 import { expect, test } from '@playwright/test';
-import { mockGraphQL, signedIn } from './support/graphql';
+import { gqlError, mockGraphQL, signedIn } from './support/graphql';
 
 const POLICIES = [
   { type: 'TERMS', version: 'terms-2026-11-26' },
@@ -32,12 +32,13 @@ test('a new member agrees to terms and privacy, then confirms a date of birth', 
       status = 'ACTIVE';
       return { setDateOfBirth: account(status) };
     },
+    OnboardingProfile: () => gqlError('PROFILE_REQUIRED', 'Create your profile first.'),
   });
 
   await page.goto('/onboarding');
   const heading = page.getByRole('heading', { name: 'Before we begin' });
   await expect(heading).toBeFocused();
-  await expect(page.getByText('Step 1 of 2')).toBeVisible();
+  await expect(page.getByText('Step 1 of 4')).toBeVisible();
   // Health is never asked here, and the draft marketing text is not offered.
   await expect(page.getByText(/updates and community news/)).toHaveCount(0);
 
@@ -70,7 +71,7 @@ test('a new member agrees to terms and privacy, then confirms a date of birth', 
   expect(calls.some((c) => c.operationName === 'SetDateOfBirth')).toBe(false);
   await page.getByRole('button', { name: "Yes, that's right" }).click();
 
-  await page.waitForURL('**/feed');
+  await expect(page.getByRole('heading', { name: 'How your privacy works' })).toBeFocused();
   expect(calls.find((c) => c.operationName === 'SetDateOfBirth')?.variables).toEqual({
     dateOfBirth: '1990-03-07',
   });
@@ -89,7 +90,7 @@ test('a member who left after step 1 comes back to the date of birth', async ({ 
   });
   await page.goto('/onboarding');
   await expect(page.getByRole('heading', { name: 'Your date of birth' })).toBeVisible();
-  await expect(page.getByText('Step 2 of 2')).toBeVisible();
+  await expect(page.getByText('Step 2 of 4')).toBeVisible();
 });
 
 test('under 18, the account is closed and the member is told plainly', async ({ page }) => {
