@@ -21,6 +21,23 @@ export const identityConfig = {
   /** Only "mailpit" exists until an SMS provider is contracted (ADR-0006). */
   OTP_SENDER: z.enum(['mailpit']).default('mailpit'),
   MAILPIT_URL: httpUrl.default('http://127.0.0.1:8025'),
+
+  /**
+   * Liveness vendor (ADR-0022). "fake" passes every capture and is development only. "smile-id"
+   * needs the partner id, API key and a capture bucket. Outside development it also needs
+   * counsel's approval of the biometric consent text.
+   */
+  LIVENESS_PROVIDER: z.enum(['fake', 'smile-id']).default('fake'),
+  SMILE_ID_PARTNER_ID: z
+    .string()
+    .regex(/^\d{1,10}$/)
+    .optional(),
+  SMILE_ID_API_KEY: secret(16).optional(),
+  SMILE_ID_ENVIRONMENT: z.enum(['sandbox', 'production']).default('sandbox'),
+  /** Bucket for sealed selfie captures, kept at most 30 days. */
+  CAPTURE_BUCKET: z.string().min(3).optional(),
+  /** SeaweedFS locally (http://127.0.0.1:8333); unset in AWS. */
+  S3_ENDPOINT: httpUrl.optional(),
 };
 
 /** Environments where development stand-ins (local signing key, Mailpit) are allowed. */
