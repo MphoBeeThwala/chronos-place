@@ -3,6 +3,12 @@ import createNextIntlPlugin from 'next-intl/plugin';
 
 const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
 
+const GATEWAY_GRAPHQL = process.env['GATEWAY_URL'] ?? 'http://localhost:4000/graphql';
+
+/** The only route that may use the camera (ADR-0017, ADR-0022). */
+export const CAMERA_ROUTE = '/verify';
+const PERMISSIONS = (camera: string) => `camera=${camera}, microphone=(), geolocation=()`;
+
 const config: NextConfig = {
   // Strict mode for catching React lifecycle issues early.
   reactStrictMode: true,
@@ -19,7 +25,7 @@ const config: NextConfig = {
           { key: 'X-Frame-Options', value: 'DENY' },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+          { key: 'Permissions-Policy', value: PERMISSIONS('()') },
           {
             key: 'Strict-Transport-Security',
             value: 'max-age=63072000; includeSubDomains; preload',
@@ -39,6 +45,11 @@ const config: NextConfig = {
           },
         ],
       },
+      {
+        // Later entries override earlier ones for the same header: the camera opens here only.
+        source: CAMERA_ROUTE,
+        headers: [{ key: 'Permissions-Policy', value: PERMISSIONS('(self)') }],
+      },
     ]);
   },
 
@@ -47,9 +58,11 @@ const config: NextConfig = {
   // src/lib/config.ts; this default only applies to local development.
   rewrites() {
     return Promise.resolve([
+      { source: '/api/graphql', destination: GATEWAY_GRAPHQL },
       {
-        source: '/api/graphql',
-        destination: process.env['GATEWAY_URL'] ?? 'http://localhost:4000/graphql',
+        // Selfie captures (ADR-0022), on the same gateway as GraphQL.
+        source: '/api/verification/capture',
+        destination: GATEWAY_GRAPHQL.replace(/\/graphql$/, '/verification/capture'),
       },
     ]);
   },

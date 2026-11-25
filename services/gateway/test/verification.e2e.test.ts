@@ -1,4 +1,5 @@
 import { VerificationFailure, VerificationStatus } from '@chronos/contracts/identity';
+import { createLogger } from '@chronos/logger';
 import { status } from '@grpc/grpc-js';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { identityResolvers } from '../src/graphql/identity-resolvers.js';
@@ -28,6 +29,8 @@ const pending = {
 beforeAll(async () => {
   await identity.start();
   gateway = await startGateway(identity, {
+    // The internal-error case logs on purpose; keep test output readable.
+    logger: createLogger({ service: 'gateway', destination: { write: () => undefined } }),
     // `me` stands in for the messaging fields that join VERIFIED_FIELDS in M4.
     verifiedFields: ['me'],
     resolvers: (runtime) => {

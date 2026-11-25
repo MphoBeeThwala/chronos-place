@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  '@smile_identity/smart-camera-web@11.0.1':
+    hash: 175607564faf181bc1338f32b9172e912ec4416978b3c6507d58a6b4fd9a06dd
+    path: patches/@smile_identity__smart-camera-web@11.0.1.patch
+
 importers:
 
   .:
@@ -47,6 +52,9 @@ importers:
       '@chronos/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@smile_identity/smart-camera-web':
+        specifier: 11.0.1
+        version: 11.0.1(patch_hash=175607564faf181bc1338f32b9172e912ec4416978b3c6507d58a6b4fd9a06dd)
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -2674,6 +2682,9 @@ packages:
 
   '@schummar/icu-type-parser@1.21.5':
     resolution: {integrity: sha512-bXHSaW5jRTmke9Vd0h5P7BtWZG9Znqb8gSDxZnxaGSJnGwPLDPfS+3g0BKzeWqzgZPsIVZkM7m2tbo18cm5HBw==}
+
+  '@smile_identity/smart-camera-web@11.0.1':
+    resolution: {integrity: sha512-FjHTbfwjW2DCg6j+7jZ1elneO0jn3LqCDDKX+HeD9hC67ASqNJECghPHSZzJFPk+ZotcOq4C/aFP0mhOFIILxw==}
 
   '@smithy/core@3.35.1':
     resolution: {integrity: sha512-i4YPS4B6ts7bjn7UwLnGjiZdprOvHvgGobFZsYK3GIY3E5hIqtj0rReU69BcTpGp+fvtraSNXeG1l+jtJvF55w==}
@@ -7862,6 +7873,8 @@ snapshots:
   '@rolldown/pluginutils@1.0.1': {}
 
   '@schummar/icu-type-parser@1.21.5': {}
+
+  '@smile_identity/smart-camera-web@11.0.1(patch_hash=175607564faf181bc1338f32b9172e912ec4416978b3c6507d58a6b4fd9a06dd)': {}
 
   '@smithy/core@3.35.1':
     dependencies:
