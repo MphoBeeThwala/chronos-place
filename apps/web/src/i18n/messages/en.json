@@ -46,7 +46,7 @@
     "marketingTitle": "Updates and news",
     "marketingDescription": "Occasional product updates and community news. You can unsubscribe at any time.",
     "acceptAll": "Accept and continue",
-    "requiredNotice": "Terms, Privacy, and Health data consent are required to use the app."
+    "requiredNotice": "The Terms of Service and Privacy Policy are required to use the app. Health data consent is optional and asked only before your first health question."
   },
   "feed": {
     "title": "Discover",

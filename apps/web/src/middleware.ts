@@ -11,7 +11,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 const SESSION_COOKIE = 'chronos_session';
 
 /** Routes that do not require a session. */
-const PUBLIC_PATHS = ['/sign-in', '/consent'];
+const PUBLIC_PATHS = ['/sign-in', '/consent', '/terms', '/privacy'];
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));

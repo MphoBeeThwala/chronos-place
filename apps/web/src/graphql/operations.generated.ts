@@ -36,6 +36,14 @@ export const OPERATIONS = {
   "RequestVerificationReview": {
     "hash": "ab4b12abda17db334b79eeeba610c169214f92fb153c49e05979bd349125c899",
     "text": "mutation RequestVerificationReview {\n  requestVerificationReview {\n    status\n    failure\n    attemptsRemaining\n    reviewAvailable\n  }\n}"
+  },
+  "OnboardingState": {
+    "hash": "ef154651f1c1ca834474eaf6107fe13aeb839ccc210da78a8f8c2a53ddb53e4d",
+    "text": "query OnboardingState {\n  account {\n    id\n    status\n  }\n  consents {\n    type\n    policyVersion\n    granted\n  }\n  currentPolicies {\n    type\n    version\n  }\n}"
+  },
+  "SetDateOfBirth": {
+    "hash": "00a57b2911766ca895fdac68a5bd399c5d931d5e127ee334273d1bda35d695fe",
+    "text": "mutation SetDateOfBirth($dateOfBirth: Date!) {\n  setDateOfBirth(dateOfBirth: $dateOfBirth) {\n    id\n    status\n  }\n}"
   }
 } as const;
 
