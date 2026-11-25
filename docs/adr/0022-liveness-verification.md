@@ -1,6 +1,6 @@
 # ADR-0022: Liveness verification
 
-Status: Proposed (2026-11-25). Needs product owner approval, and counsel review of the items marked **needs counsel**.
+Status: Accepted (2026-11-25, product owner approved decisions a–f). The items marked **needs counsel** must be cleared before production use.
 
 ## Context
 - PRD: a mandatory selfie liveness check before messaging, a visible verified badge, and no paywall on verification. Vendors never receive health data.
@@ -21,7 +21,7 @@ Status: Proposed (2026-11-25). Needs product owner approval, and counsel review 
 | Cost model | Pay as you go from a prepaid wallet. A free sandbox for development. | Sales-led contract. |
 | Fit for our members | Built and tuned for African faces, low bandwidth and budget Android phones. | Strong global product (Motion). |
 
-## Decisions (proposed)
+## Decisions
 1. **Provider: Smile ID,** behind a `LivenessProvider` interface in the identity service, so we can switch providers without touching clients. A fake provider runs in development and tests.
 2. **The browser never contacts the vendor.** The web app bundles a pinned version of the capture component from npm and serves it from our origin. The page posts the captured images to the gateway; identity submits them to Smile ID from the server. The CSP stays `connect-src 'self'` and no vendor script runs. Before adoption, we read the pinned component's source and add a test proving it makes no network requests.
 3. **Minimum data to the vendor.** We send only the images and a random verification reference, created fresh for each attempt. We never send the account id, phone number, name, date of birth or anything health-related. Our side of the vendor account uses a neutral business name where the contract allows it.
@@ -36,7 +36,7 @@ Status: Proposed (2026-11-25). Needs product owner approval, and counsel review 
    - `accounts.verified_at` when a check passes.
 
    We store no scores, face templates or vendor response bodies.
-6. **Selfie images.** Identity keeps the capture encrypted with the member's key (KMS purpose `verification`) in object storage for **30 days**, so a member can appeal a failed check. A retention job then deletes it. Account erasure deletes it at once (crypto-shred). Images never go into logs, events, errors or URLs.
+6. **Selfie images.** Identity keeps the capture sealed with the member's account key (the same key as their phone number, so erasure shreds it too) in object storage for **30 days**, so a member can appeal a failed check. A retention job then deletes it. Account erasure deletes it at once (crypto-shred). Images never go into logs, events, errors or URLs.
 7. **Getting the result.** Identity asks Smile ID for the job status with backoff until it has an answer, so we need no public webhook endpoint before hosting is decided. A signed webhook can be added later.
 8. **Verified badge and the messaging gate.**
    - The client schema exposes `Account.verified` and the existing `verified` fields.
