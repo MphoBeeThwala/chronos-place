@@ -1,4 +1,9 @@
-import { AccountStatus, ConsentType } from '@chronos/contracts/identity';
+import {
+  AccountStatus,
+  ConsentType,
+  VerificationFailure,
+  VerificationStatus,
+} from '@chronos/contracts/identity';
 import { DomainError } from '@chronos/service-kit';
 import { Controller, Inject } from '@nestjs/common';
 import { GrpcMethod } from '@nestjs/microservices';
@@ -7,6 +12,8 @@ import type { AccountRecord } from './accounts/account-store.js';
 import type { ConsentType as StoredConsent, AccountStatus as StoredStatus } from './db/schema.js';
 import type { IdentityRuntime } from './runtime.js';
 import type { SessionTokens } from './sessions/session.service.js';
+import { MAX_LIVENESS_FRAMES } from './verification/capture.js';
+import type { VerificationView } from './verification/verification.service.js';
 
 export const IDENTITY_RUNTIME = Symbol('IDENTITY_RUNTIME');
 
@@ -34,6 +41,13 @@ const schemas = {
     type: z.number().int(),
     policyVersion: z.string().min(1).max(64),
     granted: z.boolean(),
+  }),
+  liveness: z.object({
+    accountId: uuid,
+    capture: z.object({
+      selfieJpeg: z.instanceof(Buffer),
+      livenessFramesJpeg: z.array(z.instanceof(Buffer)).max(MAX_LIVENESS_FRAMES).default([]),
+    }),
   }),
   dateOfBirth: z.object({
     accountId: uuid,
@@ -64,10 +78,39 @@ const CONSENT: Record<StoredConsent, ConsentType> = {
   privacy: ConsentType.CONSENT_TYPE_PRIVACY,
   health_processing: ConsentType.CONSENT_TYPE_HEALTH_PROCESSING,
   marketing: ConsentType.CONSENT_TYPE_MARKETING,
+  biometric_verification: ConsentType.CONSENT_TYPE_BIOMETRIC_VERIFICATION,
 };
 const CONSENT_FROM_WIRE = new Map<number, StoredConsent>(
   (Object.entries(CONSENT) as [StoredConsent, ConsentType][]).map(([k, v]) => [v, k]),
 );
+
+const VERIFICATION_STATUS: Record<VerificationView['status'], VerificationStatus> = {
+  unverified: VerificationStatus.VERIFICATION_STATUS_UNVERIFIED,
+  pending: VerificationStatus.VERIFICATION_STATUS_PENDING,
+  verified: VerificationStatus.VERIFICATION_STATUS_VERIFIED,
+  failed: VerificationStatus.VERIFICATION_STATUS_FAILED,
+  in_review: VerificationStatus.VERIFICATION_STATUS_IN_REVIEW,
+};
+
+const VERIFICATION_FAILURE: Record<
+  NonNullable<VerificationView['failure']>,
+  VerificationFailure
+> = {
+  poor_quality: VerificationFailure.VERIFICATION_FAILURE_POOR_QUALITY,
+  not_confirmed: VerificationFailure.VERIFICATION_FAILURE_NOT_CONFIRMED,
+  unavailable: VerificationFailure.VERIFICATION_FAILURE_UNAVAILABLE,
+};
+
+const verification = (view: VerificationView) => ({
+  verification: {
+    status: VERIFICATION_STATUS[view.status],
+    failure: view.failure
+      ? VERIFICATION_FAILURE[view.failure]
+      : VerificationFailure.VERIFICATION_FAILURE_UNSPECIFIED,
+    attemptsRemaining: view.attemptsRemaining,
+    reviewAvailable: view.reviewAvailable,
+  },
+});
 
 /** google.protobuf.Timestamp fields are passed as Date; the transport encodes them. */
 const timestamp = (date: Date): Date => date;
@@ -75,6 +118,7 @@ const timestamp = (date: Date): Date => date;
 const account = (record: AccountRecord) => ({
   accountId: record.id,
   status: STATUS[record.status],
+  verified: record.verified,
 });
 
 const tokens = (t: SessionTokens) => ({
@@ -192,5 +236,28 @@ export class IdentityController {
         .currentPolicies()
         .map((p) => ({ type: CONSENT[p.type], version: p.version })),
     };
+  }
+
+  @GrpcMethod(SERVICE, 'SubmitLiveness')
+  async submitLiveness(request: unknown) {
+    const { accountId, capture } = parse(schemas.liveness, request);
+    return verification(
+      await this.#runtime.verification.submit(accountId, {
+        selfie: capture.selfieJpeg,
+        frames: capture.livenessFramesJpeg,
+      }),
+    );
+  }
+
+  @GrpcMethod(SERVICE, 'GetVerification')
+  async getVerification(request: unknown) {
+    const { accountId } = parse(schemas.account, request);
+    return verification(await this.#runtime.verification.get(accountId));
+  }
+
+  @GrpcMethod(SERVICE, 'RequestVerificationReview')
+  async requestVerificationReview(request: unknown) {
+    const { accountId } = parse(schemas.account, request);
+    return verification(await this.#runtime.verification.requestReview(accountId));
   }
 }

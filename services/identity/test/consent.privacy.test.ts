@@ -17,7 +17,8 @@ describe('consent privacy', () => {
     const accountId = '11111111-1111-4111-8111-111111111111';
     const service = new ConsentService({
       consents: store,
-      getAccount: () => Promise.resolve({ id: accountId, status: 'active', hasDateOfBirth: true }),
+      getAccount: () =>
+        Promise.resolve({ id: accountId, status: 'active', hasDateOfBirth: true, verified: false }),
       revokeAllSessions: () => Promise.resolve(),
       logger: createLogger({
         service: 'identity',

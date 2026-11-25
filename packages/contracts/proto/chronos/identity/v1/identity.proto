@@ -45,6 +45,16 @@ service IdentityService {
   rpc ListConsents(ListConsentsRequest) returns (ListConsentsResponse);
   // The policy versions members must accept now. Contains no member data. Caller: gateway.
   rpc GetCurrentPolicies(GetCurrentPoliciesRequest) returns (GetCurrentPoliciesResponse);
+
+  // Liveness verification (TASKS M1.4, ADR-0022). Caller: gateway.
+  // Submits one capture for checking. Needs an active account, the biometric verification consent
+  // at its current version, no check already running and attempts left. The result arrives later:
+  // poll GetVerification.
+  rpc SubmitLiveness(SubmitLivenessRequest) returns (SubmitLivenessResponse);
+  // The member's verification state. Caller: gateway.
+  rpc GetVerification(GetVerificationRequest) returns (GetVerificationResponse);
+  // Asks for a person to review the latest failed check (after 3 failed attempts). Caller: gateway.
+  rpc RequestVerificationReview(RequestVerificationReviewRequest) returns (RequestVerificationReviewResponse);
 }
 
 enum AccountStatus {
@@ -98,6 +108,8 @@ message SessionTokens {
 message Account {
   string account_id = 1;
   AccountStatus status = 2;
+  // True once a liveness check has passed (M1.4).
+  bool verified = 3;
 }
 
 message VerifyOtpResponse {
@@ -176,6 +188,9 @@ enum ConsentType {
   // Separate, optional consent to process health information (POPIA special personal information).
   CONSENT_TYPE_HEALTH_PROCESSING = 3;
   CONSENT_TYPE_MARKETING = 4;
+  // Separate consent to a selfie liveness check (POPIA: biometric information). Withdrawing it
+  // deletes the stored capture, asks the vendor to delete its copy and removes the verified badge.
+  CONSENT_TYPE_BIOMETRIC_VERIFICATION = 5;
 }
 
 message RecordConsentRequest {
@@ -214,4 +229,69 @@ message GetCurrentPoliciesRequest {}
 
 message GetCurrentPoliciesResponse {
   repeated PolicyVersion policies = 1;
+}
+
+// One capture from the web capture component: a selfie plus the frames used for the liveness check.
+// JPEG only. At most 3 MB in total and 12 frames. Never logged.
+message LivenessCapture {
+  bytes selfie_jpeg = 1;
+  repeated bytes liveness_frames_jpeg = 2;
+}
+
+message SubmitLivenessRequest {
+  string account_id = 1;
+  LivenessCapture capture = 2;
+}
+
+message SubmitLivenessResponse {
+  Verification verification = 1;
+}
+
+enum VerificationStatus {
+  VERIFICATION_STATUS_UNSPECIFIED = 0;
+  VERIFICATION_STATUS_UNVERIFIED = 1;
+  // A check is running.
+  VERIFICATION_STATUS_PENDING = 2;
+  VERIFICATION_STATUS_VERIFIED = 3;
+  // The latest check did not pass. The member can try again while attempts remain.
+  VERIFICATION_STATUS_FAILED = 4;
+  // A person will review the latest failed check.
+  VERIFICATION_STATUS_IN_REVIEW = 5;
+}
+
+// Why a check did not pass, coarse on purpose. Scores and vendor details are never stored or shared.
+enum VerificationFailure {
+  VERIFICATION_FAILURE_UNSPECIFIED = 0;
+  // The photos were too dark, blurred or had no clear face. Trying again usually helps.
+  VERIFICATION_FAILURE_POOR_QUALITY = 1;
+  // The check could not confirm a live person.
+  VERIFICATION_FAILURE_NOT_CONFIRMED = 2;
+  // The check could not be completed. It does not count as a failed attempt.
+  VERIFICATION_FAILURE_UNAVAILABLE = 3;
+}
+
+message Verification {
+  VerificationStatus status = 1;
+  // Set when status is FAILED.
+  VerificationFailure failure = 2;
+  // Attempts left before the hourly or daily limit applies.
+  int32 attempts_remaining = 3;
+  // True when the member may ask for a person to review their latest failed check.
+  bool review_available = 4;
+}
+
+message GetVerificationRequest {
+  string account_id = 1;
+}
+
+message GetVerificationResponse {
+  Verification verification = 1;
+}
+
+message RequestVerificationReviewRequest {
+  string account_id = 1;
+}
+
+message RequestVerificationReviewResponse {
+  Verification verification = 1;
 }

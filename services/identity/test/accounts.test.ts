@@ -55,6 +55,7 @@ describe('sign-in', () => {
         id: verified.prospectiveAccountId,
         status: 'pending_onboarding',
         hasDateOfBirth: false,
+        verified: false,
       },
     });
     await expect(

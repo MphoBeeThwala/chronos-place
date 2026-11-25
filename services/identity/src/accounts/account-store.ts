@@ -7,6 +7,8 @@ export interface AccountRecord {
   id: string;
   status: AccountStatus;
   hasDateOfBirth: boolean;
+  /** A liveness check has passed (M1.4). */
+  verified: boolean;
 }
 
 export interface NewAccount {
@@ -34,9 +36,20 @@ const record = (row: {
   id: string;
   status: AccountStatus;
   dateOfBirth: string | null;
-}): AccountRecord => ({ id: row.id, status: row.status, hasDateOfBirth: row.dateOfBirth !== null });
+  verifiedAt: Date | null;
+}): AccountRecord => ({
+  id: row.id,
+  status: row.status,
+  hasDateOfBirth: row.dateOfBirth !== null,
+  verified: row.verifiedAt !== null,
+});
 
-const columns = { id: accounts.id, status: accounts.status, dateOfBirth: accounts.dateOfBirth };
+const columns = {
+  id: accounts.id,
+  status: accounts.status,
+  dateOfBirth: accounts.dateOfBirth,
+  verifiedAt: accounts.verifiedAt,
+};
 
 export class DrizzleAccountStore implements AccountStore {
   readonly #db: NodePgDatabase;

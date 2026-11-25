@@ -5,12 +5,19 @@ import type { OutboxEvent } from '../../src/events/outbox.js';
 export class InMemoryAccountStore implements AccountStore {
   readonly rows = new Map<
     string,
-    NewAccount & { status: AccountStatus; dateOfBirth: string | null }
+    NewAccount & { status: AccountStatus; dateOfBirth: string | null; verified?: boolean }
   >();
 
   #record(id: string): AccountRecord | undefined {
     const row = this.rows.get(id);
-    return row && { id, status: row.status, hasDateOfBirth: row.dateOfBirth !== null };
+    return (
+      row && {
+        id,
+        status: row.status,
+        hasDateOfBirth: row.dateOfBirth !== null,
+        verified: row.verified === true,
+      }
+    );
   }
 
   findByPhoneLookup(lookup: Buffer): Promise<AccountRecord | undefined> {

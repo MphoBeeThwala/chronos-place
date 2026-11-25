@@ -206,6 +206,8 @@ enum ConsentType {
   PRIVACY
   HEALTH_PROCESSING
   MARKETING
+  "Consent to the selfie liveness check (ADR-0022)."
+  BIOMETRIC_VERIFICATION
 }
 
 type ConsentRecord {
