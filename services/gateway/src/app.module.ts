@@ -9,6 +9,13 @@ import { buildContext, type GatewayContext, type RequestLike } from './auth/cont
 import { authGuard } from './auth/guard.js';
 import { DEVELOPMENT_ENVIRONMENTS } from './config.js';
 import { formatError } from './graphql/errors.js';
+import { assertApproved, persistedOperationsPlugin } from './limits/persisted-operations.js';
+import {
+  assertRequestSize,
+  complexityLimit,
+  depthLimit,
+  QUERY_LIMITS,
+} from './limits/query-limits.js';
 import { identityResolvers } from './graphql/identity-resolvers.js';
 import { type ResolverMap, rootResolvers } from './graphql/not-available.js';
 import { createGatewayRuntime, type GatewayConfig, type GatewayRuntime } from './runtime.js';
@@ -64,6 +71,10 @@ export function createAppModule(options: AppModuleOptions = {}): Type {
             graphiql: false,
             introspection: development,
             csrfPrevention: true,
+            // Apollo's automatic persisted queries would let clients register new operations;
+            // approved operations come only from the manifest (ADR-0021).
+            persistedQueries: false,
+            validationRules: [depthLimit(QUERY_LIMITS.maxDepth)],
             includeStacktraceInErrorResponses: false,
             formatError,
             // With Fastify, Apollo's integration passes the request and reply as two arguments.
@@ -72,9 +83,22 @@ export function createAppModule(options: AppModuleOptions = {}): Type {
                 keys: runtime.keys,
                 cookieOptions,
                 trustedHops: config.TRUSTED_PROXY_HOPS,
-              }).then((ctx) => ({ ...ctx, ...(reply ? { reply } : {}) })),
+              }).then(async (ctx) => {
+                // Before anything is parsed: rate limits (counting every request), size, approval.
+                await runtime.rateLimiter.check(ctx.ip, ctx.viewer?.accountId);
+                const body = (request as { body?: Parameters<typeof assertRequestSize>[0] }).body;
+                assertRequestSize(body);
+                assertApproved(
+                  body,
+                  runtime.persistedOperations,
+                  runtime.enforcePersistedOperations,
+                );
+                return { ...ctx, ...(reply ? { reply } : {}) };
+              }),
             plugins: [
+              persistedOperationsPlugin(runtime.persistedOperations),
               authGuard(runtime.accountState),
+              complexityLimit(),
               {
                 // Cookies set during the request (session, device) go out with the response.
                 requestDidStart: () =>

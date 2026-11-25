@@ -61,6 +61,8 @@ export function authGuard(
         didResolveOperation: async ({ operation, document, contextValue }) => {
           if (!operation) refuse('FORBIDDEN', 'Operation not allowed.');
           const fields = rootFields(operation, document);
+          // `{ __typename }` alone selects nothing and reveals nothing.
+          if (fields.length === 0) return;
           const onlyPublic =
             operation.operation === OperationTypeNode.MUTATION &&
             fields.every((f) => PUBLIC.has(f));

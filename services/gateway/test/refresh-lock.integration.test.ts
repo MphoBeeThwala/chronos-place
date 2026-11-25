@@ -4,6 +4,7 @@ import { Redis } from 'ioredis';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { lockKey, RedisRefreshLock } from '../src/auth/refresh-lock.js';
+import { RedisRateLimitStore } from '../src/limits/rate-limit.js';
 
 let redis: Redis;
 let container: StartedRedisContainer | undefined;
@@ -56,5 +57,25 @@ describe('RedisRefreshLock', () => {
     await lock.acquire(t, 5000);
     expect(lockKey(t)).not.toContain(t);
     expect(await redis.keys(`*${t}*`)).toEqual([]);
+  });
+});
+
+describe('RedisRateLimitStore', () => {
+  it('counts concurrent requests exactly, in a window that always expires', async () => {
+    const store = new RedisRateLimitStore(redis);
+    const key = `test:${String(Math.random())}`;
+    const results = await Promise.all(Array.from({ length: 30 }, () => store.hit(key, 60)));
+    expect(results.map((r) => r.count).sort((a, b) => a - b)).toEqual(
+      Array.from({ length: 30 }, (_, i) => i + 1),
+    );
+    expect(await redis.ttl(`gateway:rl:v1:${key}`)).toBeGreaterThan(0);
+  });
+
+  it('starts a new window once the old one expires', async () => {
+    const store = new RedisRateLimitStore(redis);
+    const key = `test:${String(Math.random())}`;
+    await store.hit(key, 1);
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+    expect((await store.hit(key, 1)).count).toBe(1);
   });
 });

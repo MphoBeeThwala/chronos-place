@@ -28,10 +28,13 @@ Status: Accepted (2026-11-21, product owner approved the M1.3 plan and decisions
 - **Request hygiene:**
   - Apollo's CSRF prevention is on. Introspection, playground and stack traces are off outside development.
   - The client IP is taken from `X-Forwarded-For` only up to the configured number of trusted proxies.
-- **Limits (decisions a and b, next PRs):**
-  - Rate limits in Redis: 300 requests a minute per IP and 600 per signed-in account.
-  - Query depth (10) and complexity limits, plus a request size cap.
-  - In production, only queries from a manifest built from the web app's code are accepted. Development and test accept any query.
+- **Limits (decisions a and b).** All of these run before a query is parsed or a resolver runs:
+  - Rate limits in Redis: 300 requests a minute per IP and 600 per signed-in account. Every request counts, including refused ones. Over the limit, the answer is HTTP 429 with `RATE_LIMITED` and a `retryAfterSeconds` hint. IP addresses appear in keys only as keyed hashes.
+  - Size: at most 20,000 characters of query text and 16 KB of variables (HTTP 413). Batched requests are off.
+  - Depth: at most 10 levels, counted through fragments.
+  - Complexity: at most 1,000. Paginated fields multiply their children's cost by the page size asked for.
+- **Approved operations (decision b).** The manifest maps the SHA-256 of each approved operation to its text, and is built from the web app's code. Outside development, a request must name an approved operation by hash. The gateway runs the manifest's text, ignoring any text the client sends, and refuses everything else with `PERSISTED_QUERY_NOT_FOUND`. Apollo's automatic persisted queries are off, so clients cannot register new operations. Development and test also accept free-form queries.
+- A query that selects only `__typename` is allowed without a session: it selects and reveals nothing.
 
 ## Consequences
 - Access-token issuing and verifying moved to `@chronos/session-tokens`, shared by identity and the gateway, because services must not import each other.

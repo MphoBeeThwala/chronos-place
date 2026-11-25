@@ -23,13 +23,19 @@ const QUERY_ERROR_CODES = new Set([
   'BAD_REQUEST',
 ]);
 
+/** Apollo prefixes errors thrown while the request context is built (rate limits, approval). */
+const CONTEXT_PREFIX = 'Context creation failed: ';
+
 export function formatError(formatted: GraphQLFormattedError): GraphQLFormattedError {
+  const message = formatted.message.startsWith(CONTEXT_PREFIX)
+    ? formatted.message.slice(CONTEXT_PREFIX.length)
+    : formatted.message;
   const code =
     typeof formatted.extensions?.['code'] === 'string' ? formatted.extensions['code'] : '';
   if (CLIENT_CODES.has(code)) {
     const retryAfter = formatted.extensions?.['retryAfterSeconds'];
     return {
-      message: formatted.message,
+      message,
       extensions: {
         code,
         ...(typeof retryAfter === 'number' ? { retryAfterSeconds: retryAfter } : {}),
