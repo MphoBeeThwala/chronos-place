@@ -1,0 +1,7 @@
+{
+  "6453e721aede47c61874649c30698446fdbbbffbe33bf263338823122215dad2": "mutation RequestOtp($phone: String!) {\n  requestOtp(phone: $phone) {\n    challengeId\n    expiresAt\n    retryAfterSeconds\n  }\n}",
+  "4cdc23986e6a7e79f4607177dfa0ddd92aa14ef3d533c344e7b7b2e6df5ac61f": "mutation VerifyOtp($challengeId: ID!, $code: String!) {\n  verifyOtp(challengeId: $challengeId, code: $code) {\n    expiresAt\n    account {\n      id\n      status\n    }\n  }\n}",
+  "1d6d3f4ebe72376e74a2999af13d0e4922172eb4f04dc30b7e0b31e67507bc2c": "mutation RefreshSession {\n  refreshSession {\n    expiresAt\n    account {\n      id\n      status\n    }\n  }\n}",
+  "06562a4643f1d41111c4f2edc22f3adf88348b04a76a979592af164d785a7b6d": "mutation SignOut {\n  signOut\n}",
+  "e27cbbc01b4ec55f34b890fef547f13383489928378c9ada0f8ae7beaf9e9c52": "query Account {\n  account {\n    id\n    status\n  }\n}"
+}

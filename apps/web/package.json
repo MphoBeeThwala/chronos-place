@@ -8,8 +8,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint . --max-warnings 0",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p e2e",
-    "test:e2e": "playwright test"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p e2e && tsc --noEmit -p test",
+    "test:e2e": "playwright test",
+    "operations:gen": "node scripts/operations-gen.mjs",
+    "test": "node scripts/operations-gen.mjs --check && vitest run"
   },
   "dependencies": {
     "@apollo/client": "^3.13.4",
@@ -27,6 +29,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@chronos/contracts": "workspace:*",
     "@chronos/eslint-config": "workspace:*",
     "@chronos/tsconfig": "workspace:*",
     "@playwright/test": "^1.52.0",
@@ -35,6 +38,7 @@
     "@types/react-dom": "^19.1.0",
     "eslint": "^10.11.0",
     "tailwindcss": "^4.1.10",
-    "typescript": "~6.0.3"
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.3"
   }
 }

@@ -2,28 +2,38 @@
 
 /**
  * Apollo Client provider for Client Components.
- * Server Components use getClient() from lib/apollo directly.
  *
  * The browser only ever calls the same-origin /api/graphql path (rewritten to the gateway in
- * next.config.ts), so the session cookie stays first-party and the CSP keeps connect-src 'self'.
+ * next.config.ts), so the session cookies stay first-party and the CSP keeps connect-src 'self'.
+ * Every request names its approved operation by hash, and an expired access cookie is renewed
+ * silently (ADR-0021).
  */
-import { HttpLink } from '@apollo/client';
+import { ApolloLink, HttpLink } from '@apollo/client';
 import {
   ApolloClient,
   ApolloNextAppProvider,
   InMemoryCache,
 } from '@apollo/experimental-nextjs-app-support';
+import { persistedOperationLink, sessionRefreshLink } from '@/lib/apollo-links';
+import { createRefreshCoordinator, GRAPHQL_PATH } from '@/lib/session-refresh';
 
-const GRAPHQL_PATH = '/api/graphql';
+const refresh = createRefreshCoordinator();
 
 function makeClient(): ApolloClient<unknown> {
   return new ApolloClient({
-    cache: new InMemoryCache(),
-    link: new HttpLink({
-      uri: GRAPHQL_PATH,
-      credentials: 'same-origin',
-      fetchOptions: { cache: 'no-store' },
-    }),
+    // Results follow the approved operations' text exactly, which carries no __typename.
+    cache: new InMemoryCache({ addTypename: false }),
+    link: ApolloLink.from([
+      sessionRefreshLink(refresh, () => {
+        window.location.assign('/sign-in');
+      }),
+      persistedOperationLink,
+      new HttpLink({
+        uri: GRAPHQL_PATH,
+        credentials: 'same-origin',
+        fetchOptions: { cache: 'no-store' },
+      }),
+    ]),
   });
 }
 
