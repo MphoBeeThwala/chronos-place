@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p e2e && tsc --noEmit -p test",
     "test:e2e": "playwright test",
     "operations:gen": "node scripts/operations-gen.mjs",
-    "test": "node scripts/operations-gen.mjs --check && vitest run"
+    "legal:gen": "node scripts/legal-gen.mjs",
+    "test": "node scripts/operations-gen.mjs --check && node scripts/legal-gen.mjs --check && vitest run"
   },
   "dependencies": {
     "@apollo/client": "^3.13.4",
