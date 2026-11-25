@@ -22,7 +22,7 @@ export interface OnboardingState {
 export type OnboardingStep = 'consent' | 'dateOfBirth' | 'active' | 'ineligible' | 'closed';
 
 /** Steps a member sees, in order, with their place in the count shown on screen. */
-export const VISIBLE_STEPS = ['consent', 'dateOfBirth', 'walkthrough', 'profile'] as const;
+export const VISIBLE_STEPS = ['consent', 'dateOfBirth', 'walkthrough', 'profile', 'photos'] as const;
 export type VisibleStep = (typeof VISIBLE_STEPS)[number];
 export const stepLabel = (step: VisibleStep): string =>
   `Step ${String(VISIBLE_STEPS.indexOf(step) + 1)} of ${String(VISIBLE_STEPS.length)}`;

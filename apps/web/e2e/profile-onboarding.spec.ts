@@ -15,7 +15,7 @@ test.beforeEach(async ({ page }) => {
   await signedIn(page);
 });
 
-test('walkthrough, then a profile with a blurred distance, then the feed', async ({
+test('walkthrough, then a profile with a blurred distance, then photos', async ({
   page,
   context,
 }) => {
@@ -27,11 +27,12 @@ test('walkthrough, then a profile with a blurred distance, then the feed', async
     CreateProfile: () => ({
       updateProfile: { id: 'synthetic-account', displayName: 'Lerato', sharesDistance: true },
     }),
+    MyPhotos: () => ({ me: { id: 'synthetic-account', photos: [] } }),
   });
 
   await page.goto('/onboarding');
   await expect(page.getByRole('heading', { name: 'How your privacy works' })).toBeFocused();
-  await expect(page.getByText('Step 3 of 4')).toBeVisible();
+  await expect(page.getByText('Step 3 of 5')).toBeVisible();
   await expect(
     page.getByRole('heading', { name: 'Your health information stays hidden' }),
   ).toBeVisible();
@@ -47,7 +48,7 @@ test('walkthrough, then a profile with a blurred distance, then the feed', async
   await page.getByRole('button', { name: 'Got it, continue' }).click();
 
   await expect(page.getByRole('heading', { name: 'Your profile' })).toBeFocused();
-  await expect(page.getByText('Step 4 of 4')).toBeVisible();
+  await expect(page.getByText('Step 4 of 5')).toBeVisible();
 
   // Required fields are checked before anything is sent.
   await page.getByRole('button', { name: 'Save and continue' }).click();
@@ -62,6 +63,9 @@ test('walkthrough, then a profile with a blurred distance, then the feed', async
   await expect(page.getByText('Your approximate distance will be shown.')).toBeVisible();
   await page.getByRole('button', { name: 'Save and continue' }).click();
 
+  await expect(page.getByRole('heading', { name: 'Your photos' })).toBeFocused();
+  await expect(page.getByText('Step 5 of 5')).toBeVisible();
+  await page.getByRole('button', { name: 'Skip for now' }).click();
   await page.waitForURL('**/feed');
   expect(calls.find((c) => c.operationName === 'CreateProfile')?.variables).toEqual({
     input: {
@@ -90,6 +94,7 @@ test('location is optional and nothing is sent without it', async ({ page }) => 
     CreateProfile: () => ({
       updateProfile: { id: 'synthetic-account', displayName: 'Sipho', sharesDistance: false },
     }),
+    MyPhotos: () => ({ me: { id: 'synthetic-account', photos: [] } }),
   });
   await page.goto('/onboarding');
   for (let i = 0; i < 2; i += 1)
@@ -98,6 +103,7 @@ test('location is optional and nothing is sent without it', async ({ page }) => 
   await page.getByLabel('Your name').fill('Sipho');
   await page.getByLabel('Friendship').check();
   await page.getByRole('button', { name: 'Save and continue' }).click();
+  await page.getByRole('button', { name: 'Skip for now' }).click();
   await page.waitForURL('**/feed');
   expect(calls.find((c) => c.operationName === 'CreateProfile')?.variables).toEqual({
     input: { displayName: 'Sipho', intent: 'FRIENDSHIP' },

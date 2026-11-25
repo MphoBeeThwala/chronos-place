@@ -11,5 +11,10 @@
   "ef154651f1c1ca834474eaf6107fe13aeb839ccc210da78a8f8c2a53ddb53e4d": "query OnboardingState {\n  account {\n    id\n    status\n  }\n  consents {\n    type\n    policyVersion\n    granted\n  }\n  currentPolicies {\n    type\n    version\n  }\n}",
   "00a57b2911766ca895fdac68a5bd399c5d931d5e127ee334273d1bda35d695fe": "mutation SetDateOfBirth($dateOfBirth: Date!) {\n  setDateOfBirth(dateOfBirth: $dateOfBirth) {\n    id\n    status\n  }\n}",
   "08d8c2e7d31a63a14a07230b6318a94c8efb5c975703ee6a8e10773354e3e358": "query OnboardingProfile {\n  me {\n    id\n  }\n}",
-  "f3e41641e3149777fcc45578be0062dce0dd9c503cbbfac75f5b0d019a73eb44": "mutation CreateProfile($input: ProfileInput!) {\n  updateProfile(input: $input) {\n    id\n    displayName\n    sharesDistance\n  }\n}"
+  "f3e41641e3149777fcc45578be0062dce0dd9c503cbbfac75f5b0d019a73eb44": "mutation CreateProfile($input: ProfileInput!) {\n  updateProfile(input: $input) {\n    id\n    displayName\n    sharesDistance\n  }\n}",
+  "e4714f6da49733f9009ac523cc7f33083b391c160ada8329deed2d7858614abf": "query MyPhotos {\n  me {\n    id\n    photos {\n      id\n      position\n      status\n      width\n      height\n      variants {\n        size\n        url\n      }\n    }\n  }\n}",
+  "43746a0e8a736c632e3b3c73c9305239231ffc24d72cadfb637dc0e7ccfa0308": "mutation CreatePhotoUpload($contentType: String!, $byteLength: Int!) {\n  createPhotoUpload(contentType: $contentType, byteLength: $byteLength) {\n    uploadId\n    uploadUrl\n    expiresAt\n  }\n}",
+  "6f67fd9d058d87888cf62210ce21672155b7f3c6ed228958d31ba58ddcc2f14f": "mutation CompletePhotoUpload($uploadId: ID!) {\n  completePhotoUpload(uploadId: $uploadId) {\n    id\n    position\n    status\n    width\n    height\n    variants {\n      size\n      url\n    }\n  }\n}",
+  "1c64275a63a67d45472819e6b50bbdfa62818d83f5a7b0480729db98f45a5ff3": "mutation ReorderPhotos($photoIds: [ID!]!) {\n  reorderPhotos(photoIds: $photoIds) {\n    id\n    position\n    status\n    width\n    height\n    variants {\n      size\n      url\n    }\n  }\n}",
+  "77433178c230546d2851c5430627ddfe6005a4fe8c10c695744aac00ff296eef": "mutation DeletePhoto($photoId: ID!) {\n  deletePhoto(photoId: $photoId) {\n    id\n    position\n    status\n    width\n    height\n    variants {\n      size\n      url\n    }\n  }\n}"
 }

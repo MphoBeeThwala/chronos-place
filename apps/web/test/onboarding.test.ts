@@ -133,8 +133,9 @@ describe('after activation', () => {
     expect(afterActivation(false, false)).toBe('walkthrough');
     expect(afterActivation(false, true)).toBe('profile');
     expect(afterActivation(true, false)).toBe('done');
-    expect(stepLabel('consent')).toBe('Step 1 of 4');
-    expect(stepLabel('profile')).toBe('Step 4 of 4');
+    expect(stepLabel('consent')).toBe('Step 1 of 5');
+    expect(stepLabel('profile')).toBe('Step 4 of 5');
+    expect(stepLabel('photos')).toBe('Step 5 of 5');
     // About 1 km: the profile service's 0.01-degree grid.
     expect(blurCoordinate(-26.123456)).toBe(-26.12);
     expect(blurCoordinate(28.045678)).toBe(28.05);

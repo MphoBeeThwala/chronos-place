@@ -148,6 +148,7 @@ jobs:
           NODE_ENV: production
           SERVICE_NAME: web
           GATEWAY_URL: http://localhost:4000/graphql
+          STORAGE_ORIGIN: http://127.0.0.1:8333
       - name: Run Playwright smoke tests
         run: pnpm --filter @chronos/web test:e2e
         env:

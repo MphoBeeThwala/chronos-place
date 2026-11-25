@@ -38,7 +38,7 @@ test('a new member agrees to terms and privacy, then confirms a date of birth', 
   await page.goto('/onboarding');
   const heading = page.getByRole('heading', { name: 'Before we begin' });
   await expect(heading).toBeFocused();
-  await expect(page.getByText('Step 1 of 4')).toBeVisible();
+  await expect(page.getByText('Step 1 of 5')).toBeVisible();
   // Health is never asked here, and the draft marketing text is not offered.
   await expect(page.getByText(/updates and community news/)).toHaveCount(0);
 
@@ -90,7 +90,7 @@ test('a member who left after step 1 comes back to the date of birth', async ({ 
   });
   await page.goto('/onboarding');
   await expect(page.getByRole('heading', { name: 'Your date of birth' })).toBeVisible();
-  await expect(page.getByText('Step 2 of 4')).toBeVisible();
+  await expect(page.getByText('Step 2 of 5')).toBeVisible();
 });
 
 test('under 18, the account is closed and the member is told plainly', async ({ page }) => {

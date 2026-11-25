@@ -35,8 +35,25 @@ shift || true
 require_docker
 ensure_env
 
+# Photo buckets for the profile service (ADR-0024). weed shell fails when a bucket already
+# exists, so only that error is accepted: repeat runs keep the buckets.
+ensure_buckets() {
+  local out
+  if ! out="$(printf 's3.bucket.create -name photo-uploads\ns3.bucket.create -name photo-media\n' |
+    "${COMPOSE[@]}" exec -T s3 weed shell 2>&1)"; then
+    if grep -i 'error' <<<"$out" | grep -qv 'already exists'; then
+      printf '%s\n' "$out" >&2
+      return 1
+    fi
+  fi
+}
+
 case "$cmd" in
-  up)     "${COMPOSE[@]}" up -d --wait --wait-timeout 240 ;;
+  up)
+    "${COMPOSE[@]}" up -d --wait --wait-timeout 240
+    # Photo buckets for the profile service (ADR-0024). Safe to repeat: existing ones are kept.
+    ensure_buckets
+    ;;
   down)   "${COMPOSE[@]}" down ;;
   reset)  "${COMPOSE[@]}" down -v ;;
   status) "${COMPOSE[@]}" ps ;;
