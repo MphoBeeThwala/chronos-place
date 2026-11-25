@@ -1,4 +1,5 @@
 import { KMSClient } from '@aws-sdk/client-kms';
+import { S3Client } from '@aws-sdk/client-s3';
 import { KmsKeyWrapper, SubjectKeyring } from '@chronos/crypto';
 import type { Logger } from '@chronos/logger';
 import type { ReadinessRegistry, ServiceConfig } from '@chronos/service-kit';
@@ -31,6 +32,8 @@ import { SessionService } from './sessions/session.service.js';
 import { type CaptureStore, InMemoryCaptureStore } from './verification/capture-store.js';
 import { FakeLivenessProvider, type LivenessProvider } from './verification/provider.js';
 import { DrizzleVerificationStore } from './verification/verification-store.js';
+import { S3CaptureStore } from './verification/s3-capture-store.js';
+import { SmileIdProvider } from './verification/smile-id.js';
 import { VerificationService } from './verification/verification.service.js';
 import { VerificationWorker } from './verification/verification-worker.js';
 import { isDraftPolicy } from './consent/policies.js';
@@ -80,33 +83,71 @@ export interface RuntimeOverrides {
 }
 
 /**
+ * The vendor and capture storage named in config (LIVENESS_PROVIDER), unless a test supplies its
+ * own. "smile-id" needs its credentials and a bucket; "fake" supplies nothing here.
+ */
+function configuredEdges(
+  config: IdentityConfig,
+  overrides: RuntimeOverrides,
+): { provider?: LivenessProvider; captures?: CaptureStore; close: () => void } {
+  if (overrides.livenessProvider || config.LIVENESS_PROVIDER !== 'smile-id') {
+    return {
+      ...(overrides.livenessProvider ? { provider: overrides.livenessProvider } : {}),
+      ...(overrides.captureStore ? { captures: overrides.captureStore } : {}),
+      close: () => undefined,
+    };
+  }
+  const {
+    SMILE_ID_PARTNER_ID: partnerId,
+    SMILE_ID_API_KEY: apiKey,
+    CAPTURE_BUCKET: bucket,
+  } = config;
+  if (partnerId === undefined || apiKey === undefined || bucket === undefined) {
+    throw new IdentityConfigError(
+      'smile-id needs SMILE_ID_PARTNER_ID, SMILE_ID_API_KEY and CAPTURE_BUCKET',
+    );
+  }
+  const s3 = new S3Client({
+    region: config.AWS_REGION,
+    ...(config.S3_ENDPOINT ? { endpoint: config.S3_ENDPOINT, forcePathStyle: true } : {}),
+  });
+  return {
+    provider: new SmileIdProvider({ partnerId, apiKey, environment: config.SMILE_ID_ENVIRONMENT }),
+    captures: overrides.captureStore ?? new S3CaptureStore(s3, bucket),
+    close: () => {
+      s3.destroy();
+    },
+  };
+}
+
+/**
  * Picks the liveness vendor and capture storage. Outside development a real vendor runs only when
- * one is supplied, with object storage, and only once counsel has approved the biometric consent
+ * one is configured, with object storage, and only once counsel has approved the biometric consent
  * text; otherwise verification is switched off and SubmitLiveness answers UNAVAILABLE.
  */
 function verificationEdges(
   development: boolean,
-  overrides: RuntimeOverrides,
+  configured: { provider?: LivenessProvider; captures?: CaptureStore },
   logger: Logger,
 ): { provider: LivenessProvider | undefined; captures: CaptureStore } {
   if (development) {
-    if (!overrides.livenessProvider) logger.warn('liveness: using the fake provider (development)');
+    if (!configured.provider) logger.warn('liveness: using the fake provider (development)');
     return {
-      provider: overrides.livenessProvider ?? new FakeLivenessProvider(),
-      captures: overrides.captureStore ?? new InMemoryCaptureStore(),
+      provider: configured.provider ?? new FakeLivenessProvider(),
+      captures: configured.captures ?? new InMemoryCaptureStore(),
     };
   }
-  if (!overrides.livenessProvider) {
+  if (!configured.provider) {
     logger.warn('liveness verification disabled: no vendor configured');
     return { provider: undefined, captures: new InMemoryCaptureStore() };
   }
-  if (!overrides.captureStore) {
+  if (!configured.captures) {
     throw new IdentityConfigError('a capture store is required with a liveness provider');
   }
   if (isDraftPolicy('biometric_verification')) {
     throw new IdentityConfigError('the biometric consent text is a draft: counsel must approve it');
   }
-  return { provider: overrides.livenessProvider, captures: overrides.captureStore };
+  return { provider: configured.provider, captures: configured.captures };
 }
 
 /** Builds the service's dependencies from validated config. Tests can override the edges. */
@@ -126,7 +167,15 @@ export function createIdentityRuntime(
     throw new IdentityConfigError(`no SMS provider is available in ${config.NODE_ENV}`);
   }
 
-  const { provider, captures } = verificationEdges(development, overrides, logger);
+  const configured = configuredEdges(config, overrides);
+  let edges: ReturnType<typeof verificationEdges>;
+  try {
+    edges = verificationEdges(development, configured, logger);
+  } catch (err) {
+    configured.close();
+    throw err;
+  }
+  const { provider, captures } = edges;
 
   const pool = new pg.Pool({ connectionString: config.DATABASE_URL.reveal(), max: 10 });
   const db = drizzle(pool);
@@ -258,6 +307,7 @@ export function createIdentityRuntime(
     signer,
     close: async () => {
       await Promise.all([stopCleanup(), stopRelay(), stopVaultErasure(), stopVerification()]);
+      configured.close();
       keyring.clearCache();
       redis.disconnect();
       await pool.end();

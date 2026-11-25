@@ -60,6 +60,24 @@ describe('start-up refuses unsafe configuration', () => {
     ).toThrow(/biometric consent text is a draft/);
   });
 
+  it('needs Smile ID credentials and a capture bucket when smile-id is configured', () => {
+    const base = { ACCESS_TOKEN_KEY_ID: 'alias/access-tokens', LIVENESS_PROVIDER: 'smile-id' };
+    const sender = { sender: new RecordingOtpSender() };
+    expect(() =>
+      createIdentityRuntime(config(base), logger, new ReadinessRegistry(), sender),
+    ).toThrow(/SMILE_ID_PARTNER_ID, SMILE_ID_API_KEY and CAPTURE_BUCKET/);
+    const complete = config({
+      ...base,
+      SMILE_ID_PARTNER_ID: '2468',
+      SMILE_ID_API_KEY: 'synthetic-smile-api-key-for-tests',
+      CAPTURE_BUCKET: 'captures',
+    });
+    // Configured correctly, it is still refused while the consent text is a draft.
+    expect(() => createIdentityRuntime(complete, logger, new ReadinessRegistry(), sender)).toThrow(
+      /biometric consent text is a draft/,
+    );
+  });
+
   it('rejects hash keys shorter than 32 bytes', () => {
     expect(() => config({ PHONE_LOOKUP_KEY: 'c2hvcnQ=' })).toThrow();
   });

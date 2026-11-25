@@ -48,7 +48,7 @@ Status: Accepted (2026-11-25, product owner approved decisions a–f). The items
 
 ## Needs counsel (Dumisani Lukhele)
 - Operator-only terms with Smile ID: no use of our members' images for its own purposes, no cross-customer face database, no model training, and deletion within a period we set.
-- Where Smile ID stores and processes images, and whether a cross-border transfer of biometric data needs extra safeguards or prior authorisation under POPIA.
+- Where Smile ID stores and processes images, and whether a cross-border transfer of biometric data needs extra safeguards or prior authorisation under POPIA. Smile ID's own API documentation shows job uploads going to an Amazon S3 bucket in `us-west-2` (United States), so the images may leave South Africa.
 - Whether the vendor knowing our brand reveals a member's likely health status, and whether the neutral-name and random-reference measures are enough.
 - The `biometric_verification` consent text and our 30-day retention period.
 

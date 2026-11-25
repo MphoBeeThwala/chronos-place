@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-kms": "^3.1145.0",
+    "@aws-sdk/client-s3": "^3.1177.0",
     "@chronos/config": "workspace:*",
     "@chronos/contracts": "workspace:*",
     "@chronos/crypto": "workspace:*",
