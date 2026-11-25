@@ -18,7 +18,10 @@ type Query {
   consents: [ConsentRecord!]!
   "The policy versions a member must accept now."
   currentPolicies: [PolicyVersion!]!
+  "The member's own profile. Fails with PROFILE_REQUIRED until the first updateProfile creates it."
   me: Me!
+  "Prompt questions and interests members choose from. Contains no member data."
+  profileCatalogue: ProfileCatalogue!
   feed(first: Int = 20, after: String): FeedConnection!
   profile(id: ID!): PublicProfile
   matches(first: Int = 50, after: String): MatchConnection!
@@ -48,6 +51,7 @@ type Mutation {
   setDateOfBirth(dateOfBirth: Date!): Account!
 
   recordConsent(input: ConsentInput!): Boolean!
+  "Creates the profile on first use (needs displayName and intent), then changes only the fields given."
   updateProfile(input: ProfileInput!): Me!
   updatePreferences(input: PreferencesInput!): Me!
 
@@ -155,9 +159,25 @@ type Photo {
 }
 
 type Prompt {
+  "The question's id in the catalogue."
   id: ID!
   question: String!
   answer: String!
+}
+
+type PromptQuestion {
+  id: ID!
+  question: String!
+}
+
+type Interest {
+  id: ID!
+  label: String!
+}
+
+type ProfileCatalogue {
+  prompts: [PromptQuestion!]!
+  interests: [Interest!]!
 }
 
 "The member's own profile. Never shown to others in this shape."
@@ -174,6 +194,12 @@ type Me {
   verified: Boolean!
   photos: [Photo!]!
   prompts: [Prompt!]!
+  interests: [Interest!]!
+  """
+  True once the member has shared an approximate location, so others can see a rounded distance.
+  The location itself is never returned (ADR-0023).
+  """
+  sharesDistance: Boolean!
   preferences: Preferences!
   tier: Tier!
 }
@@ -265,7 +291,10 @@ input ConsentInput {
   granted: Boolean!
 }
 
-"Write-only. Exact coordinates are stored for distance queries and never returned."
+"""
+Write-only. Snapped to a grid of about 1 km before it is stored, whatever precision is sent, and
+never returned (ADR-0023). Clients should round before sending too.
+"""
 input LocationInput {
   latitude: Float!
   longitude: Float!
@@ -279,8 +308,20 @@ input ProfileInput {
   pronouns: String
   areaLabel: String
   location: LocationInput
+  "Removes the stored location. Cannot be combined with location."
+  clearLocation: Boolean
+  "Free, never a paid feature (ADR-0023). Until discovery arrives, a private profile is hidden from everyone."
   privateMode: Boolean
   visible: Boolean
+  "When given, replaces every prompt answer: up to 3, from the catalogue."
+  prompts: [PromptAnswerInput!]
+  "When given, replaces every interest: up to 5 catalogue ids."
+  interests: [ID!]
+}
+
+input PromptAnswerInput {
+  promptId: ID!
+  answer: String!
 }
 
 input PreferencesInput {

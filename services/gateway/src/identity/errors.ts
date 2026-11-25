@@ -13,13 +13,21 @@ const PASS_THROUGH: Partial<Record<number, string>> = {
   [status.RESOURCE_EXHAUSTED]: 'RATE_LIMITED',
 };
 
-export function fromGrpc(error: unknown): GraphQLError {
+/**
+ * @param options.notFound what NOT_FOUND means for this service. Identity: the account is gone, so
+ *   the member must sign in again. Profile: the member has not created a profile yet.
+ */
+export function fromGrpc(
+  error: unknown,
+  options: { notFound?: () => GraphQLError } = {},
+): GraphQLError {
   const grpc = error as { code?: unknown; details?: unknown };
   const code = typeof grpc.code === 'number' ? PASS_THROUGH[grpc.code] : undefined;
   if (code !== undefined && typeof grpc.details === 'string' && grpc.details.length < 200) {
     return new GraphQLError(grpc.details, { extensions: { code } });
   }
   if (grpc.code === status.NOT_FOUND) {
+    if (options.notFound) return options.notFound();
     return new GraphQLError('Sign in to continue.', { extensions: { code: 'UNAUTHENTICATED' } });
   }
   if (grpc.code === status.UNAVAILABLE || grpc.code === status.DEADLINE_EXCEEDED) {

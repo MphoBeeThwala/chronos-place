@@ -8,6 +8,7 @@ import type { PersistedOperations } from '../../src/limits/persisted-operations.
 import { InMemoryRateLimitStore, type RateLimitStore } from '../../src/limits/rate-limit.js';
 import { createGatewayRuntime } from '../../src/runtime.js';
 import type { FakeIdentity } from './fake-identity.js';
+import type { FakeProfile } from './fake-profile.js';
 
 export const freePort = (): Promise<number> =>
   new Promise((resolve, reject) => {
@@ -34,6 +35,7 @@ export async function startGateway(
     rateLimitStore?: RateLimitStore;
     persistedOperations?: PersistedOperations;
     enforcePersistedOperations?: boolean;
+    profile?: FakeProfile;
   } = {},
 ): Promise<TestGateway> {
   const port = await freePort();
@@ -63,6 +65,8 @@ export async function startGateway(
       GRPC_PORT: String(await freePort()),
       SHUTDOWN_DRAIN_MS: '0',
       IDENTITY_GRPC_ADDRESS: `127.0.0.1:${String(identity.port)}`,
+      // Nothing listens on port 1: profile calls fail as UNAVAILABLE unless a fake is given.
+      PROFILE_GRPC_ADDRESS: `127.0.0.1:${String(options.profile?.port ?? 1)}`,
       TRUSTED_PROXY_HOPS: '0',
       // Not contacted: the refresh lock is in memory in these tests.
       REDIS_URL: 'redis://127.0.0.1:1',

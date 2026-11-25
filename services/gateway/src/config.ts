@@ -17,6 +17,11 @@ export const gatewayConfig = {
     .string()
     .regex(/^[A-Za-z0-9.-]+:\d{1,5}$/)
     .default('127.0.0.1:50052'),
+  /** host:port of the profile service's gRPC API (ADR-0023). */
+  PROFILE_GRPC_ADDRESS: z
+    .string()
+    .regex(/^[A-Za-z0-9.-]+:\d{1,5}$/)
+    .default('127.0.0.1:50053'),
   /**
    * Path the browser uses for GraphQL, behind the web app's same-origin rewrite (ADR-0017).
    * The refresh cookie is scoped to it, so it is not sent with page requests.
