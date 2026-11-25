@@ -7,6 +7,11 @@ export const RATE_LIMITS = {
   /** Shared IPs (mobile carriers, offices) are why this is not lower. */
   perIp: { limit: 300, windowSeconds: 60 },
   perAccount: { limit: 600, windowSeconds: 60 },
+  /**
+   * Photo uploads started, per member (approved 2026-11-25, ADR-0024). Each completion re-encodes
+   * three sizes, and the 6-photo cap does not stop delete-and-re-upload loops.
+   */
+  photoUploadsPerAccount: { limit: 20, windowSeconds: 60 * 60 },
 } as const;
 
 export interface RateLimitStore {
@@ -73,6 +78,20 @@ export class RateLimiter {
     if (hashKey.length < 32) throw new Error('rate limit hash key must be at least 32 bytes');
     this.#store = store;
     this.#key = Buffer.from(hashKey);
+  }
+
+  /** Counts one photo upload started by the member; refuses past the hourly limit. */
+  async checkPhotoUpload(accountId: string): Promise<void> {
+    const { limit, windowSeconds } = RATE_LIMITS.photoUploadsPerAccount;
+    const { count, resetSeconds } = await this.#store.hit(
+      `photo-upload:${accountId}`,
+      windowSeconds,
+    );
+    if (count > limit) {
+      throw new GraphQLError('You have added a lot of photos recently. Try again later.', {
+        extensions: { code: 'RATE_LIMITED', retryAfterSeconds: resetSeconds },
+      });
+    }
   }
 
   async check(ip: string, accountId: string | undefined): Promise<void> {

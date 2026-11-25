@@ -37,6 +37,7 @@ describe('rate limits (decision a: 300/min per IP, 600/min per account)', () => 
   it('has the approved numbers', () => {
     expect(RATE_LIMITS.perIp).toEqual({ limit: 300, windowSeconds: 60 });
     expect(RATE_LIMITS.perAccount).toEqual({ limit: 600, windowSeconds: 60 });
+    expect(RATE_LIMITS.photoUploadsPerAccount).toEqual({ limit: 20, windowSeconds: 3600 });
   });
 
   it('refuses the request after the per-IP limit, with a retry hint and HTTP 429', async () => {
