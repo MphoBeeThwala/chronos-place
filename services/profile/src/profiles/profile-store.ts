@@ -1,5 +1,6 @@
-import { asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, ne, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import type { Point } from './location.js';
 import {
   type Intent,
   preferences,
@@ -68,6 +69,27 @@ export interface ProfileStore {
   update(accountId: string, changes: ProfileChanges, now: Date): Promise<boolean>;
   /** Replaces the preferences. False when there is no profile. */
   setPreferences(accountId: string, prefs: PreferencesRecord, now: Date): Promise<boolean>;
+  /** Stores an already snapped point, or clears it (null). False when there is no profile. */
+  setLocation(accountId: string, point: Point | null, now: Date): Promise<boolean>;
+  /**
+   * Profiles `viewerId` may be shown, with the distance in metres between the two stored points
+   * (null when either has none). Leaves out the viewer, paused profiles and private mode.
+   * Never returns a coordinate.
+   */
+  publicProfiles(viewerId: string, ids: readonly string[]): Promise<PublicProfileRecord[]>;
+}
+
+export interface PublicProfileRecord {
+  accountId: string;
+  displayName: string;
+  bio: string | null;
+  intent: Intent;
+  gender: string | null;
+  pronouns: string | null;
+  areaLabel: string | null;
+  distanceMeters: number | null;
+  prompts: PromptAnswer[];
+  interests: string[];
 }
 
 type Tx = Parameters<Parameters<NodePgDatabase['transaction']>[0]>[0];
@@ -184,5 +206,70 @@ export class DrizzleProfileStore implements ProfileStore {
       .where(eq(preferences.accountId, accountId))
       .returning({ accountId: preferences.accountId });
     return updated.length > 0;
+  }
+
+  async setLocation(accountId: string, point: Point | null, now: Date): Promise<boolean> {
+    const location =
+      point === null
+        ? null
+        : sql`ST_SetSRID(ST_MakePoint(${point.longitude}, ${point.latitude}), 4326)::geography`;
+    const updated = await this.#db
+      .update(profiles)
+      .set({ location, locationUpdatedAt: point === null ? null : now, updatedAt: now })
+      .where(eq(profiles.accountId, accountId))
+      .returning({ accountId: profiles.accountId });
+    return updated.length > 0;
+  }
+
+  async publicProfiles(viewerId: string, ids: readonly string[]): Promise<PublicProfileRecord[]> {
+    if (ids.length === 0) return [];
+    // The distance is worked out inside the database; no coordinate is ever selected.
+    const viewerLocation = sql`(select v.location from ${profiles} v where v.account_id = ${viewerId})`;
+    const rows = await this.#db
+      .select({
+        accountId: profiles.accountId,
+        displayName: profiles.displayName,
+        bio: profiles.bio,
+        intent: profiles.intent,
+        gender: profiles.gender,
+        pronouns: profiles.pronouns,
+        areaLabel: profiles.areaLabel,
+        distanceMeters: sql<number | null>`ST_Distance(${profiles.location}, ${viewerLocation})`,
+      })
+      .from(profiles)
+      .where(
+        and(
+          inArray(profiles.accountId, [...ids]),
+          ne(profiles.accountId, viewerId),
+          eq(profiles.visible, true),
+          // Private mode: shown only to members they liked, which discovery decides (M3).
+          eq(profiles.privateMode, false),
+        ),
+      );
+    if (rows.length === 0) return [];
+    const found = rows.map((r) => r.accountId);
+    const [prompts, interests] = await Promise.all([
+      this.#db
+        .select({
+          accountId: profilePrompts.accountId,
+          promptId: profilePrompts.promptId,
+          answer: profilePrompts.answer,
+        })
+        .from(profilePrompts)
+        .where(inArray(profilePrompts.accountId, found))
+        .orderBy(asc(profilePrompts.accountId), asc(profilePrompts.position)),
+      this.#db
+        .select({ accountId: profileInterests.accountId, id: profileInterests.interestId })
+        .from(profileInterests)
+        .where(inArray(profileInterests.accountId, found))
+        .orderBy(asc(profileInterests.interestId)),
+    ]);
+    return rows.map((r) => ({
+      ...r,
+      prompts: prompts
+        .filter((p) => p.accountId === r.accountId)
+        .map(({ promptId, answer }) => ({ promptId, answer })),
+      interests: interests.filter((i) => i.accountId === r.accountId).map((i) => i.id),
+    }));
   }
 }

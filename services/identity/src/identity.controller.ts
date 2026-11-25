@@ -36,6 +36,7 @@ const schemas = {
   refresh: z.object({ refreshToken: z.string().max(128), client: clientContext }),
   revoke: z.object({ sessionId: uuid, accountId: uuid }),
   account: z.object({ accountId: uuid }),
+  memberFacts: z.object({ accountIds: z.array(uuid).max(100).default([]) }),
   consent: z.object({
     accountId: uuid,
     type: z.number().int(),
@@ -259,5 +260,11 @@ export class IdentityController {
   async requestVerificationReview(request: unknown) {
     const { accountId } = parse(schemas.account, request);
     return verification(await this.#runtime.verification.requestReview(accountId));
+  }
+
+  @GrpcMethod(SERVICE, 'GetMemberFacts')
+  async getMemberFacts(request: unknown) {
+    const { accountIds } = parse(schemas.memberFacts, request);
+    return { members: await this.#runtime.accounts.memberFacts(accountIds) };
   }
 }

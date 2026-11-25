@@ -6,8 +6,10 @@ import type { AccountStatus } from '../db/schema.js';
 import type { VerifiedPhone } from '../otp/otp.service.js';
 import type { AccountRecord, AccountStore } from './account-store.js';
 import {
+  ageOn,
   type CalendarDate,
   EARLIEST_BIRTH_YEAR,
+  MINIMUM_AGE,
   isAdult,
   isRealDate,
   toIsoDate,
@@ -94,6 +96,23 @@ export class AccountService {
       throw new DomainError('failed_precondition', ACCOUNT_UNAVAILABLE);
     }
     return { account, created: false };
+  }
+
+  /**
+   * Age in whole years and the verified flag of active members, for other members to see
+   * (ADR-0023 decision f). Dates of birth never leave this service.
+   */
+  async memberFacts(
+    ids: readonly string[],
+  ): Promise<{ accountId: string; age: number; verified: boolean }[]> {
+    const today = todayInSouthAfrica(this.#d.now());
+    const facts = await this.#d.accounts.activeFacts([...new Set(ids)]);
+    return facts.flatMap((f) => {
+      const [year, month, day] = f.dateOfBirth.split('-').map(Number) as [number, number, number];
+      const age = ageOn({ year, month, day }, today);
+      // Defensive: an active account is always an adult (ADR-0018).
+      return age >= MINIMUM_AGE ? [{ accountId: f.id, age, verified: f.verified }] : [];
+    });
   }
 
   async get(accountId: string): Promise<AccountRecord> {

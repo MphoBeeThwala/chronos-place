@@ -181,3 +181,30 @@ describe('date of birth and the 18+ rule', () => {
     expect(error.message).toBe('This account cannot be used.');
   });
 });
+
+describe('member facts (ADR-0023 decision f)', () => {
+  it('gives whole-year ages and the badge for active members only, never a date of birth', async () => {
+    const { service, accounts, verify } = setup();
+    const a = (await service.signIn(await verify(1))).account.id;
+    const b = (await service.signIn(await verify(2))).account.id;
+    const pending = (await service.signIn(await verify(3))).account.id;
+    // Turned 30 the day before NOW; turns 41 the day after NOW.
+    await service.setDateOfBirth(a, { year: 1996, month: 11, day: 19 });
+    await service.setDateOfBirth(b, { year: 1985, month: 11, day: 21 });
+    const row = accounts.rows.get(b);
+    if (row) row.verified = true;
+
+    const facts = await service.memberFacts([
+      a,
+      b,
+      pending,
+      a,
+      '99999999-9999-4999-8999-999999999999',
+    ]);
+    expect(facts.sort((x, y) => x.age - y.age)).toEqual([
+      { accountId: a, age: 30, verified: false },
+      { accountId: b, age: 40, verified: true },
+    ]);
+    expect(JSON.stringify(facts)).not.toMatch(/1996|1985|-11-/);
+  });
+});

@@ -2,10 +2,15 @@ import type { Logger } from '@chronos/logger';
 import { ReadinessRegistry, SERVICE_CONFIG, SERVICE_LOGGER } from '@chronos/service-kit';
 import { Inject, Module, type OnModuleDestroy, type Type } from '@nestjs/common';
 import { PROFILE_RUNTIME, ProfileController } from './profile.controller.js';
-import { createProfileRuntime, type ProfileConfig, type ProfileRuntime } from './runtime.js';
+import {
+  createProfileRuntime,
+  type ProfileConfig,
+  type ProfileRuntime,
+  type RuntimeOverrides,
+} from './runtime.js';
 
 /** Root module of the profile service (ADR-0023). */
-export function createAppModule(): Type {
+export function createAppModule(overrides: RuntimeOverrides = {}): Type {
   @Module({
     controllers: [ProfileController],
     providers: [
@@ -13,7 +18,7 @@ export function createAppModule(): Type {
         provide: PROFILE_RUNTIME,
         inject: [SERVICE_CONFIG, SERVICE_LOGGER, ReadinessRegistry],
         useFactory: (config: ProfileConfig, logger: Logger, readiness: ReadinessRegistry) =>
-          createProfileRuntime(config, logger, readiness),
+          createProfileRuntime(config, logger, readiness, overrides),
       },
     ],
   })

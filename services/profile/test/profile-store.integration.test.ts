@@ -130,3 +130,58 @@ describe('profiles on PostgreSQL', () => {
     expect(Number(left.rows[0]?.n)).toBe(0);
   });
 });
+
+describe('location on PostGIS (M1.5 AC)', () => {
+  it('stores the snapped point, measures distance in the database and never selects a coordinate', async () => {
+    const store = new DrizzleProfileStore(drizzle(db.pool));
+    const viewer = account();
+    const other = account();
+    for (const id of [viewer, other]) {
+      await store.create(id, fields, { prompts: [], interests: [] }, DEFAULT_PREFERENCES);
+    }
+    await store.setLocation(viewer, { latitude: -26.2, longitude: 28.05 }, new Date());
+    await store.setLocation(other, { latitude: -25.75, longitude: 28.23 }, new Date());
+
+    const stored = await db.pool.query<{ lat: number; lng: number }>(
+      `select ST_Y(location::geometry) as lat, ST_X(location::geometry) as lng
+         from profile.profiles where account_id = $1`,
+      [viewer],
+    );
+    expect(stored.rows[0]).toEqual({ lat: -26.2, lng: 28.05 });
+
+    const [view] = await store.publicProfiles(viewer, [other]);
+    expect(view?.distanceMeters).toBeGreaterThan(53_000);
+    expect(view?.distanceMeters).toBeLessThan(55_000);
+    expect(Object.keys(view ?? {}).sort()).toEqual([
+      'accountId',
+      'areaLabel',
+      'bio',
+      'displayName',
+      'distanceMeters',
+      'gender',
+      'intent',
+      'interests',
+      'prompts',
+      'pronouns',
+    ]);
+    expect((await store.get(viewer))?.profile.hasLocation).toBe(true);
+  });
+
+  it('leaves out the viewer, paused and private profiles, and has no distance without both points', async () => {
+    const store = new DrizzleProfileStore(drizzle(db.pool));
+    const viewer = account();
+    const [plain, paused, hidden] = [account(), account(), account()];
+    for (const id of [viewer, plain, paused, hidden]) {
+      await store.create(id, fields, { prompts: [], interests: [] }, DEFAULT_PREFERENCES);
+    }
+    await store.update(paused, { fields: { visible: false } }, new Date());
+    await store.update(hidden, { fields: { privateMode: true } }, new Date());
+    await store.setLocation(plain, { latitude: -26.2, longitude: 28.05 }, new Date());
+    const views = await store.publicProfiles(viewer, [viewer, plain, paused, hidden]);
+    expect(views.map((v) => v.accountId)).toEqual([plain]);
+    expect(views[0]?.distanceMeters).toBeNull();
+
+    await store.setLocation(plain, null, new Date());
+    expect((await store.get(plain))?.profile.hasLocation).toBe(false);
+  });
+});

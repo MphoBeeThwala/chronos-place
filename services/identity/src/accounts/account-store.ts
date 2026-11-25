@@ -1,4 +1,4 @@
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { accounts, type AccountStatus, outbox } from '../db/schema.js';
 import { type OutboxEvent, outboxValues } from '../events/outbox.js';
@@ -30,6 +30,15 @@ export interface AccountStore {
   activateWithDateOfBirth(id: string, isoDate: string): Promise<boolean>;
   /** Marks a pending account ineligible for good. The date of birth is not stored. */
   markIneligible(id: string): Promise<boolean>;
+  /** Date of birth and verified flag of the active accounts among `ids`; others are left out. */
+  activeFacts(ids: readonly string[]): Promise<ActiveFacts[]>;
+}
+
+export interface ActiveFacts {
+  id: string;
+  /** YYYY-MM-DD. Used to work out an age, never returned. */
+  dateOfBirth: string;
+  verified: boolean;
 }
 
 const record = (row: {
@@ -106,5 +115,28 @@ export class DrizzleAccountStore implements AccountStore {
       .where(and(eq(accounts.id, id), eq(accounts.status, 'pending_onboarding')))
       .returning({ id: accounts.id });
     return rows.length === 1;
+  }
+
+  async activeFacts(ids: readonly string[]): Promise<ActiveFacts[]> {
+    if (ids.length === 0) return [];
+    const rows = await this.#db
+      .select({
+        id: accounts.id,
+        dateOfBirth: accounts.dateOfBirth,
+        verifiedAt: accounts.verifiedAt,
+      })
+      .from(accounts)
+      .where(
+        and(
+          inArray(accounts.id, [...ids]),
+          eq(accounts.status, 'active'),
+          isNotNull(accounts.dateOfBirth),
+        ),
+      );
+    return rows.flatMap((r) =>
+      r.dateOfBirth === null
+        ? []
+        : [{ id: r.id, dateOfBirth: r.dateOfBirth, verified: r.verifiedAt !== null }],
+    );
   }
 }

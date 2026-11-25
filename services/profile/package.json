@@ -24,6 +24,8 @@
     "@chronos/contracts": "workspace:*",
     "@chronos/logger": "workspace:*",
     "@chronos/service-kit": "workspace:*",
+    "@grpc/grpc-js": "^1.14.5",
+    "@grpc/proto-loader": "^0.8.1",
     "@nestjs/common": "^12.1.2",
     "@nestjs/core": "^12.1.2",
     "@nestjs/microservices": "^12.1.2",
@@ -36,8 +38,6 @@
   "devDependencies": {
     "@chronos/privacy-harness": "workspace:*",
     "@chronos/tsconfig": "workspace:*",
-    "@grpc/grpc-js": "^1.14.5",
-    "@grpc/proto-loader": "^0.8.1",
     "@testcontainers/postgresql": "^12.2.2",
     "@types/pg": "^8.23.1",
     "drizzle-kit": "^0.31.11",

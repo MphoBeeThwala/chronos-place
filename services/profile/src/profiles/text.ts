@@ -36,6 +36,7 @@ export const MESSAGES = {
   ages: `Ages must be between ${String(AGE_FLOOR)} and ${String(AGE_CEILING)}, lowest first.`,
   distance: `Distance must be between ${String(DISTANCE_MIN_KM)} and ${String(DISTANCE_MAX_KM)} km.`,
   needsProfile: 'Create your profile first.',
+  tooMany: 'Too many profiles in one request.',
   needsBasics: 'Add a display name and what you are looking for to create your profile.',
 } as const;
 

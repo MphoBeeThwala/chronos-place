@@ -23,6 +23,16 @@ service ProfileService {
   rpc UpdatePreferences(UpdatePreferencesRequest) returns (UpdatePreferencesResponse);
   // The prompt questions and interests members can choose from. Contains no member data. Caller: gateway.
   rpc GetCatalogue(GetCatalogueRequest) returns (GetCatalogueResponse);
+
+  // Sets or clears the member's approximate location (ADR-0023 decision a). The service snaps the
+  // point to a grid of about 1 km before storing it, whatever the client sent. Needs a profile.
+  // Caller: gateway.
+  rpc SetLocation(SetLocationRequest) returns (SetLocationResponse);
+  // Profiles as another member sees them, with a rounded distance and never a coordinate (M1.5 AC).
+  // Leaves out, without saying why: unknown ids, paused profiles, profiles in private mode (until
+  // discovery can tell whom the member liked, M3), accounts that are not active, and the viewer.
+  // At most 50 ids; results keep the request order. Callers: gateway, discovery (M3).
+  rpc GetPublicProfiles(GetPublicProfilesRequest) returns (GetPublicProfilesResponse);
 }
 
 enum Intent {
@@ -152,4 +162,46 @@ message GetCatalogueRequest {}
 message GetCatalogueResponse {
   repeated PromptQuestion prompts = 1;
   repeated Interest interests = 2;
+}
+
+message SetLocationRequest {
+  string account_id = 1;
+  // WGS 84 degrees. Ignored when clear is true.
+  double latitude = 2;
+  double longitude = 3;
+  // Removes the stored location.
+  bool clear = 4;
+}
+
+message SetLocationResponse {
+  Profile profile = 1;
+  Preferences preferences = 2;
+}
+
+message GetPublicProfilesRequest {
+  string viewer_account_id = 1;
+  repeated string account_ids = 2;
+}
+
+// Another member's profile. No coordinates, no date of birth and no health data.
+message PublicProfile {
+  string account_id = 1;
+  string display_name = 2;
+  // Whole years, from identity.
+  int32 age = 3;
+  string bio = 4;
+  Intent intent = 5;
+  string gender = 6;
+  string pronouns = 7;
+  string area_label = 8;
+  // Whole kilometres, at least 1; rounded to 5 km above 10 km. Unset when either member has not
+  // shared a location.
+  optional int32 distance_km = 9;
+  repeated PromptAnswer prompts = 10;
+  repeated string interests = 11;
+  bool verified = 12;
+}
+
+message GetPublicProfilesResponse {
+  repeated PublicProfile profiles = 1;
 }

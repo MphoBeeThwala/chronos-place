@@ -81,6 +81,10 @@ interface IdentityClient {
     { verification: Verification }
   >;
   getVerification: Call<{ accountId: string }, { verification: Verification }>;
+  getMemberFacts: Call<
+    { accountIds: string[] },
+    { members?: { accountId: string; age: number; verified: boolean }[] }
+  >;
 }
 
 const freePort = (): Promise<number> =>
@@ -387,6 +391,30 @@ describe('identity gRPC API', () => {
     expect(account.verified).toBe(false);
     expect((await call(identity.getVerification({ accountId }))).verification.status).toBe(
       VerificationStatus.VERIFICATION_STATUS_PENDING,
+    );
+  });
+
+  it('gives other services a whole-year age for active members only', async () => {
+    const adult = await signIn('082 000 0108');
+    await acceptRequired(adult.account.accountId);
+    await call(
+      identity.setDateOfBirth({
+        accountId: adult.account.accountId,
+        dateOfBirth: { year: 1990, month: 1, day: 1 },
+      }),
+    );
+    const onboarding = await signIn('082 000 0109');
+    const { members } = await call(
+      identity.getMemberFacts({
+        accountIds: [adult.account.accountId, onboarding.account.accountId],
+      }),
+    );
+    expect(members).toHaveLength(1);
+    expect(members?.[0]).toMatchObject({ accountId: adult.account.accountId, verified: false });
+    expect(members?.[0]?.age).toBeGreaterThanOrEqual(36);
+    const tooMany = Array.from({ length: 101 }, () => adult.account.accountId);
+    expect((await grpcError(call(identity.getMemberFacts({ accountIds: tooMany })))).code).toBe(
+      status.INVALID_ARGUMENT,
     );
   });
 });
