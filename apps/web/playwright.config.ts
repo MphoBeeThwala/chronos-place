@@ -10,6 +10,8 @@ const launchOptions = chromePath ? { executablePath: chromePath } : {};
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
+  // e2e/stack runs against the real services, so only from `pnpm test:e2e:stack`.
+  testIgnore: process.env['E2E_STACK'] === '1' ? [] : ['**/stack/**'],
   forbidOnly: !!process.env['CI'],
   retries: process.env['CI'] ? 2 : 0,
   workers: process.env['CI'] ? 1 : 4,

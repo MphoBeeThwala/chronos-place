@@ -26,7 +26,8 @@
     "test:service-template": "bash tools/scripts/check-service-template.sh",
     "check:deps": "pnpm --filter @chronos/repo-checks check:deps",
     "test:privacy": "turbo run test:privacy",
-    "test:e2e": "turbo run test:e2e"
+    "test:e2e": "turbo run test:e2e",
+    "test:e2e:stack": "bash tools/scripts/e2e-stack.sh"
   },
   "devDependencies": {
     "@chronos/eslint-config": "workspace:*",

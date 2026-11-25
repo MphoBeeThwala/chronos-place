@@ -3,6 +3,7 @@
  * The gateway is mocked; synthetic data only.
  */
 import { expect, test } from '@playwright/test';
+import { expectAccessible } from './support/axe';
 import { gqlError, mockGraphQL, signedIn } from './support/graphql';
 
 const active = {
@@ -33,6 +34,7 @@ test('walkthrough, then a profile with a blurred distance, then photos', async (
   await page.goto('/onboarding');
   await expect(page.getByRole('heading', { name: 'How your privacy works' })).toBeFocused();
   await expect(page.getByText('Step 3 of 5')).toBeVisible();
+  await expectAccessible(page, 'step 3: walkthrough card 1');
   await expect(
     page.getByRole('heading', { name: 'Your health information stays hidden' }),
   ).toBeVisible();
@@ -45,6 +47,7 @@ test('walkthrough, then a profile with a blurred distance, then photos', async (
   await page.getByRole('button', { name: 'Next', exact: true }).click();
   await page.getByRole('button', { name: 'Next', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'You stay in control' })).toBeVisible();
+  await expectAccessible(page, 'step 3: walkthrough card 3');
   await page.getByRole('button', { name: 'Got it, continue' }).click();
 
   await expect(page.getByRole('heading', { name: 'Your profile' })).toBeFocused();
@@ -54,6 +57,7 @@ test('walkthrough, then a profile with a blurred distance, then photos', async (
   await page.getByRole('button', { name: 'Save and continue' }).click();
   await expect(page.getByText('Enter the name you want others to see.')).toBeVisible();
   await expect(page.getByText('Choose what you are looking for.')).toBeVisible();
+  await expectAccessible(page, 'step 4: profile with errors');
   expect(calls.some((c) => c.operationName === 'CreateProfile')).toBe(false);
 
   await page.getByLabel('Your name').fill('  Lerato ');
@@ -61,6 +65,7 @@ test('walkthrough, then a profile with a blurred distance, then photos', async (
   await page.getByLabel(/About you/).fill('Hiking on Saturdays, jazz on Sundays.');
   await page.getByRole('button', { name: 'Show my approximate distance' }).click();
   await expect(page.getByText('Your approximate distance will be shown.')).toBeVisible();
+  await expectAccessible(page, 'step 4: profile with distance shown');
   await page.getByRole('button', { name: 'Save and continue' }).click();
 
   await expect(page.getByRole('heading', { name: 'Your photos' })).toBeFocused();
