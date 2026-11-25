@@ -76,3 +76,28 @@ mutation RequestVerificationReview {
     reviewAvailable
   }
 }
+
+# Onboarding (TASKS M1.7, ADR-0020): terms and privacy, then date of birth.
+
+query OnboardingState {
+  account {
+    id
+    status
+  }
+  consents {
+    type
+    policyVersion
+    granted
+  }
+  currentPolicies {
+    type
+    version
+  }
+}
+
+mutation SetDateOfBirth($dateOfBirth: Date!) {
+  setDateOfBirth(dateOfBirth: $dateOfBirth) {
+    id
+    status
+  }
+}

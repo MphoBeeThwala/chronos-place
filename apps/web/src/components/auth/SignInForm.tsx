@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { OPERATIONS } from '@/graphql/operations.generated';
+import { messageOf } from '@/lib/graphql-errors';
 
 type Step = 'phone' | 'otp';
 
@@ -20,16 +21,6 @@ interface RequestOtpData {
 }
 interface VerifyOtpData {
   verifyOtp: { account: { id: string; status: string } };
-}
-
-/** The gateway's messages are written for members; anything else gets a plain fallback. */
-function messageOf(error: unknown): string {
-  const graphQLErrors = (
-    error as { graphQLErrors?: { message: string; extensions?: { code?: string } }[] }
-  ).graphQLErrors;
-  const first = graphQLErrors?.[0];
-  if (first && first.extensions?.code !== 'INTERNAL_SERVER_ERROR') return first.message;
-  return 'Something went wrong. Try again.';
 }
 
 export function SignInForm() {

@@ -100,7 +100,7 @@ pnpm typecheck
 pnpm test                    # unit tests
 pnpm test:integration        # Testcontainers-backed tests (needs Docker)
 pnpm test:privacy            # leakage tests (logs, events, notifications)
-pnpm test:e2e                # Playwright smoke tests for apps/web (starts the app itself)
+pnpm test:e2e                # Playwright tests for apps/web (starts the app itself; PLAYWRIGHT_CHROME_PATH=/path/to/chrome uses an installed Chrome)
 pnpm db:migrate              # core-database migrations (identity and profile; vault arrives with M2.1). Needs the stack up
 pnpm seed                    # NOT YET: synthetic data only, from tools/seed (arrives with M1.5)
 pnpm check:deps              # banned third-party SDKs (rule 7); also runs in CI

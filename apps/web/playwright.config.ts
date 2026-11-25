@@ -1,5 +1,12 @@
 import { defineConfig, devices } from '@playwright/test';
 
+/**
+ * PLAYWRIGHT_CHROME_PATH runs the tests with an installed Chrome where Playwright's own browser
+ * cannot be downloaded (e.g. /usr/bin/google-chrome).
+ */
+const chromePath = process.env['PLAYWRIGHT_CHROME_PATH'];
+const launchOptions = chromePath ? { executablePath: chromePath } : {};
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
@@ -17,8 +24,8 @@ export default defineConfig({
     : [['list']],
 
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    { name: 'Mobile Chrome', use: { ...devices['Pixel 5'] } },
+    { name: 'chromium', use: { ...devices['Desktop Chrome'], launchOptions } },
+    { name: 'Mobile Chrome', use: { ...devices['Pixel 5'], launchOptions } },
   ],
 
   // CI tests the production build (pnpm build runs first); locally the dev server is enough.
