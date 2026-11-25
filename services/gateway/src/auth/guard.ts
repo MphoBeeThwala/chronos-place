@@ -1,5 +1,5 @@
 import type { ApolloServerPlugin } from '@apollo/server';
-import { ONBOARDING_FIELDS, PUBLIC_MUTATIONS } from '@chronos/contracts/graphql';
+import { ONBOARDING_FIELDS, PUBLIC_MUTATIONS, VERIFIED_FIELDS } from '@chronos/contracts/graphql';
 import {
   GraphQLError,
   OperationTypeNode,
@@ -11,6 +11,13 @@ import {
 import type { GatewayContext } from './context.js';
 
 export type AccountState = 'pending_onboarding' | 'active' | 'unavailable';
+
+/** What the guard needs to know about the signed-in account. */
+export interface AccountInfo {
+  state: AccountState;
+  /** A selfie liveness check has passed (ADR-0022). */
+  verified: boolean;
+}
 
 const PUBLIC = new Set<string>(PUBLIC_MUTATIONS);
 const ONBOARDING = new Set<string>(ONBOARDING_FIELDS);
@@ -39,7 +46,10 @@ export function rootFields(operation: OperationDefinitionNode, document: Documen
   return names.filter((n) => n !== '__typename');
 }
 
-function refuse(code: 'UNAUTHENTICATED' | 'FORBIDDEN', message: string): never {
+function refuse(
+  code: 'UNAUTHENTICATED' | 'FORBIDDEN' | 'VERIFICATION_REQUIRED',
+  message: string,
+): never {
   throw new GraphQLError(message, {
     extensions: { code, http: { status: code === 'UNAUTHENTICATED' ? 401 : 403 } },
   });
@@ -50,11 +60,14 @@ function refuse(code: 'UNAUTHENTICATED' | 'FORBIDDEN', message: string): never {
  * after parsing and validation and before any resolver:
  * - no valid session: only requestOtp, verifyOtp and refreshSession;
  * - onboarding not finished: only the onboarding steps (ONBOARDING_FIELDS);
- * - an account that may no longer sign in: nothing but the public mutations.
+ * - an account that may no longer sign in: nothing but the public mutations;
+ * - not yet verified: none of VERIFIED_FIELDS (M1.4 AC: messaging blocked until verified).
  */
 export function authGuard(
-  accountState: (accountId: string) => Promise<AccountState>,
+  accountInfo: (accountId: string) => Promise<AccountInfo>,
+  verifiedFields: readonly string[] = VERIFIED_FIELDS,
 ): ApolloServerPlugin<GatewayContext> {
+  const needsVerification = new Set(verifiedFields);
   return {
     requestDidStart: () =>
       Promise.resolve({
@@ -69,10 +82,13 @@ export function authGuard(
           if (onlyPublic) return;
           const { viewer } = contextValue;
           if (!viewer) refuse('UNAUTHENTICATED', 'Sign in to continue.');
-          const state = await accountState(viewer.accountId);
+          const { state, verified } = await accountInfo(viewer.accountId);
           if (state === 'unavailable') refuse('UNAUTHENTICATED', 'Sign in to continue.');
           if (state === 'pending_onboarding' && !fields.every((f) => ONBOARDING.has(f))) {
             refuse('FORBIDDEN', 'Finish signing up first.');
+          }
+          if (!verified && fields.some((f) => needsVerification.has(f))) {
+            refuse('VERIFICATION_REQUIRED', 'Verify your profile with a selfie first.');
           }
         },
       }),

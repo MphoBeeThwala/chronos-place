@@ -53,7 +53,12 @@ export class IdentityClient {
   }
 
   /** Calls a method by its camelCase name, e.g. "verifyOtp". */
-  call<T>(method: string, request: object, requestId?: string): Promise<T> {
+  call<T>(
+    method: string,
+    request: object,
+    requestId?: string,
+    options: { timeoutMs?: number } = {},
+  ): Promise<T> {
     const fn = this.#client[method];
     if (typeof fn !== 'function') return Promise.reject(new Error('unknown identity method'));
     const metadata = new Metadata();
@@ -63,7 +68,7 @@ export class IdentityClient {
         this.#client,
         request,
         metadata,
-        { deadline: new Date(Date.now() + this.#timeoutMs) },
+        { deadline: new Date(Date.now() + (options.timeoutMs ?? this.#timeoutMs)) },
         (error, response) => {
           if (error) reject(error);
           else resolve(response as T);

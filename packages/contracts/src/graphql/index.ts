@@ -27,3 +27,10 @@ export const ONBOARDING_FIELDS = [
   'signOut',
   ...PUBLIC_MUTATIONS,
 ] as const;
+
+/**
+ * Root fields that need a passed selfie liveness check (ADR-0022, M1.4 AC: messaging blocked until
+ * verified). Messaging fields join this list when they are added to the schema (M4); the gateway
+ * refuses them with VERIFICATION_REQUIRED until the account is verified.
+ */
+export const VERIFIED_FIELDS: readonly string[] = [];

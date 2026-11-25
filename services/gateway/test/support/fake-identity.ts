@@ -41,6 +41,8 @@ export function localSigner(): AccessTokenSigner {
 export class FakeIdentity {
   readonly signer = localSigner();
   readonly statuses = new Map<string, AccountStatus>();
+  /** Accounts whose selfie check has passed. */
+  readonly verified = new Set<string>();
   readonly handlers = new Map<string, Handler>();
   readonly calls: { method: string; request: Record<string, unknown> }[] = [];
   #server = new Server();
@@ -110,7 +112,7 @@ export class FakeIdentity {
       const accountStatus = this.statuses.get(id);
       if (accountStatus === undefined)
         throw new GrpcFailure(status.NOT_FOUND, 'This account cannot be used.');
-      return { account: { accountId: id, status: accountStatus } };
+      return { account: { accountId: id, status: accountStatus, verified: this.verified.has(id) } };
     }
     throw new GrpcFailure(status.UNIMPLEMENTED, 'not in fake');
   }

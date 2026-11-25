@@ -20,7 +20,12 @@ describe('gateway privacy', () => {
       logger: createLogger({
         service: 'gateway',
         level: 'trace',
-        destination: privacy.logs.destination,
+        // The harness is recreated for each test; write through to the current one.
+        destination: {
+          write: (line: string) => {
+            privacy.logs.destination.write(line);
+          },
+        },
       }),
     });
   });

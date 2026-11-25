@@ -52,6 +52,7 @@ export async function startGateway(
             : {}),
         }),
       ...(options.resolvers ? { resolvers: options.resolvers } : {}),
+      ...(options.verifiedFields ? { verifiedFields: options.verifiedFields } : {}),
     }),
     extraConfig: gatewayConfig,
     env: {
