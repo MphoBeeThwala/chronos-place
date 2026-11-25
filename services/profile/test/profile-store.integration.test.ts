@@ -35,8 +35,10 @@ describe('profile migrations', () => {
       `select table_name from information_schema.tables where table_schema = 'profile' order by 1`,
     );
     expect(tables.rows.map((r) => r.table_name)).toEqual([
+      'photo_uploads',
       'preferences',
       'profile_interests',
+      'profile_photos',
       'profile_prompts',
       'profiles',
     ]);

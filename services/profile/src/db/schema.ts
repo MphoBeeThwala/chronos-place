@@ -11,6 +11,7 @@
 import { sql } from 'drizzle-orm';
 import {
   boolean,
+  integer,
   check,
   customType,
   index,
@@ -115,5 +116,54 @@ export const preferences = profile.table(
       sql`${t.ageMin} >= 18 and ${t.ageMax} <= 99 and ${t.ageMin} <= ${t.ageMax}`,
     ),
     check('preferences_distance_check', sql`${t.maxDistanceKm} between 1 and 300`),
+  ],
+);
+
+export const PHOTO_MODERATION = ['pending', 'approved', 'rejected'] as const;
+export type PhotoModeration = (typeof PHOTO_MODERATION)[number];
+
+/**
+ * Upload links issued and not yet completed (ADR-0024 decision a). Binds a quarantine object to
+ * the member who asked for it, so nobody can complete someone else's upload.
+ */
+export const photoUploads = profile.table(
+  'photo_uploads',
+  {
+    id: uuid('id').primaryKey(),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => profiles.accountId, { onDelete: 'cascade' }),
+    contentType: text('content_type').notNull(),
+    byteLength: integer('byte_length').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdAt,
+  },
+  (t) => [
+    index('photo_uploads_account_idx').on(t.accountId),
+    check('photo_uploads_length_check', sql`${t.byteLength} between 1 and 10485760`),
+  ],
+);
+
+/**
+ * Processed photos (ADR-0024). Files live in the media bucket under `photos/<id>/<size>.webp`;
+ * the id is random and says nothing about the member. Other members only ever see `approved`.
+ */
+export const profilePhotos = profile.table(
+  'profile_photos',
+  {
+    id: uuid('id').primaryKey(),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => profiles.accountId, { onDelete: 'cascade' }),
+    position: smallint('position').notNull(),
+    width: integer('width').notNull(),
+    height: integer('height').notNull(),
+    moderation: text('moderation', { enum: PHOTO_MODERATION }).notNull(),
+    createdAt,
+  },
+  (t) => [
+    index('profile_photos_account_idx').on(t.accountId, t.position),
+    check('profile_photos_position_check', sql`${t.position} between 0 and 5`),
+    check('profile_photos_moderation_check', inList(t.moderation.name, PHOTO_MODERATION)),
   ],
 );
