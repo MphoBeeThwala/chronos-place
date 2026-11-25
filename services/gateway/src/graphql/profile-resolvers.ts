@@ -5,6 +5,7 @@ import type { GatewayContext } from '../auth/context.js';
 import type { AccountInfo } from '../auth/guard.js';
 import { fromGrpc } from '../identity/errors.js';
 import { toDate, type WireTimestamp } from '../identity/identity-client.js';
+import type { RateLimiter } from '../limits/rate-limit.js';
 import type { ProfileClient } from '../profile/profile-client.js';
 import type { ResolverMap } from './not-available.js';
 
@@ -149,6 +150,7 @@ const orNull = (value: string) => (value === '' ? null : value);
 export interface ProfileResolverDeps {
   profile: ProfileClient;
   accountInfo: (accountId: string) => Promise<AccountInfo>;
+  rateLimiter: Pick<RateLimiter, 'checkPhotoUpload'>;
 }
 
 /**
@@ -276,6 +278,8 @@ export function profileResolvers(deps: ProfileResolverDeps): ResolverMap {
       createPhotoUpload: async (_parent, args, ctx) => {
         const { accountId } = viewerOf(ctx as GatewayContext);
         const { contentType, byteLength } = parse(inputs.photoUpload, args);
+        // Counted once the input is valid, before any link is signed.
+        await deps.rateLimiter.checkPhotoUpload(accountId);
         const result = await photoCall<{
           uploadId: string;
           uploadUrl: string;
