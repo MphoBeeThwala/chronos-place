@@ -47,7 +47,8 @@ The member app is web-first ([ADR-0017](docs/adr/0017-web-first-member-app.md)).
 ```sh
 cp apps/web/.env.example apps/web/.env.local
 pnpm --filter @chronos/web dev   # http://localhost:3000
-pnpm test:e2e                     # Playwright smoke tests (run `pnpm exec playwright install chromium` in apps/web once)
+pnpm test:e2e                     # Playwright tests with a mocked gateway, including axe (WCAG 2.2 AA) checks
+pnpm test:e2e:stack               # onboarding against the real services (after pnpm dev:infra); see tools/scripts/e2e-stack.sh
 ```
 
 ## CI

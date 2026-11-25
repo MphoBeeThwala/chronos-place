@@ -3,6 +3,7 @@
  * mocked; the "photos" are a synthetic 1x1 image.
  */
 import { expect, type Page, test } from '@playwright/test';
+import { expectAccessible } from './support/axe';
 import { gqlError, mockGraphQL, signedIn } from './support/graphql';
 
 const STORAGE = 'http://127.0.0.1:8333';
@@ -130,6 +131,7 @@ test('upload goes straight to storage, waits for review, can be reordered and de
   await choose(page, { name: 'two.webp', mimeType: 'image/webp', buffer: PIXEL });
   await expect(page.getByRole('img', { name: 'Photo 2 of 2' })).toBeVisible();
   await expect(page.getByText('2 of 6 added.')).toBeVisible();
+  await expectAccessible(page, 'step 5: two photos waiting for review');
 
   // Reorder with buttons: the first can't move earlier, the last can't move later.
   await expect(page.getByRole('button', { name: 'Move photo 1 earlier' })).toBeDisabled();
@@ -145,6 +147,7 @@ test('upload goes straight to storage, waits for review, can be reordered and de
 
   // Delete asks first.
   await page.getByRole('button', { name: 'Delete photo 2' }).click();
+  await expectAccessible(page, 'step 5: confirm delete');
   await page.getByRole('button', { name: 'Keep' }).click();
   expect(calls.some((c) => c.operationName === 'DeletePhoto')).toBe(false);
   await page.getByRole('button', { name: 'Delete photo 2' }).click();
@@ -177,6 +180,7 @@ test('wrong types and large files are turned away before anything is sent', asyn
   await expect(page.getByRole('alert').filter({ hasText: /./ })).toHaveText(
     'That photo is over 10 MB. Choose a smaller one.',
   );
+  await expectAccessible(page, 'step 5: file turned away');
   expect(calls.some((c) => c.operationName === 'CreatePhotoUpload')).toBe(false);
 });
 
@@ -221,6 +225,7 @@ test('with six photos, no more can be added', async ({ page }) => {
   await reachPhotos(page);
   await expect(page.getByRole('img', { name: 'Photo 6 of 6' })).toBeVisible();
   await expect(page.getByRole('button', { name: /Add (a|another) photo/ })).toHaveCount(0);
+  await expectAccessible(page, 'step 5: six photos');
   await expect(page.getByText('Waiting for review')).toHaveCount(0);
 });
 
