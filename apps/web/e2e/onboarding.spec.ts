@@ -6,8 +6,8 @@ import { expect, test } from '@playwright/test';
 import { mockGraphQL, signedIn } from './support/graphql';
 
 const POLICIES = [
-  { type: 'TERMS', version: 'terms-2026-11-20' },
-  { type: 'PRIVACY', version: 'privacy-2026-11-20' },
+  { type: 'TERMS', version: 'terms-2026-11-26' },
+  { type: 'PRIVACY', version: 'privacy-2026-11-26' },
   { type: 'HEALTH_PROCESSING', version: 'health-processing-2026-11-20' },
   { type: 'MARKETING', version: 'marketing-2026-11-draft' },
 ];
@@ -50,8 +50,8 @@ test('a new member agrees to terms and privacy, then confirms a date of birth', 
 
   await expect(page.getByRole('heading', { name: 'Your date of birth' })).toBeFocused();
   expect(consents.map((c) => [c.type, c.policyVersion, c.granted])).toEqual([
-    ['TERMS', 'terms-2026-11-20', true],
-    ['PRIVACY', 'privacy-2026-11-20', true],
+    ['TERMS', 'terms-2026-11-26', true],
+    ['PRIVACY', 'privacy-2026-11-26', true],
   ]);
 
   // A date that does not exist is caught before anything is sent.
@@ -81,8 +81,8 @@ test('a member who left after step 1 comes back to the date of birth', async ({ 
     OnboardingState: () => ({
       account: account('PENDING_ONBOARDING'),
       consents: [
-        { type: 'TERMS', policyVersion: 'terms-2026-11-20', granted: true },
-        { type: 'PRIVACY', policyVersion: 'privacy-2026-11-20', granted: true },
+        { type: 'TERMS', policyVersion: 'terms-2026-11-26', granted: true },
+        { type: 'PRIVACY', policyVersion: 'privacy-2026-11-26', granted: true },
       ],
       currentPolicies: POLICIES,
     }),
@@ -97,8 +97,8 @@ test('under 18, the account is closed and the member is told plainly', async ({ 
     OnboardingState: () => ({
       account: account('PENDING_ONBOARDING'),
       consents: [
-        { type: 'TERMS', policyVersion: 'terms-2026-11-20', granted: true },
-        { type: 'PRIVACY', policyVersion: 'privacy-2026-11-20', granted: true },
+        { type: 'TERMS', policyVersion: 'terms-2026-11-26', granted: true },
+        { type: 'PRIVACY', policyVersion: 'privacy-2026-11-26', granted: true },
       ],
       currentPolicies: POLICIES,
     }),

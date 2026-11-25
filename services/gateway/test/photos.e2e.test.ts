@@ -250,7 +250,8 @@ describe('photos (M1.6, ADR-0024)', () => {
     }
     const refused = await gql(gateway.url, start, auth);
     expect(codes(refused)).toEqual(['RATE_LIMITED']);
-    expect(refused.body.errors?.[0]?.extensions?.['retryAfterSeconds']).toBeGreaterThan(3500);
+    const extensions = refused.body.errors?.[0]?.extensions as { retryAfterSeconds?: number };
+    expect(extensions.retryAfterSeconds).toBeGreaterThan(3500);
     expect(profile.calls.filter((c) => c.method === 'createPhotoUpload')).toHaveLength(20);
     // Another member is unaffected.
     expect(codes(await gql(gateway.url, start, await session(member())))).toEqual([]);
