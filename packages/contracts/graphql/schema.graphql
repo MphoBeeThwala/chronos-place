@@ -55,6 +55,14 @@ type Mutation {
   updateProfile(input: ProfileInput!): Me!
   updatePreferences(input: PreferencesInput!): Me!
 
+  "Starts a photo upload. contentType: image/jpeg, image/png or image/webp; up to 10 MB; 6 photos."
+  createPhotoUpload(contentType: String!, byteLength: Int!): PhotoUpload!
+  "Processes an uploaded photo and adds it last. The original is always deleted."
+  completePhotoUpload(uploadId: ID!): Photo!
+  "Sets the order; photoIds must be exactly the member's photos."
+  reorderPhotos(photoIds: [ID!]!): [Photo!]!
+  deletePhoto(photoId: ID!): [Photo!]!
+
   like(accountId: ID!): LikeResult!
   pass(accountId: ID!): Boolean!
   unmatch(matchId: ID!): Boolean!
@@ -152,10 +160,42 @@ enum Tier {
   PREMIUM
 }
 
+"""
+A profile photo (ADR-0024). Re-encoded without metadata; links are signed and expire after an
+hour, so fetch them again rather than storing them.
+"""
 type Photo {
   id: ID!
   position: Int!
+  "The 640 px size: the default for cards."
   url: String!
+  "320, 640 and 1280 px on the long side (smaller when the photo is)."
+  variants: [PhotoVariant!]!
+  width: Int!
+  height: Int!
+  "Other members see APPROVED photos only, so on their profiles this is always APPROVED."
+  status: PhotoStatus!
+}
+
+type PhotoVariant {
+  size: Int!
+  url: String!
+}
+
+enum PhotoStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+"""
+A signed link to PUT one photo to, valid 5 minutes, for exactly the type and length asked for.
+Send it with that Content-Type, then call completePhotoUpload.
+"""
+type PhotoUpload {
+  uploadId: ID!
+  uploadUrl: String!
+  expiresAt: DateTime!
 }
 
 type Prompt {

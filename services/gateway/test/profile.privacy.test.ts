@@ -61,6 +61,7 @@ describe('profile privacy at the gateway', () => {
       preferences: { ageMin: 18, ageMax: 99, maxDistanceKm: 50 },
     };
     profile.handlers.set('getCatalogue', () => ({ prompts: [], interests: [] }));
+    profile.handlers.set('listOwnPhotos', () => ({ photos: [] }));
     profile.handlers.set('updateProfile', () => own);
     profile.handlers.set('setLocation', () => own);
 
