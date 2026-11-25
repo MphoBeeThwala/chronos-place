@@ -1,6 +1,7 @@
 import { KMSClient } from '@aws-sdk/client-kms';
 import { S3Client } from '@aws-sdk/client-s3';
 import { KmsKeyWrapper, SubjectKeyring } from '@chronos/crypto';
+import { KafkaEventPublisher } from '@chronos/events';
 import type { Logger } from '@chronos/logger';
 import type { ReadinessRegistry, ServiceConfig } from '@chronos/service-kit';
 import { drizzle } from 'drizzle-orm/node-postgres';
@@ -69,7 +70,7 @@ export const VAULT_ERASURE_INTERVAL_MS = 30_000;
 export const VERIFICATION_INTERVAL_MS = 5_000;
 
 export interface RuntimeOverrides {
-  /** Where outbox events go. Kafka once ADR-0019 is accepted; until then events wait in the outbox. */
+  /** Where outbox events go. Defaults to Kafka when KAFKA_BROKERS is set; otherwise they wait. */
   publisher?: EventPublisher;
   /** The Disclosure Service's EraseSubject (M2). Until then, erasure requests wait in the queue. */
   vaultEraser?: VaultEraser;
@@ -259,12 +260,20 @@ export function createIdentityRuntime(
     logger,
   );
   let stopRelay: () => Promise<void> = () => Promise.resolve();
-  if (overrides.publisher) {
-    const relay = new OutboxRelay({ db, publisher: overrides.publisher, logger });
-    stopRelay = every('outbox-relay', RELAY_INTERVAL_MS, () => relay.runOnce(), logger);
+  const kafka = config.KAFKA_BROKERS
+    ? new KafkaEventPublisher({ brokers: config.KAFKA_BROKERS, clientId: 'identity', logger })
+    : undefined;
+  const publisher = overrides.publisher ?? kafka;
+  if (publisher) {
+    const relay = new OutboxRelay({ db, publisher, logger });
+    const stopEvery = every('outbox-relay', RELAY_INTERVAL_MS, () => relay.runOnce(), logger);
+    stopRelay = async () => {
+      await stopEvery();
+      await kafka?.close();
+    };
   } else {
-    // Nothing is lost: events stay in identity.outbox until a publisher is configured.
-    logger.warn('event relay disabled: no Kafka publisher yet (ADR-0019)');
+    // Nothing is lost: events stay in identity.outbox until KAFKA_BROKERS is set.
+    logger.warn('event relay disabled: KAFKA_BROKERS is not set (ADR-0019)');
   }
 
   let stopVerification: () => Promise<void> = () => Promise.resolve();

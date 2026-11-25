@@ -1,4 +1,4 @@
-import { httpUrl, postgresUrl, redisUrl, secret } from '@chronos/config';
+import { hostList, httpUrl, postgresUrl, redisUrl, secret } from '@chronos/config';
 import { z } from 'zod';
 
 /**
@@ -21,6 +21,11 @@ export const identityConfig = {
   /** Only "mailpit" exists until an SMS provider is contracted (ADR-0006). */
   OTP_SENDER: z.enum(['mailpit']).default('mailpit'),
   MAILPIT_URL: httpUrl.default('http://127.0.0.1:8025'),
+  /**
+   * Kafka brokers for the outbox relay (ADR-0019), locally Redpanda at 127.0.0.1:19092. Unset:
+   * events wait safely in identity.outbox until it is set.
+   */
+  KAFKA_BROKERS: hostList.optional(),
 
   /**
    * Liveness vendor (ADR-0022). "fake" passes every capture and is development only. "smile-id"

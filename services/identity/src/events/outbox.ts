@@ -1,6 +1,7 @@
 import { type EventOf, partitionKey, type Topic } from '@chronos/contracts/events';
 import type { Logger } from '@chronos/logger';
 import { sql } from 'drizzle-orm';
+import type { EventPublisher } from '@chronos/events';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { outbox } from '../db/schema.js';
 
@@ -14,10 +15,8 @@ export const outboxValues = (event: OutboxEvent) => ({
   payload: event,
 });
 
-/** Where the relay sends events: Kafka once ADR-0019 is accepted. */
-export interface EventPublisher {
-  publish(topic: string, key: string, event: unknown): Promise<void>;
-}
+/** Where the relay sends events: Kafka (ADR-0019), through @chronos/events. */
+export type { EventPublisher } from '@chronos/events';
 
 export const RELAY_BATCH = 50;
 /** Retry delays grow 2^n seconds, capped at 10 minutes. */

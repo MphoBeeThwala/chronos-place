@@ -1,0 +1,36 @@
+{
+  "name": "@chronos/events",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Event publishing and consuming over Kafka (ADR-0019). Services use these interfaces, never the client directly.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
+  },
+  "dependencies": {
+    "@chronos/contracts": "workspace:*",
+    "@chronos/logger": "workspace:*",
+    "@platformatic/kafka": "2.20.0"
+  },
+  "devDependencies": {
+    "@chronos/config": "workspace:*",
+    "@chronos/tsconfig": "workspace:*",
+    "@testcontainers/redpanda": "^12.2.2",
+    "zod": "^4.6.5"
+  }
+}
