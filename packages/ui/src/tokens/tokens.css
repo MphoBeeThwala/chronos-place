@@ -4,59 +4,74 @@
  *
  * Light and dark themes are both declared; the [data-theme="dark"] selector
  * lets users override the system preference via the in-app toggle.
+ * Every text/background pair used is checked for WCAG 2.2 AA (4.5:1) in test/contrast.test.ts.
  */
 
 :root,
 [data-theme='light'] {
-  /* Brand */
-  --color-brand-50: #fdf4ff;
-  --color-brand-100: #fae8ff;
-  --color-brand-200: #f5d0fe;
-  --color-brand-300: #f0abfc;
-  --color-brand-400: #e879f9;
-  --color-brand-500: #d946ef;
-  --color-brand-600: #c026d3;
-  --color-brand-700: #a21caf;
-  --color-brand-800: #86198f;
-  --color-brand-900: #701a75;
-  --color-brand-950: #4a044e;
+  /* Brand: Chronos Place palette (brand board, 2026-11-26). Terracotta Rose (#d45b6a, 500) is
+     for the logo, icons and large decorative use; it is below 4.5:1 for text, so buttons and
+     links use 600 (#b8434f, 5.3:1 with white). 950 is Mulberry Plum. */
+  --color-brand-50: #fdf3f3;
+  --color-brand-100: #fbe4e5;
+  --color-brand-200: #f5cbcb;
+  --color-brand-300: #eca4ac;
+  --color-brand-400: #e07a87;
+  --color-brand-500: #d45b6a;
+  --color-brand-600: #b8434f;
+  --color-brand-700: #9a3542;
+  --color-brand-800: #7a2c3a;
+  --color-brand-900: #5e2537;
+  --color-brand-950: #4b223d;
 
-  /* Semantic surface colours */
-  --color-bg: #ffffff;
-  --color-bg-subtle: #f8fafc;
-  --color-bg-muted: #f1f5f9;
-  --color-surface: #ffffff;
-  --color-surface-raised: #f8fafc;
-  --color-border: #e2e8f0;
-  --color-border-strong: #cbd5e1;
+  /* Palette accents, for illustration and highlights (not body text unless noted) */
+  --color-plum: #4b223d;
+  --color-amber: #e3943d;
+  --color-sage: #4a7a6e;
+  --color-blush: #f5cbcb;
+  --color-indigo: #2b3a67;
+  --color-coral: #e57255;
+  --color-lavender: #9b7eb0;
+  --color-moss: #7b956d;
+  --color-honey: #edaf4b;
 
-  /* Text */
-  --color-text: #0f172a;
-  --color-text-muted: #475569;
-  --color-text-subtle: #94a3b8;
+  /* Semantic surface colours: Cream Sand and Pearl Linen */
+  --color-bg: #faf2ea;
+  --color-bg-subtle: #f9f6f0;
+  --color-bg-muted: #f3e6dc;
+  --color-surface: #fffdfa;
+  --color-surface-raised: #f9f6f0;
+  --color-border: #ead9cd;
+  --color-border-strong: #d2b9ab;
+
+  /* Text: Mulberry Plum (11.9:1 on Cream Sand) */
+  --color-text: #4b223d;
+  --color-text-muted: #6b4a5e;
+  --color-text-subtle: #7a5c6e;
   --color-text-on-brand: #ffffff;
 
   /* Interactive */
-  --color-primary: #d946ef;
-  --color-primary-hover: #c026d3;
-  --color-primary-active: #a21caf;
-  --color-primary-subtle: #fae8ff;
+  --color-primary: #b8434f;
+  --color-primary-hover: #9a3542;
+  --color-primary-active: #7a2c3a;
+  --color-primary-subtle: #fbe4e5;
+  --color-focus: #2b3a67;
 
-  /* Status — stigma-free palette (no red/green for health conditions) */
-  --color-indicator: #7c3aed;
-  --color-indicator-bg: #ede9fe;
-  --color-success: #059669;
-  --color-success-bg: #d1fae5;
-  --color-warning: #ca8a04;
-  --color-warning-bg: #fef9c3;
-  --color-destructive: #dc2626;
-  --color-destructive-bg: #fee2e2;
+  /* Status: stigma-free (no red/green for health). Indicator: Caring Indigo and Lavender Mist */
+  --color-indicator: #2b3a67;
+  --color-indicator-bg: #ece6f2;
+  --color-success: #3f6b60;
+  --color-success-bg: #e3eeea;
+  --color-warning: #8a5414;
+  --color-warning-bg: #fbecd6;
+  --color-destructive: #a3261e;
+  --color-destructive-bg: #fbe3e0;
 
-  /* Misc */
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  /* Misc: shadows tinted plum */
+  --shadow-sm: 0 1px 2px 0 rgb(75 34 61 / 0.06);
+  --shadow: 0 1px 3px 0 rgb(75 34 61 / 0.1), 0 1px 2px -1px rgb(75 34 61 / 0.1);
+  --shadow-md: 0 4px 6px -1px rgb(75 34 61 / 0.1), 0 2px 4px -2px rgb(75 34 61 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(75 34 61 / 0.1), 0 4px 6px -4px rgb(75 34 61 / 0.1);
 
   --radius-sm: 0.125rem;
   --radius: 0.375rem;
@@ -68,32 +83,33 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --color-bg: #09090b;
-    --color-bg-subtle: #0f172a;
-    --color-bg-muted: #1e293b;
-    --color-surface: #111827;
-    --color-surface-raised: #1e293b;
-    --color-border: #1e293b;
-    --color-border-strong: #334155;
+    --color-bg: #1e1119;
+    --color-bg-subtle: #241520;
+    --color-bg-muted: #2f1c29;
+    --color-surface: #2a1724;
+    --color-surface-raised: #33202d;
+    --color-border: #3d2836;
+    --color-border-strong: #57404f;
 
-    --color-text: #f8fafc;
-    --color-text-muted: #94a3b8;
-    --color-text-subtle: #64748b;
-    --color-text-on-brand: #ffffff;
+    --color-text: #faf2ea;
+    --color-text-muted: #c9b3c0;
+    --color-text-subtle: #a8939f;
+    --color-text-on-brand: #1e1119;
 
-    --color-primary: #e879f9;
-    --color-primary-hover: #f0abfc;
-    --color-primary-active: #f5d0fe;
-    --color-primary-subtle: #2d1b46;
+    --color-primary: #f08a97;
+    --color-primary-hover: #f5a3ad;
+    --color-primary-active: #f5cbcb;
+    --color-primary-subtle: #3a1f2c;
+    --color-focus: #b9a3cc;
 
-    --color-indicator: #a78bfa;
-    --color-indicator-bg: #1e1b4b;
-    --color-success: #34d399;
-    --color-success-bg: #022c22;
-    --color-warning: #fbbf24;
-    --color-warning-bg: #422006;
-    --color-destructive: #f87171;
-    --color-destructive-bg: #450a0a;
+    --color-indicator: #b9a3cc;
+    --color-indicator-bg: #2b2140;
+    --color-success: #8fc4b5;
+    --color-success-bg: #18302a;
+    --color-warning: #f2c27a;
+    --color-warning-bg: #3a2610;
+    --color-destructive: #f5998f;
+    --color-destructive-bg: #3f1512;
 
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
     --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.4), 0 1px 2px -1px rgb(0 0 0 / 0.4);
@@ -103,32 +119,33 @@
 }
 
 [data-theme='dark'] {
-  --color-bg: #09090b;
-  --color-bg-subtle: #0f172a;
-  --color-bg-muted: #1e293b;
-  --color-surface: #111827;
-  --color-surface-raised: #1e293b;
-  --color-border: #1e293b;
-  --color-border-strong: #334155;
+  --color-bg: #1e1119;
+  --color-bg-subtle: #241520;
+  --color-bg-muted: #2f1c29;
+  --color-surface: #2a1724;
+  --color-surface-raised: #33202d;
+  --color-border: #3d2836;
+  --color-border-strong: #57404f;
 
-  --color-text: #f8fafc;
-  --color-text-muted: #94a3b8;
-  --color-text-subtle: #64748b;
-  --color-text-on-brand: #ffffff;
+  --color-text: #faf2ea;
+  --color-text-muted: #c9b3c0;
+  --color-text-subtle: #a8939f;
+  --color-text-on-brand: #1e1119;
 
-  --color-primary: #e879f9;
-  --color-primary-hover: #f0abfc;
-  --color-primary-active: #f5d0fe;
-  --color-primary-subtle: #2d1b46;
+  --color-primary: #f08a97;
+  --color-primary-hover: #f5a3ad;
+  --color-primary-active: #f5cbcb;
+  --color-primary-subtle: #3a1f2c;
+  --color-focus: #b9a3cc;
 
-  --color-indicator: #a78bfa;
-  --color-indicator-bg: #1e1b4b;
-  --color-success: #34d399;
-  --color-success-bg: #022c22;
-  --color-warning: #fbbf24;
-  --color-warning-bg: #422006;
-  --color-destructive: #f87171;
-  --color-destructive-bg: #450a0a;
+  --color-indicator: #b9a3cc;
+  --color-indicator-bg: #2b2140;
+  --color-success: #8fc4b5;
+  --color-success-bg: #18302a;
+  --color-warning: #f2c27a;
+  --color-warning-bg: #3a2610;
+  --color-destructive: #f5998f;
+  --color-destructive-bg: #3f1512;
 
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
   --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.4), 0 1px 2px -1px rgb(0 0 0 / 0.4);

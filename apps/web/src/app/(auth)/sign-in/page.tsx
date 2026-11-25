@@ -5,6 +5,7 @@
  */
 import type { Metadata } from 'next';
 import { SignInForm } from '@/components/auth/SignInForm';
+import { Logo } from '@/components/brand/Logo';
 
 export const metadata: Metadata = {
   title: 'Sign in',
@@ -21,8 +22,8 @@ export default function SignInPage() {
         className="w-full max-w-sm rounded-2xl p-8 shadow-lg"
         style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
       >
-        <h1 className="mb-2 text-2xl font-bold" style={{ color: 'var(--color-text)' }}>
-          Chronos Place
+        <h1 className="mb-2">
+          <Logo size={44} />
         </h1>
         <p className="mb-8 text-sm" style={{ color: 'var(--color-text-muted)' }}>
           A space for people living with or beyond chronic health conditions.
