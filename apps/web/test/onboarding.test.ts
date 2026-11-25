@@ -125,3 +125,20 @@ describe('policy pages', () => {
     expect(identity).toContain(`privacy: '${PRIVACY.version}'`);
   });
 });
+
+describe('after activation', () => {
+  it('shows the walkthrough, then the profile, then is done', async () => {
+    const { afterActivation, stepLabel, blurCoordinate, visibleLength } =
+      await import('@/lib/onboarding');
+    expect(afterActivation(false, false)).toBe('walkthrough');
+    expect(afterActivation(false, true)).toBe('profile');
+    expect(afterActivation(true, false)).toBe('done');
+    expect(stepLabel('consent')).toBe('Step 1 of 4');
+    expect(stepLabel('profile')).toBe('Step 4 of 4');
+    // About 1 km: the profile service's 0.01-degree grid.
+    expect(blurCoordinate(-26.123456)).toBe(-26.12);
+    expect(blurCoordinate(28.045678)).toBe(28.05);
+    // Counted as people see them, like the profile service.
+    expect(visibleLength('Zoë 👩🏽‍⚕️')).toBe(5);
+  });
+});

@@ -21,6 +21,47 @@ export interface OnboardingState {
 
 export type OnboardingStep = 'consent' | 'dateOfBirth' | 'active' | 'ineligible' | 'closed';
 
+/** Steps a member sees, in order, with their place in the count shown on screen. */
+export const VISIBLE_STEPS = ['consent', 'dateOfBirth', 'walkthrough', 'profile'] as const;
+export type VisibleStep = (typeof VISIBLE_STEPS)[number];
+export const stepLabel = (step: VisibleStep): string =>
+  `Step ${String(VISIBLE_STEPS.indexOf(step) + 1)} of ${String(VISIBLE_STEPS.length)}`;
+
+/**
+ * After activation: the privacy walkthrough, then the profile. The walkthrough is not stored;
+ * a member who left before saving a profile sees it again, which is harmless.
+ */
+export function afterActivation(hasProfile: boolean, walkthroughDone: boolean) {
+  if (hasProfile) return 'done' as const;
+  return walkthroughDone ? ('profile' as const) : ('walkthrough' as const);
+}
+
+export const INTENTS = [
+  { value: 'LONG_TERM', label: 'A long-term relationship' },
+  { value: 'DATING', label: 'Dating' },
+  { value: 'FRIENDSHIP', label: 'Friendship' },
+  { value: 'OPEN', label: 'Open to seeing where it goes' },
+] as const;
+export type Intent = (typeof INTENTS)[number]['value'];
+
+/** Text limits from the profile service (ADR-0023 decision h), counted as people see them. */
+export const PROFILE_LIMITS = {
+  displayName: 30,
+  bio: 500,
+  gender: 30,
+  pronouns: 30,
+  areaLabel: 40,
+} as const;
+
+const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+export const visibleLength = (text: string): number => Array.from(graphemes.segment(text)).length;
+
+/**
+ * Blurs a coordinate to the profile service's 0.01-degree grid (about 1 km) in the browser,
+ * so the exact position never leaves the device (ADR-0023 decision b).
+ */
+export const blurCoordinate = (value: number): number => Math.round(value * 100) / 100;
+
 /** Asked during sign-up. Health processing is asked later, before the first health question. */
 export const REQUIRED_CONSENTS = ['TERMS', 'PRIVACY'] as const;
 

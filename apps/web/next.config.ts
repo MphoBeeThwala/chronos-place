@@ -7,7 +7,10 @@ const GATEWAY_GRAPHQL = process.env['GATEWAY_URL'] ?? 'http://localhost:4000/gra
 
 /** The only route that may use the camera (ADR-0017, ADR-0022). */
 export const CAMERA_ROUTE = '/verify';
-const PERMISSIONS = (camera: string) => `camera=${camera}, microphone=(), geolocation=()`;
+/** The only route that may ask for location, for "show my approximate distance" (ADR-0023). */
+export const LOCATION_ROUTE = '/onboarding';
+const PERMISSIONS = (camera: string, geolocation = '()') =>
+  `camera=${camera}, microphone=(), geolocation=${geolocation}`;
 
 const config: NextConfig = {
   // Strict mode for catching React lifecycle issues early.
@@ -49,6 +52,10 @@ const config: NextConfig = {
         // Later entries override earlier ones for the same header: the camera opens here only.
         source: CAMERA_ROUTE,
         headers: [{ key: 'Permissions-Policy', value: PERMISSIONS('(self)') }],
+      },
+      {
+        source: LOCATION_ROUTE,
+        headers: [{ key: 'Permissions-Policy', value: PERMISSIONS('()', '(self)') }],
       },
     ]);
   },

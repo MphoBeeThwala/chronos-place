@@ -44,6 +44,14 @@ export const OPERATIONS = {
   "SetDateOfBirth": {
     "hash": "00a57b2911766ca895fdac68a5bd399c5d931d5e127ee334273d1bda35d695fe",
     "text": "mutation SetDateOfBirth($dateOfBirth: Date!) {\n  setDateOfBirth(dateOfBirth: $dateOfBirth) {\n    id\n    status\n  }\n}"
+  },
+  "OnboardingProfile": {
+    "hash": "08d8c2e7d31a63a14a07230b6318a94c8efb5c975703ee6a8e10773354e3e358",
+    "text": "query OnboardingProfile {\n  me {\n    id\n  }\n}"
+  },
+  "CreateProfile": {
+    "hash": "f3e41641e3149777fcc45578be0062dce0dd9c503cbbfac75f5b0d019a73eb44",
+    "text": "mutation CreateProfile($input: ProfileInput!) {\n  updateProfile(input: $input) {\n    id\n    displayName\n    sharesDistance\n  }\n}"
   }
 } as const;
 

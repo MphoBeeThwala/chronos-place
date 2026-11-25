@@ -9,5 +9,7 @@
   "23de738fbd024a448711b8b844d5ea929099519a70fb1f233389903a651d2d3a": "mutation RecordConsent($input: ConsentInput!) {\n  recordConsent(input: $input)\n}",
   "ab4b12abda17db334b79eeeba610c169214f92fb153c49e05979bd349125c899": "mutation RequestVerificationReview {\n  requestVerificationReview {\n    status\n    failure\n    attemptsRemaining\n    reviewAvailable\n  }\n}",
   "ef154651f1c1ca834474eaf6107fe13aeb839ccc210da78a8f8c2a53ddb53e4d": "query OnboardingState {\n  account {\n    id\n    status\n  }\n  consents {\n    type\n    policyVersion\n    granted\n  }\n  currentPolicies {\n    type\n    version\n  }\n}",
-  "00a57b2911766ca895fdac68a5bd399c5d931d5e127ee334273d1bda35d695fe": "mutation SetDateOfBirth($dateOfBirth: Date!) {\n  setDateOfBirth(dateOfBirth: $dateOfBirth) {\n    id\n    status\n  }\n}"
+  "00a57b2911766ca895fdac68a5bd399c5d931d5e127ee334273d1bda35d695fe": "mutation SetDateOfBirth($dateOfBirth: Date!) {\n  setDateOfBirth(dateOfBirth: $dateOfBirth) {\n    id\n    status\n  }\n}",
+  "08d8c2e7d31a63a14a07230b6318a94c8efb5c975703ee6a8e10773354e3e358": "query OnboardingProfile {\n  me {\n    id\n  }\n}",
+  "f3e41641e3149777fcc45578be0062dce0dd9c503cbbfac75f5b0d019a73eb44": "mutation CreateProfile($input: ProfileInput!) {\n  updateProfile(input: $input) {\n    id\n    displayName\n    sharesDistance\n  }\n}"
 }
