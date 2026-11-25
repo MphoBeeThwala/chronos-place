@@ -27,7 +27,7 @@ These rules apply to every screen and API call in `apps/web`.
 
 **Content Security Policy.** The shell currently allows `'unsafe-inline'` scripts for the theme bootstrap and Next.js hydration. Before any screen shows health data (M2.8), the CSP must move to per-request nonces with `'strict-dynamic'`, and `img-src` must narrow to the app and the media CDN. This is tracked as task M1.9.
 
-**Camera.** `Permissions-Policy` blocks the camera today. Liveness (M1.4) and photo upload (M1.6) open it for their routes only.
+**Camera.** `Permissions-Policy` blocks the camera everywhere except `/verify`, the selfie check (M1.4, ADR-0022). Photo upload (M1.6) will open it for its own route only.
 
 ## Consequences and open questions
 - **End-to-end encrypted chat on the web (needs external input).** ADR-0003 relies on libsignal's Swift and Kotlin bindings and device keystores. libsignal has no supported browser build. The M4.1 spike must now cover the web: compiling libsignal to WebAssembly ourselves (with an audit), or holding chat until the native app ships. Browser key storage (non-extractable WebCrypto keys in IndexedDB) is weaker than a hardware keystore, and the spike must state that risk.

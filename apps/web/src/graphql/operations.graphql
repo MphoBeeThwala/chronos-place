@@ -40,3 +40,39 @@ query Account {
     status
   }
 }
+
+# Selfie verification (ADR-0022). The capture itself is posted to /api/verification/capture.
+
+query Verification {
+  verification {
+    status
+    failure
+    attemptsRemaining
+    reviewAvailable
+  }
+}
+
+query VerificationConsent {
+  consents {
+    type
+    policyVersion
+    granted
+  }
+  currentPolicies {
+    type
+    version
+  }
+}
+
+mutation RecordConsent($input: ConsentInput!) {
+  recordConsent(input: $input)
+}
+
+mutation RequestVerificationReview {
+  requestVerificationReview {
+    status
+    failure
+    attemptsRemaining
+    reviewAvailable
+  }
+}

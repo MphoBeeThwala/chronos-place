@@ -28,8 +28,8 @@ export function middleware(request: NextRequest): NextResponse {
 }
 
 export const config = {
-  // Every route except Next.js internals, the GraphQL rewrite and static files.
+  // Every route except Next.js internals, the gateway rewrites and static files.
   matcher: [
-    '/((?!_next|api/graphql|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|webmanifest)).*)',
+    '/((?!_next|api/graphql|api/verification|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|webmanifest)).*)',
   ],
 };

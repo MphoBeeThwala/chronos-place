@@ -20,6 +20,22 @@ export const OPERATIONS = {
   "Account": {
     "hash": "e27cbbc01b4ec55f34b890fef547f13383489928378c9ada0f8ae7beaf9e9c52",
     "text": "query Account {\n  account {\n    id\n    status\n  }\n}"
+  },
+  "Verification": {
+    "hash": "160fc21cd9665116be82d1b7f56a099ba869d80de4840a908cc2136d7842faf7",
+    "text": "query Verification {\n  verification {\n    status\n    failure\n    attemptsRemaining\n    reviewAvailable\n  }\n}"
+  },
+  "VerificationConsent": {
+    "hash": "31593024b377eb1168f90154b15a6cd57fbd257335fdab3885aa20e31b6a64e8",
+    "text": "query VerificationConsent {\n  consents {\n    type\n    policyVersion\n    granted\n  }\n  currentPolicies {\n    type\n    version\n  }\n}"
+  },
+  "RecordConsent": {
+    "hash": "23de738fbd024a448711b8b844d5ea929099519a70fb1f233389903a651d2d3a",
+    "text": "mutation RecordConsent($input: ConsentInput!) {\n  recordConsent(input: $input)\n}"
+  },
+  "RequestVerificationReview": {
+    "hash": "ab4b12abda17db334b79eeeba610c169214f92fb153c49e05979bd349125c899",
+    "text": "mutation RequestVerificationReview {\n  requestVerificationReview {\n    status\n    failure\n    attemptsRemaining\n    reviewAvailable\n  }\n}"
   }
 } as const;
 

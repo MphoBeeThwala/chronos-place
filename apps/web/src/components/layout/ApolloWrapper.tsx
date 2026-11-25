@@ -15,9 +15,8 @@ import {
   InMemoryCache,
 } from '@apollo/experimental-nextjs-app-support';
 import { persistedOperationLink, sessionRefreshLink } from '@/lib/apollo-links';
-import { createRefreshCoordinator, GRAPHQL_PATH } from '@/lib/session-refresh';
-
-const refresh = createRefreshCoordinator();
+import { refreshSession as refresh } from '@/lib/session';
+import { GRAPHQL_PATH } from '@/lib/session-refresh';
 
 function makeClient(): ApolloClient<unknown> {
   return new ApolloClient({

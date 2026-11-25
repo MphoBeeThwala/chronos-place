@@ -19,6 +19,7 @@
     "@chronos/config": "workspace:*",
     "@chronos/logger": "workspace:*",
     "@chronos/ui": "workspace:*",
+    "@smile_identity/smart-camera-web": "11.0.1",
     "clsx": "^2.1.1",
     "graphql": "^16.11.0",
     "next": "^15.3.3",

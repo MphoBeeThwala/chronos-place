@@ -1,0 +1,13 @@
+diff --git a/smart-camera-web.js b/smart-camera-web.js
+index 3163e97807e4f4fe0e2cf746b243f2bc8a61fcea..a26a8cc3197c64e924d1c84786b91b2a527b3d4d 100644
+--- a/smart-camera-web.js
++++ b/smart-camera-web.js
+@@ -123,8 +123,6 @@ class SmartFileUpload {
+ 
+ function scwTemplateString() {
+   return `
+-  <link rel="preconnect" href="https://fonts.gstatic.com"> 
+-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;700&display=swap" rel="stylesheet">
+ 
+   <style>
+     :host {

@@ -3,5 +3,9 @@
   "4cdc23986e6a7e79f4607177dfa0ddd92aa14ef3d533c344e7b7b2e6df5ac61f": "mutation VerifyOtp($challengeId: ID!, $code: String!) {\n  verifyOtp(challengeId: $challengeId, code: $code) {\n    expiresAt\n    account {\n      id\n      status\n    }\n  }\n}",
   "1d6d3f4ebe72376e74a2999af13d0e4922172eb4f04dc30b7e0b31e67507bc2c": "mutation RefreshSession {\n  refreshSession {\n    expiresAt\n    account {\n      id\n      status\n    }\n  }\n}",
   "06562a4643f1d41111c4f2edc22f3adf88348b04a76a979592af164d785a7b6d": "mutation SignOut {\n  signOut\n}",
-  "e27cbbc01b4ec55f34b890fef547f13383489928378c9ada0f8ae7beaf9e9c52": "query Account {\n  account {\n    id\n    status\n  }\n}"
+  "e27cbbc01b4ec55f34b890fef547f13383489928378c9ada0f8ae7beaf9e9c52": "query Account {\n  account {\n    id\n    status\n  }\n}",
+  "160fc21cd9665116be82d1b7f56a099ba869d80de4840a908cc2136d7842faf7": "query Verification {\n  verification {\n    status\n    failure\n    attemptsRemaining\n    reviewAvailable\n  }\n}",
+  "31593024b377eb1168f90154b15a6cd57fbd257335fdab3885aa20e31b6a64e8": "query VerificationConsent {\n  consents {\n    type\n    policyVersion\n    granted\n  }\n  currentPolicies {\n    type\n    version\n  }\n}",
+  "23de738fbd024a448711b8b844d5ea929099519a70fb1f233389903a651d2d3a": "mutation RecordConsent($input: ConsentInput!) {\n  recordConsent(input: $input)\n}",
+  "ab4b12abda17db334b79eeeba610c169214f92fb153c49e05979bd349125c899": "mutation RequestVerificationReview {\n  requestVerificationReview {\n    status\n    failure\n    attemptsRemaining\n    reviewAvailable\n  }\n}"
 }

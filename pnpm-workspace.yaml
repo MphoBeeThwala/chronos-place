@@ -4,3 +4,6 @@ packages:
   - restricted/*
   - packages/*
   - tools/*
+
+patchedDependencies:
+  '@smile_identity/smart-camera-web@11.0.1': patches/@smile_identity__smart-camera-web@11.0.1.patch
