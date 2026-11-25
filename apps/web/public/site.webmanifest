@@ -1,11 +1,11 @@
 {
   "name": "Chronos Place",
   "short_name": "Chronos",
-  "description": "A connection platform for people living with or beyond chronic health conditions.",
+  "description": "Dating and connection, on your terms.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#09090b",
-  "theme_color": "#d946ef",
+  "background_color": "#faf2ea",
+  "theme_color": "#faf2ea",
   "icons": [
     {
       "src": "/icons/icon-192.png",

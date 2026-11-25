@@ -11,57 +11,73 @@
  */
 
 export const colors = {
-  // Brand
+  // Brand: Chronos Place palette. 500 Terracotta Rose is for the logo and large decorative use;
+  // text and buttons use 600 or darker (WCAG AA). 950 is Mulberry Plum.
   brand: {
-    50: '#fdf4ff',
-    100: '#fae8ff',
-    200: '#f5d0fe',
-    300: '#f0abfc',
-    400: '#e879f9',
-    500: '#d946ef', // primary
-    600: '#c026d3',
-    700: '#a21caf',
-    800: '#86198f',
-    900: '#701a75',
-    950: '#4a044e',
+    50: '#fdf3f3',
+    100: '#fbe4e5',
+    200: '#f5cbcb', // Soft Blush
+    300: '#eca4ac',
+    400: '#e07a87',
+    500: '#d45b6a', // Terracotta Rose
+    600: '#b8434f', // primary (buttons, links)
+    700: '#9a3542',
+    800: '#7a2c3a',
+    900: '#5e2537',
+    950: '#4b223d', // Mulberry Plum
   },
-  // Neutral (slate-based)
+  // The rest of the brand board's palette, for illustration and highlights
+  palette: {
+    mulberryPlum: '#4b223d',
+    terracottaRose: '#d45b6a',
+    warmAmber: '#e3943d',
+    healingSage: '#4a7a6e',
+    softBlush: '#f5cbcb',
+    creamSand: '#faf2ea',
+    caringIndigo: '#2b3a67',
+    coralPeach: '#e57255',
+    lavenderMist: '#9b7eb0',
+    softMoss: '#7b956d',
+    warmHoney: '#edaf4b',
+    pearlLinen: '#f9f6f0',
+  },
+  // Neutral (warm, plum-tinted)
   neutral: {
-    0: '#ffffff',
-    50: '#f8fafc',
-    100: '#f1f5f9',
-    200: '#e2e8f0',
-    300: '#cbd5e1',
-    400: '#94a3b8',
-    500: '#64748b',
-    600: '#475569',
-    700: '#334155',
-    800: '#1e293b',
-    900: '#0f172a',
-    950: '#020617',
+    0: '#fffdfa',
+    50: '#f9f6f0',
+    100: '#faf2ea',
+    200: '#ead9cd',
+    300: '#d2b9ab',
+    400: '#a8939f',
+    500: '#7a5c6e',
+    600: '#6b4a5e',
+    700: '#4b223d',
+    800: '#2f1c29',
+    900: '#241520',
+    950: '#1e1119',
   },
   // Semantic
   success: {
-    light: '#d1fae5',
-    DEFAULT: '#059669',
-    dark: '#064e3b',
+    light: '#e3eeea',
+    DEFAULT: '#3f6b60',
+    dark: '#18302a',
   },
   warning: {
-    light: '#fef9c3',
-    DEFAULT: '#ca8a04',
-    dark: '#713f12',
+    light: '#fbecd6',
+    DEFAULT: '#8a5414',
+    dark: '#3a2610',
   },
   // Neutral indicator (we do not use red/green for health status — stigma-free design)
   indicator: {
-    light: '#ede9fe',
-    DEFAULT: '#7c3aed',
-    dark: '#2e1065',
+    light: '#ece6f2',
+    DEFAULT: '#2b3a67',
+    dark: '#2b2140',
   },
   // Destructive (account deletion, block — not health)
   destructive: {
-    light: '#fee2e2',
-    DEFAULT: '#dc2626',
-    dark: '#7f1d1d',
+    light: '#fbe3e0',
+    DEFAULT: '#a3261e',
+    dark: '#3f1512',
   },
 } as const;
 

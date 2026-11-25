@@ -20,13 +20,13 @@ const baseStyles =
 
 const variantStyles: Record<ButtonVariant, string> = {
   primary:
-    'bg-[var(--color-primary)] text-[var(--color-text-on-brand)] hover:bg-[var(--color-primary-hover)] focus-visible:outline-[var(--color-primary)] active:bg-[var(--color-primary-active)]',
+    'bg-[var(--color-primary)] text-[var(--color-text-on-brand)] hover:bg-[var(--color-primary-hover)] focus-visible:outline-[var(--color-focus)] active:bg-[var(--color-primary-active)]',
   secondary:
     'bg-[var(--color-bg-muted)] text-[var(--color-text)] border border-[var(--color-border-strong)] hover:bg-[var(--color-bg-subtle)]',
   ghost:
     'bg-transparent text-[var(--color-text-muted)] hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-text)]',
   destructive:
-    'bg-[var(--color-destructive)] text-white hover:opacity-90 focus-visible:outline-[var(--color-destructive)]',
+    'bg-[var(--color-destructive)] text-[var(--color-text-on-brand)] hover:opacity-90 focus-visible:outline-[var(--color-focus)]',
 };
 
 const sizeStyles: Record<ButtonSize, string> = {

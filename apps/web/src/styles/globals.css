@@ -52,7 +52,7 @@ body {
 
 /* Accessible focus ring — visible on keyboard, hidden on mouse. */
 :focus-visible {
-  outline: 2px solid var(--color-primary);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 
@@ -78,4 +78,25 @@ body {
 .touch-target {
   min-height: 44px;
   min-width: 44px;
+}
+
+/* Logo colours: plum and terracotta in light mode; light tones on the dark theme. */
+:root {
+  --logo-left: #4b223d;
+  --logo-right: #d45b6a;
+}
+[data-theme='dark'] {
+  --logo-left: #faf2ea;
+  --logo-right: #f08a97;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --logo-left: #faf2ea;
+    --logo-right: #f08a97;
+  }
+}
+
+/* Native checkboxes, radios and range inputs take the brand colour. */
+:root {
+  accent-color: var(--color-primary);
 }
