@@ -1,3 +1,5 @@
+import type { MemberFact, MemberFacts } from '../../src/identity/member-facts.js';
+import type { Point } from '../../src/profiles/location.js';
 import type {
   OwnProfileRecord,
   PreferencesRecord,
@@ -5,11 +7,47 @@ import type {
   ProfileFields,
   ProfileStore,
   PromptAnswer,
+  PublicProfileRecord,
 } from '../../src/profiles/profile-store.js';
+
+/** Great-circle distance in metres, close to PostGIS geography distance for these tests. */
+export function haversineMeters(a: Point, b: Point): number {
+  const rad = (d: number) => (d * Math.PI) / 180;
+  const dLat = rad(b.latitude - a.latitude);
+  const dLon = rad(b.longitude - a.longitude);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(rad(a.latitude)) * Math.cos(rad(b.latitude)) * Math.sin(dLon / 2) ** 2;
+  return 2 * 6_371_008.8 * Math.asin(Math.sqrt(h));
+}
+
+/** Identity's member facts, from a map tests fill in. */
+export class FakeMemberFacts implements MemberFacts {
+  readonly facts = new Map<string, MemberFact>();
+  readonly requested: string[][] = [];
+
+  get(ids: readonly string[]): Promise<Map<string, MemberFact>> {
+    this.requested.push([...ids]);
+    return Promise.resolve(
+      new Map(
+        ids.flatMap((id) => {
+          const fact = this.facts.get(id);
+          return fact ? [[id, fact] as const] : [];
+        }),
+      ),
+    );
+  }
+
+  close(): void {
+    // nothing to close
+  }
+}
 
 /** Same rules as DrizzleProfileStore, in memory. */
 export class InMemoryProfileStore implements ProfileStore {
   readonly rows = new Map<string, OwnProfileRecord>();
+  /** Stored (already snapped) points, as the database would hold them. */
+  readonly locations = new Map<string, Point>();
 
   get(accountId: string): Promise<OwnProfileRecord | undefined> {
     const row = this.rows.get(accountId);
@@ -44,5 +82,40 @@ export class InMemoryProfileStore implements ProfileStore {
     if (!row) return Promise.resolve(false);
     row.preferences = structuredClone(prefs);
     return Promise.resolve(true);
+  }
+
+  setLocation(accountId: string, point: Point | null): Promise<boolean> {
+    const row = this.rows.get(accountId);
+    if (!row) return Promise.resolve(false);
+    if (point) this.locations.set(accountId, { ...point });
+    else this.locations.delete(accountId);
+    row.profile.hasLocation = point !== null;
+    return Promise.resolve(true);
+  }
+
+  publicProfiles(viewerId: string, ids: readonly string[]): Promise<PublicProfileRecord[]> {
+    const from = this.locations.get(viewerId);
+    return Promise.resolve(
+      ids.flatMap((id) => {
+        const row = this.rows.get(id);
+        if (!row || id === viewerId || !row.profile.visible || row.profile.privateMode) return [];
+        const to = this.locations.get(id);
+        const p = row.profile;
+        return [
+          {
+            accountId: id,
+            displayName: p.displayName,
+            bio: p.bio,
+            intent: p.intent,
+            gender: p.gender,
+            pronouns: p.pronouns,
+            areaLabel: p.areaLabel,
+            distanceMeters: from && to ? haversineMeters(from, to) : null,
+            prompts: structuredClone(p.prompts),
+            interests: [...p.interests],
+          },
+        ];
+      }),
+    );
   }
 }

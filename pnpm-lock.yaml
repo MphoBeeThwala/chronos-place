@@ -556,6 +556,12 @@ importers:
       '@chronos/service-kit':
         specifier: workspace:*
         version: link:../../packages/service-kit
+      '@grpc/grpc-js':
+        specifier: ^1.14.5
+        version: 1.14.5
+      '@grpc/proto-loader':
+        specifier: ^0.8.1
+        version: 0.8.1
       '@nestjs/common':
         specifier: ^12.1.2
         version: 12.1.2(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -587,12 +593,6 @@ importers:
       '@chronos/tsconfig':
         specifier: workspace:*
         version: link:../../packages/tsconfig
-      '@grpc/grpc-js':
-        specifier: ^1.14.5
-        version: 1.14.5
-      '@grpc/proto-loader':
-        specifier: ^0.8.1
-        version: 0.8.1
       '@testcontainers/postgresql':
         specifier: ^12.2.2
         version: 12.2.2

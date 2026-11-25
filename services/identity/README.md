@@ -1,6 +1,6 @@
 # @chronos/identity
 
-Accounts, phone OTP and sessions (TASKS M1.1, [ADR-0018](../../docs/adr/0018-identity-accounts-otp-sessions.md)). gRPC API: `chronos.identity.v1.IdentityService` in `@chronos/contracts`. Only the gateway calls it.
+Accounts, phone OTP and sessions (TASKS M1.1, [ADR-0018](../../docs/adr/0018-identity-accounts-otp-sessions.md)). gRPC API: `chronos.identity.v1.IdentityService` in `@chronos/contracts`. The gateway calls it; the profile service calls `GetMemberFacts` only (whole-year ages and verified badges of active members, never a date of birth).
 
 ## Rules it enforces
 

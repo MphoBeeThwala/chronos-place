@@ -31,6 +31,8 @@ Status: Accepted (2026-11-25, product owner approved decisions a–i, and that p
   - **Logs:** these texts are never logged (privacy test).
   - **Counsel:** told that this text sits outside the Health Vault.
 - **Private mode is free.** It is a privacy control, and the PRD promises no paywalls on privacy controls, so it is not part of the Plus tier, at least for now.
+- **Until M3, private means hidden.** Private mode shows a profile only to members the owner liked, which the profile service cannot know yet. So `GetPublicProfiles` leaves private profiles out entirely; discovery (M3) will show them to the members they liked.
+- **Grid size.** "About 1 km" is a 0.01-degree grid: about 1.1 km north to south and about 1 km east to west at South African latitudes. Distances are measured between snapped points in PostGIS, so two members in the same cell are shown as 1 km apart.
 
 ## Consequences
 - Members' text is cleaned before storage: NFC normalisation, no control or direction-override characters, trimmed. Error messages never echo it.

@@ -10,6 +10,7 @@ import { profileConfig } from '../src/config.js';
 import { runMigrations } from '../src/db/migrate.js';
 import { PROFILE_PACKAGE, PROFILE_PROTO } from '../src/proto.js';
 import { startTestDatabase, type TestDatabase } from './support/database.js';
+import { FakeMemberFacts } from './support/profile-fakes.js';
 
 type Call<Req, Res> = (request: Req) => Observable<Res>;
 interface Own {
@@ -32,6 +33,11 @@ interface ProfileClient {
   updateProfile: Call<Record<string, unknown>, Own>;
   updatePreferences: Call<Record<string, unknown>, Own>;
   getCatalogue: Call<object, { prompts: { id: string }[]; interests: { id: string }[] }>;
+  setLocation: Call<Record<string, unknown>, Own>;
+  getPublicProfiles: Call<
+    { viewerAccountId: string; accountIds: string[] },
+    { profiles?: Record<string, unknown>[] }
+  >;
 }
 
 const freePort = (): Promise<number> =>
@@ -52,6 +58,8 @@ let client: ProfileClient;
 let http: string;
 let closeClient: () => void;
 const MEMBER = '77777777-7777-4777-8777-777777777777';
+const OTHER = '77777777-7777-4777-8777-777777777778';
+const facts = new FakeMemberFacts();
 
 beforeAll(async () => {
   db = await startTestDatabase();
@@ -60,7 +68,7 @@ beforeAll(async () => {
   const httpPort = await freePort();
   http = `http://127.0.0.1:${String(httpPort)}`;
   service = await bootstrapService({
-    module: createAppModule(),
+    module: createAppModule({ facts }),
     extraConfig: profileConfig,
     grpc: { packageName: PROFILE_PACKAGE, protoPath: PROFILE_PROTO },
     env: {
@@ -191,5 +199,56 @@ describe('profile gRPC API', () => {
     const { prompts, interests } = await call(client.getCatalogue({}));
     expect(prompts.length).toBeGreaterThan(0);
     expect(interests.map((i) => i.id)).toContain('hiking');
+  });
+
+  it('snaps locations and shows other members only a rounded distance (M1.5 AC)', async () => {
+    facts.facts.set(OTHER, { age: 31, verified: true });
+    await call(
+      client.updateProfile({
+        accountId: OTHER,
+        displayName: 'Bongani',
+        intent: Intent.INTENT_DATING,
+      }),
+    );
+    const set = await call(
+      client.setLocation({ accountId: MEMBER, latitude: -26.204123, longitude: 28.047349 }),
+    );
+    expect(set.profile.hasLocation).toBe(true);
+    await call(
+      client.setLocation({ accountId: OTHER, latitude: -25.747912, longitude: 28.229271 }),
+    );
+
+    const { profiles } = await call(
+      client.getPublicProfiles({ viewerAccountId: MEMBER, accountIds: [OTHER, MEMBER] }),
+    );
+    expect(profiles).toHaveLength(1);
+    expect(profiles?.[0]).toMatchObject({
+      accountId: OTHER,
+      displayName: 'Bongani',
+      age: 31,
+      verified: true,
+      distanceKm: 55,
+    });
+    const text = JSON.stringify(profiles);
+    for (const digits of ['26.2', '28.04', '28.05', '25.74', '25.75', '28.22', '28.23']) {
+      expect(text).not.toContain(digits);
+    }
+
+    const cleared = await call(client.setLocation({ accountId: MEMBER, clear: true }));
+    expect(cleared.profile.hasLocation).toBe(false);
+    const after = await call(
+      client.getPublicProfiles({ viewerAccountId: MEMBER, accountIds: [OTHER] }),
+    );
+    expect(after.profiles?.[0]?.['distanceKm']).toBeUndefined();
+  });
+
+  it('rejects a position that is not real', async () => {
+    const bad = await grpcError(
+      call(client.setLocation({ accountId: MEMBER, latitude: 95, longitude: 10 })),
+    );
+    expect(bad).toEqual({
+      code: status.INVALID_ARGUMENT,
+      details: 'That location could not be used.',
+    });
   });
 });

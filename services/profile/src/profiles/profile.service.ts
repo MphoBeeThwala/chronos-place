@@ -2,9 +2,12 @@ import type { Logger } from '@chronos/logger';
 import { DomainError } from '@chronos/service-kit';
 import { INTERESTS, isInterestId, isPromptId, PROMPTS } from '../catalogue.js';
 import type { Intent } from '../db/schema.js';
+import type { MemberFacts } from '../identity/member-facts.js';
+import { displayDistanceKm, type Point, snap } from './location.js';
 import type {
   OwnProfileRecord,
   PreferencesRecord,
+  PublicProfileRecord,
   ProfileChanges,
   ProfileFields,
   ProfileStore,
@@ -44,9 +47,33 @@ export interface PreferencesUpdate {
 
 export interface ProfileServiceDeps {
   profiles: ProfileStore;
+  /** Ages and verified badges from identity (ADR-0023 f). */
+  facts: MemberFacts;
   logger: Logger;
   now?: () => Date;
 }
+
+/** The most profiles one request may ask for. */
+export const MAX_PUBLIC_PROFILES = 50;
+const LOCATION_SET = 'location set';
+const LOCATION_CLEARED = 'location cleared';
+
+export interface PublicProfile extends Omit<PublicProfileRecord, 'distanceMeters'> {
+  age: number;
+  verified: boolean;
+  /** Undefined when either member has no location. */
+  distanceKm: number | undefined;
+}
+
+const publicView = (
+  { distanceMeters, ...record }: PublicProfileRecord,
+  fact: { age: number; verified: boolean },
+): PublicProfile => ({
+  ...record,
+  age: fact.age,
+  verified: fact.verified,
+  distanceKm: distanceMeters === null ? undefined : displayDistanceKm(distanceMeters),
+});
 
 const invalid = (message: string): never => {
   throw new DomainError('invalid_argument', message);
@@ -136,6 +163,38 @@ export class ProfileService {
     }
     this.#d.logger.info({ accountId }, 'preferences updated');
     return this.getOwn(accountId);
+  }
+
+  /**
+   * Stores the member's location snapped to about 1 km, whatever precision the client sent, or
+   * clears it (ADR-0023 a). The point is never logged.
+   */
+  async setLocation(accountId: string, point: Point | null): Promise<OwnProfileRecord> {
+    const stored = point === null ? null : snap(point);
+    if (!(await this.#d.profiles.setLocation(accountId, stored, this.#d.now()))) {
+      throw new DomainError('not_found', MESSAGES.needsProfile);
+    }
+    if (point === null) this.#d.logger.info({ accountId }, LOCATION_CLEARED);
+    else this.#d.logger.info({ accountId }, LOCATION_SET);
+    return this.getOwn(accountId);
+  }
+
+  /**
+   * Profiles as `viewerId` may see them (M1.5 AC): a rounded distance and never a coordinate,
+   * whole-year ages from identity, and only active members. Keeps the request order.
+   */
+  async publicProfiles(viewerId: string, ids: readonly string[]): Promise<PublicProfile[]> {
+    const unique = [...new Set(ids)].filter((id) => id !== viewerId);
+    if (unique.length > MAX_PUBLIC_PROFILES) invalid(MESSAGES.tooMany);
+    const records = await this.#d.profiles.publicProfiles(viewerId, unique);
+    if (records.length === 0) return [];
+    const facts = await this.#d.facts.get(records.map((r) => r.accountId));
+    const byId = new Map(records.map((r) => [r.accountId, r]));
+    return unique.flatMap((id) => {
+      const record = byId.get(id);
+      const fact = facts.get(id);
+      return record && fact ? [publicView(record, fact)] : [];
+    });
   }
 
   #changes(update: ProfileUpdate): ProfileChanges {

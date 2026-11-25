@@ -5,6 +5,7 @@ import { GrpcMethod } from '@nestjs/microservices';
 import { z } from 'zod';
 import type { Intent } from './db/schema.js';
 import type { OwnProfileRecord } from './profiles/profile-store.js';
+import type { PublicProfile } from './profiles/profile.service.js';
 import type { ProfileRuntime } from './runtime.js';
 
 export const PROFILE_RUNTIME = Symbol('PROFILE_RUNTIME');
@@ -48,6 +49,16 @@ const schemas = {
       })
       .optional(),
     interests: z.object({ ids: z.array(z.string().max(64)).max(20).default([]) }).optional(),
+  }),
+  location: z.object({
+    accountId: uuid,
+    latitude: z.number().optional(),
+    longitude: z.number().optional(),
+    clear: z.boolean().optional(),
+  }),
+  publicProfiles: z.object({
+    viewerAccountId: uuid,
+    accountIds: z.array(uuid).max(100).default([]),
   }),
   preferences: z.object({
     accountId: uuid,
@@ -99,6 +110,22 @@ const own = ({ profile, preferences }: OwnProfileRecord) => ({
   },
 });
 
+/** Another member's view: a rounded distance and age, never a coordinate (M1.5 AC). */
+const publicProfile = (p: PublicProfile) => ({
+  accountId: p.accountId,
+  displayName: p.displayName,
+  age: p.age,
+  bio: p.bio ?? '',
+  intent: INTENT[p.intent],
+  gender: p.gender ?? '',
+  pronouns: p.pronouns ?? '',
+  areaLabel: p.areaLabel ?? '',
+  ...(p.distanceKm === undefined ? {} : { distanceKm: p.distanceKm }),
+  prompts: p.prompts,
+  interests: p.interests,
+  verified: p.verified,
+});
+
 /** chronos.profile.v1.ProfileService. Only the gateway calls it (allow-list arrives with M2.5). */
 @Controller()
 export class ProfileController {
@@ -147,5 +174,20 @@ export class ProfileController {
   @GrpcMethod(SERVICE, 'GetCatalogue')
   getCatalogue() {
     return this.#runtime.profiles.catalogue();
+  }
+
+  @GrpcMethod(SERVICE, 'SetLocation')
+  async setLocation(request: unknown) {
+    const { accountId, latitude, longitude, clear } = parse(schemas.location, request);
+    // proto3 does not send a number that equals 0, so a missing coordinate is 0 (equator, Greenwich).
+    const point = clear === true ? null : { latitude: latitude ?? 0, longitude: longitude ?? 0 };
+    return own(await this.#runtime.profiles.setLocation(accountId, point));
+  }
+
+  @GrpcMethod(SERVICE, 'GetPublicProfiles')
+  async getPublicProfiles(request: unknown) {
+    const { viewerAccountId, accountIds } = parse(schemas.publicProfiles, request);
+    const profiles = await this.#runtime.profiles.publicProfiles(viewerAccountId, accountIds);
+    return { profiles: profiles.map(publicProfile) };
   }
 }

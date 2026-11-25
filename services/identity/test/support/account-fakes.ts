@@ -54,4 +54,15 @@ export class InMemoryAccountStore implements AccountStore {
     row.status = 'ineligible';
     return Promise.resolve(true);
   }
+
+  activeFacts(ids: readonly string[]) {
+    return Promise.resolve(
+      ids.flatMap((id) => {
+        const row = this.rows.get(id);
+        return row?.status === 'active' && row.dateOfBirth !== null
+          ? [{ id, dateOfBirth: row.dateOfBirth, verified: row.verified === true }]
+          : [];
+      }),
+    );
+  }
 }
