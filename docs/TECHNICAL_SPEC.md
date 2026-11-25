@@ -302,7 +302,7 @@ See ADR-0003. Summary:
 
 ## 6. Client API (GraphQL, excerpt)
 
-The schema in `packages/contracts/graphql/schema.graphql` is the source of truth; this excerpt is illustrative. The file adds `refreshSession`, `signOut`, `conditionTaxonomy`, `myHealthFilters` and `setHealthFilters`, and an optional `filterOptIn` argument on `setHealthVisibility` (ADR-0015).
+The schema in `packages/contracts/graphql/schema.graphql` is the source of truth; this excerpt is illustrative. The file adds `refreshSession`, `signOut`, `conditionTaxonomy`, `myHealthFilters` and `setHealthFilters`, and an optional `filterOptIn` argument on `setHealthVisibility` (ADR-0015), and the photo mutations `createPhotoUpload`, `completePhotoUpload`, `reorderPhotos` and `deletePhoto` (ADR-0024).
 
 ```graphql
 type Query {

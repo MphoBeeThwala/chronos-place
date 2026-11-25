@@ -82,6 +82,7 @@ beforeEach(() => {
   profile.handlers.clear();
   profile.calls.length = 0;
   profile.handlers.set('getCatalogue', () => catalogue);
+  profile.handlers.set('listOwnPhotos', () => ({ photos: [] }));
 });
 
 describe('me (ADR-0023)', () => {

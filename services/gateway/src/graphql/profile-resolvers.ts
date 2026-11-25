@@ -1,9 +1,10 @@
-import { Intent } from '@chronos/contracts/profile';
+import { Intent, PhotoModeration } from '@chronos/contracts/profile';
 import { GraphQLError } from 'graphql';
 import { z } from 'zod';
 import type { GatewayContext } from '../auth/context.js';
 import type { AccountInfo } from '../auth/guard.js';
 import { fromGrpc } from '../identity/errors.js';
+import { toDate, type WireTimestamp } from '../identity/identity-client.js';
 import type { ProfileClient } from '../profile/profile-client.js';
 import type { ResolverMap } from './not-available.js';
 
@@ -25,6 +26,8 @@ const SIGN_IN = () =>
   new GraphQLError('Sign in to continue.', { extensions: { code: 'UNAUTHENTICATED' } });
 const INVALID = () =>
   new GraphQLError('Invalid input.', { extensions: { code: 'BAD_USER_INPUT' } });
+const PHOTO_NOT_FOUND = () =>
+  new GraphQLError('That photo was not found.', { extensions: { code: 'NOT_FOUND' } });
 const PROFILE_REQUIRED = () =>
   new GraphQLError('Create your profile first.', { extensions: { code: 'PROFILE_REQUIRED' } });
 
@@ -51,6 +54,13 @@ const inputs = {
       interests: z.array(z.string().max(64)).max(20).nullish(),
     })
     .refine((v) => !(v.location && v.clearLocation === true)),
+  photoUpload: z.object({
+    contentType: z.string().max(100),
+    byteLength: z.number().int().nonnegative(),
+  }),
+  uploadId: z.uuid(),
+  photoId: z.uuid(),
+  photoIds: z.array(z.uuid()).max(6),
   preferences: z.object({
     ageMin: z.number().int().nullish(),
     ageMax: z.number().int().nullish(),
@@ -96,6 +106,44 @@ interface Catalogue {
   interests: { id: string; label: string }[];
 }
 
+interface WirePhoto {
+  id: string;
+  position: number;
+  moderation: number;
+  variants?: { size: number; url: string }[];
+  width: number;
+  height: number;
+}
+interface WirePhotoList {
+  photos?: WirePhoto[];
+}
+
+const PHOTO_STATUS = new Map<number, string>([
+  [PhotoModeration.PHOTO_MODERATION_PENDING, 'PENDING'],
+  [PhotoModeration.PHOTO_MODERATION_APPROVED, 'APPROVED'],
+  [PhotoModeration.PHOTO_MODERATION_REJECTED, 'REJECTED'],
+]);
+/** Cards use the middle size (640 px). */
+const CARD_SIZE_INDEX = 1;
+
+export const photo = (p: WirePhoto) => {
+  const variants = p.variants ?? [];
+  return {
+    id: p.id,
+    position: p.position,
+    url: (variants[CARD_SIZE_INDEX] ?? variants[0])?.url ?? '',
+    variants,
+    width: p.width,
+    height: p.height,
+    // Anything unknown is treated as not yet approved.
+    status: PHOTO_STATUS.get(p.moderation) ?? 'PENDING',
+  };
+};
+const photoList = (result: WirePhotoList) => (result.photos ?? []).map(photo);
+
+/** Processing re-encodes three sizes; allow for a large photo on a busy node. */
+const COMPLETE_TIMEOUT_MS = 20_000;
+
 const orNull = (value: string) => (value === '' ? null : value);
 
 export interface ProfileResolverDeps {
@@ -116,6 +164,23 @@ export function profileResolvers(deps: ProfileResolverDeps): ResolverMap {
     }
   };
 
+  /** Photo calls: a missing profile and a missing photo are told apart by the service's message. */
+  const photoCall = async <T>(method: string, request: object, timeoutMs?: number): Promise<T> => {
+    try {
+      return await deps.profile.call<T>(
+        method,
+        request,
+        undefined,
+        timeoutMs === undefined ? {} : { timeoutMs },
+      );
+    } catch (error) {
+      const details = (error as { details?: unknown }).details;
+      throw fromGrpc(error, {
+        notFound: details === 'Create your profile first.' ? PROFILE_REQUIRED : PHOTO_NOT_FOUND,
+      });
+    }
+  };
+
   let cached: { catalogue: Catalogue; at: number } | undefined;
   const catalogue = async (): Promise<Catalogue> => {
     if (cached && Date.now() - cached.at < CATALOGUE_TTL_MS) return cached.catalogue;
@@ -132,9 +197,10 @@ export function profileResolvers(deps: ProfileResolverDeps): ResolverMap {
 
   /** The client's `Me`. Prompts and interests no longer in the catalogue are not shown. */
   const me = async (accountId: string, own: WireOwn) => {
-    const [{ prompts, interests }, info] = await Promise.all([
+    const [{ prompts, interests }, info, photos] = await Promise.all([
       catalogue(),
       deps.accountInfo(accountId),
+      call<WirePhotoList>('listOwnPhotos', { accountId }),
     ]);
     const questions = new Map(prompts.map((p) => [p.id, p.question]));
     const labels = new Map(interests.map((i) => [i.id, i.label]));
@@ -150,8 +216,8 @@ export function profileResolvers(deps: ProfileResolverDeps): ResolverMap {
       privateMode: p.privateMode,
       visible: p.visible,
       verified: info.verified,
-      // Photos arrive with M1.6; tiers with payments (M6).
-      photos: [],
+      // All of the member's own photos, pending ones included (ADR-0024).
+      photos: photoList(photos),
       prompts: (p.prompts ?? []).flatMap((a) => {
         const question = questions.get(a.promptId);
         return question ? [{ id: a.promptId, question, answer: a.answer }] : [];
@@ -171,6 +237,7 @@ export function profileResolvers(deps: ProfileResolverDeps): ResolverMap {
         }),
         genders: own.preferences.genders ?? [],
       },
+      // Tiers arrive with payments (M6).
       tier: 'FREE',
     };
   };
@@ -205,6 +272,40 @@ export function profileResolvers(deps: ProfileResolverDeps): ResolverMap {
           own = await call<WireOwn>('setLocation', { accountId, clear: true });
         }
         return me(accountId, own);
+      },
+      createPhotoUpload: async (_parent, args, ctx) => {
+        const { accountId } = viewerOf(ctx as GatewayContext);
+        const { contentType, byteLength } = parse(inputs.photoUpload, args);
+        const result = await photoCall<{
+          uploadId: string;
+          uploadUrl: string;
+          expiresAt: Date | WireTimestamp;
+        }>('createPhotoUpload', { accountId, contentType, byteLength });
+        return {
+          uploadId: result.uploadId,
+          uploadUrl: result.uploadUrl,
+          expiresAt: toDate(result.expiresAt).toISOString(),
+        };
+      },
+      completePhotoUpload: async (_parent, args, ctx) => {
+        const { accountId } = viewerOf(ctx as GatewayContext);
+        const uploadId = parse(inputs.uploadId, (args as { uploadId?: unknown }).uploadId);
+        const result = await photoCall<{ photo: WirePhoto }>(
+          'completePhotoUpload',
+          { accountId, uploadId },
+          COMPLETE_TIMEOUT_MS,
+        );
+        return photo(result.photo);
+      },
+      reorderPhotos: async (_parent, args, ctx) => {
+        const { accountId } = viewerOf(ctx as GatewayContext);
+        const photoIds = parse(inputs.photoIds, (args as { photoIds?: unknown }).photoIds);
+        return photoList(await photoCall<WirePhotoList>('reorderPhotos', { accountId, photoIds }));
+      },
+      deletePhoto: async (_parent, args, ctx) => {
+        const { accountId } = viewerOf(ctx as GatewayContext);
+        const photoId = parse(inputs.photoId, (args as { photoId?: unknown }).photoId);
+        return photoList(await photoCall<WirePhotoList>('deletePhoto', { accountId, photoId }));
       },
       updatePreferences: async (_parent, args, ctx) => {
         const { accountId } = viewerOf(ctx as GatewayContext);
