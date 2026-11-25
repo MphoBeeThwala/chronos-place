@@ -60,6 +60,16 @@ service IdentityService {
   // years and the verified badge. Never a date of birth. Only active accounts are returned; any
   // other id is left out without saying why. At most 100 ids. Caller: profile.
   rpc GetMemberFacts(GetMemberFactsRequest) returns (GetMemberFactsResponse);
+
+  // Account deletion and data export (TASKS M1.8, ADR-0025). Caller: gateway.
+  // Texts a fresh code to the account's own number. It can only confirm deletion, never sign in,
+  // and a sign-in code cannot confirm deletion. Same rate limits as sign-in codes.
+  rpc RequestDeletionCode(RequestDeletionCodeRequest) returns (RequestDeletionCodeResponse);
+  // Checks the code, then starts erasure at once (no undo): pending_erasure, every session ended,
+  // health erasure queued, account.erasure_requested sent. Repeating it once started is a no-op.
+  rpc DeleteAccount(DeleteAccountRequest) returns (DeleteAccountResponse);
+  // Everything identity holds about the member, for "Download my data". Never health data.
+  rpc ExportAccount(ExportAccountRequest) returns (ExportAccountResponse);
 }
 
 enum AccountStatus {
@@ -314,4 +324,66 @@ message MemberFacts {
 
 message GetMemberFactsResponse {
   repeated MemberFacts members = 1;
+}
+
+message RequestDeletionCodeRequest {
+  string account_id = 1;
+  ClientContext client = 2;
+}
+
+message RequestDeletionCodeResponse {
+  string challenge_id = 1;
+  google.protobuf.Timestamp expires_at = 2;
+  // How long the client must wait before asking for another code.
+  int32 retry_after_seconds = 3;
+}
+
+message DeleteAccountRequest {
+  string account_id = 1;
+  string challenge_id = 2;
+  string code = 3;
+  ClientContext client = 4;
+}
+
+message DeleteAccountResponse {
+  // PENDING_ERASURE.
+  Account account = 1;
+}
+
+message ExportAccountRequest {
+  string account_id = 1;
+}
+
+// A session as the member may see it. Device ids are never returned, only their dates.
+message SessionRecord {
+  google.protobuf.Timestamp created_at = 1;
+  google.protobuf.Timestamp last_used_at = 2;
+  google.protobuf.Timestamp expires_at = 3;
+  // Unset while the session is open.
+  google.protobuf.Timestamp revoked_at = 4;
+}
+
+// One liveness check. Selfie images and vendor scores are never kept (ADR-0022).
+message VerificationRecord {
+  string provider = 1;
+  // "passed", "failed", "pending" or "unavailable".
+  string outcome = 2;
+  // Set when the check did not pass.
+  VerificationFailure failure = 3;
+  google.protobuf.Timestamp created_at = 4;
+  // Unset while the check is running.
+  google.protobuf.Timestamp decided_at = 5;
+}
+
+message ExportAccountResponse {
+  Account account = 1;
+  // The member's own number, E.164.
+  string phone_e164 = 2;
+  // Unset until given (onboarding step 2).
+  CalendarDate date_of_birth = 3;
+  google.protobuf.Timestamp created_at = 4;
+  // Oldest first.
+  repeated ConsentRecord consents = 5;
+  repeated SessionRecord sessions = 6;
+  repeated VerificationRecord verifications = 7;
 }

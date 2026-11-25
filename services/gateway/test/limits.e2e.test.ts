@@ -178,7 +178,7 @@ describe('approved operations (decision b)', () => {
 
     it('runs the manifest text, not text the client sends alongside an approved hash', async () => {
       const response = await post(strict.url, {
-        query: 'mutation { deleteAccount(confirm: true) }',
+        query: 'mutation { deleteAccount(challengeId: "c", code: "123456") { id } }',
         operationName: 'SignIn',
         variables: { p: '0820000001' },
         extensions: persisted(hashOperation(approved)),

@@ -60,7 +60,7 @@ describe('sign-in guard (M1.3 AC: unauthenticated access blocked except OTP muta
     const response = await gql(
       gateway.url,
       `mutation { requestOtp(phone: "0820000001") { challengeId } ...F }
-       fragment F on Mutation { deleteAccount(confirm: true) }`,
+       fragment F on Mutation { deleteAccount(challengeId: "c", code: "123456") { id } }`,
     );
     expect(codes(response)).toEqual(['UNAUTHENTICATED']);
   });

@@ -249,7 +249,7 @@ Callers are authenticated by mTLS identity. Allow-list:
 | --- | --- |
 | gateway | UpsertHealthProfile, GetOwnHealthProfile, SetVisibility, GrantDisclosure, RevokeDisclosure, ViewHealthProfile, ListHealthViewers, ListConditionTaxonomy, SetFilterPreferences, GetFilterPreferences |
 | discovery | FilterEligibleSubjects |
-| identity | ExportSubject, EraseSubject |
+| identity | EraseSubject (ExportSubject's caller is open: see ADR-0025 decision g) |
 | moderation | ViewHealthProfile with purpose MODERATION only, requires a linked open report ID |
 
 ### 4.2 Access decision
@@ -313,6 +313,7 @@ type Query {
   myHealthProfile: HealthProfile          # own data only
   healthProfileOf(accountId: ID!): HealthProfileView   # null when not permitted
   healthViewers: [HealthViewer!]!
+  myDataExport: DataExport!   # non-health data as JSON, ADR-0025
 }
 
 type Mutation {
@@ -330,8 +331,8 @@ type Mutation {
   setHealthVisibility(visibility: HealthVisibility!): HealthProfile!
   shareHealthCard(matchId: ID!, scope: GrantScope!): Boolean!
   revokeHealthShare(accountId: ID!): Boolean!
-  requestDataExport: Boolean!
-  deleteAccount(confirm: Boolean!): Boolean!
+  requestAccountDeletionCode: OtpChallenge!
+  deleteAccount(challengeId: ID!, code: String!): Account!   # ADR-0025
 }
 
 enum HealthVisibility { HIDDEN MATCH_ONLY CHAT_GRANT PROFILE }
