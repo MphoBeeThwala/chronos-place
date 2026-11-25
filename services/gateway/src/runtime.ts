@@ -10,6 +10,7 @@ import { type RateLimitStore, RateLimiter, RedisRateLimitStore } from './limits/
 import { DEVELOPMENT_ENVIRONMENTS, type gatewayConfig } from './config.js';
 import { IdentityClient } from './identity/identity-client.js';
 import { IDENTITY_PROTO } from './identity/proto.js';
+import { ProfileClient } from './profile/profile-client.js';
 
 export type GatewayConfig = ServiceConfig<typeof gatewayConfig>;
 
@@ -21,6 +22,7 @@ export const ACCOUNT_STATE_TTL_MS = 15_000;
 
 export interface GatewayRuntime {
   identity: IdentityClient;
+  profile: ProfileClient;
   keys: SigningKeyCache;
   /** State and verified flag of an account, cached briefly for the guard. */
   accountInfo: (accountId: string) => Promise<AccountInfo>;
@@ -46,6 +48,7 @@ export function createGatewayRuntime(
   logger: Logger,
   overrides: {
     identity?: IdentityClient;
+    profile?: ProfileClient;
     refreshLock?: RefreshLock;
     rateLimitStore?: RateLimitStore;
     persistedOperations?: PersistedOperations;
@@ -56,6 +59,7 @@ export function createGatewayRuntime(
   const identity =
     overrides.identity ??
     new IdentityClient({ address: config.IDENTITY_GRPC_ADDRESS, protoPath: IDENTITY_PROTO });
+  const profile = overrides.profile ?? new ProfileClient({ address: config.PROFILE_GRPC_ADDRESS });
   const keys = new SigningKeyCache({
     fetch: async () =>
       (await identity.call<{ keys: { kid: string; jwkJson: string }[] }>('getSigningKeys', {}))
@@ -102,6 +106,7 @@ export function createGatewayRuntime(
 
   return {
     identity,
+    profile,
     keys,
     accountInfo,
     forgetAccountState: (accountId) => states.delete(accountId),
@@ -111,6 +116,7 @@ export function createGatewayRuntime(
     enforcePersistedOperations: overrides.enforcePersistedOperations ?? !development,
     close: () => {
       identity.close();
+      profile.close();
       redis?.disconnect();
     },
   };

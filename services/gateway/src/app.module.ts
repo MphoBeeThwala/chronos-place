@@ -18,6 +18,7 @@ import {
   QUERY_LIMITS,
 } from './limits/query-limits.js';
 import { identityResolvers } from './graphql/identity-resolvers.js';
+import { profileResolvers } from './graphql/profile-resolvers.js';
 import { type ResolverMap, rootResolvers } from './graphql/not-available.js';
 import { createGatewayRuntime, type GatewayConfig, type GatewayRuntime } from './runtime.js';
 import { registerCaptureRoute, type RouteHost } from './verification/capture-route.js';
@@ -25,7 +26,17 @@ import { registerCaptureRoute, type RouteHost } from './verification/capture-rou
 export const GATEWAY_RUNTIME = Symbol('GATEWAY_RUNTIME');
 
 /** Fields served today. Others answer NOT_AVAILABLE until their services exist. */
-const defaultResolvers = (runtime: GatewayRuntime): ResolverMap => identityResolvers(runtime);
+/** Every service's resolvers, merged per root type. */
+export const mergeResolvers = (...maps: ResolverMap[]): ResolverMap => {
+  const merged: ResolverMap = {};
+  for (const map of maps) {
+    for (const [type, fields] of Object.entries(map)) merged[type] = { ...merged[type], ...fields };
+  }
+  return merged;
+};
+
+const defaultResolvers = (runtime: GatewayRuntime): ResolverMap =>
+  mergeResolvers(identityResolvers(runtime), profileResolvers(runtime));
 
 const SDL = readFileSync(schemaPath, 'utf8');
 
