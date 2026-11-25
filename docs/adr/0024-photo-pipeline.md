@@ -26,6 +26,7 @@ Status: Accepted (2026-11-25, product owner approved decisions a–f).
   - **Approval:** a `PhotoModerator` interface decides. Development approves automatically; elsewhere photos stay `pending` until moderation (M5) plugs in.
   - **Consequence:** no photo is public outside development until M5 exists.
 - **f. Limits:** up to 6 photos per member, in positions 0–5. They can be reordered and deleted; deletion removes every size at once.
+  - **Upload rate (approved 2026-11-25):** at most 20 photo uploads started per member per hour, counted at the gateway in Redis on top of the ADR-0021 limits. Processing costs CPU, and the 6-photo cap alone does not stop delete-and-re-upload loops. Over the limit: `RATE_LIMITED` with `retryAfterSeconds`.
 
 ## Consequences
 - New dependencies: `sharp` (native libvips, prebuilt for linux-x64 and arm64) and `@aws-sdk/s3-request-presigner` (the same SDK family as `@aws-sdk/client-s3`). The service image must use glibc or sharp's musl build; Trivy scans cover libvips.
