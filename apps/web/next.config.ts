@@ -12,6 +12,25 @@ export const LOCATION_ROUTE = '/onboarding';
 const PERMISSIONS = (camera: string, geolocation = '()') =>
   `camera=${camera}, microphone=(), geolocation=${geolocation}`;
 
+/**
+ * Where photo uploads go and photos are served from (ADR-0024): the browser PUTs to a signed
+ * link on this origin and loads images from it. Read at build time, like the other headers.
+ * Development defaults to local SeaweedFS; production builds must set STORAGE_ORIGIN, or photo
+ * uploads are blocked by the CSP.
+ */
+function storageOrigin(): string | undefined {
+  const value =
+    process.env['STORAGE_ORIGIN'] ??
+    (process.env['NODE_ENV'] === 'production' ? undefined : 'http://127.0.0.1:8333');
+  if (!value) return undefined;
+  const url = new URL(value);
+  if (url.protocol !== 'https:' && !['127.0.0.1', 'localhost'].includes(url.hostname)) {
+    throw new Error('STORAGE_ORIGIN must be https outside local development');
+  }
+  return url.origin;
+}
+const STORAGE = storageOrigin();
+
 const config: NextConfig = {
   // Strict mode for catching React lifecycle issues early.
   reactStrictMode: true,
@@ -40,9 +59,9 @@ const config: NextConfig = {
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline'", // Next.js needs unsafe-inline for hydration chunks in dev
               "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: blob: https:",
+              `img-src 'self' data: blob: https:${STORAGE ? ` ${STORAGE}` : ''}`,
               "font-src 'self'",
-              "connect-src 'self'",
+              `connect-src 'self'${STORAGE ? ` ${STORAGE}` : ''}`,
               "frame-ancestors 'none'",
             ].join('; '),
           },

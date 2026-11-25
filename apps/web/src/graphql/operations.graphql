@@ -116,3 +116,72 @@ mutation CreateProfile($input: ProfileInput!) {
     sharesDistance
   }
 }
+
+# Photos in onboarding (TASKS M1.7, ADR-0024).
+
+query MyPhotos {
+  me {
+    id
+    photos {
+      id
+      position
+      status
+      width
+      height
+      variants {
+        size
+        url
+      }
+    }
+  }
+}
+
+mutation CreatePhotoUpload($contentType: String!, $byteLength: Int!) {
+  createPhotoUpload(contentType: $contentType, byteLength: $byteLength) {
+    uploadId
+    uploadUrl
+    expiresAt
+  }
+}
+
+mutation CompletePhotoUpload($uploadId: ID!) {
+  completePhotoUpload(uploadId: $uploadId) {
+    id
+    position
+    status
+    width
+    height
+    variants {
+      size
+      url
+    }
+  }
+}
+
+mutation ReorderPhotos($photoIds: [ID!]!) {
+  reorderPhotos(photoIds: $photoIds) {
+    id
+    position
+    status
+    width
+    height
+    variants {
+      size
+      url
+    }
+  }
+}
+
+mutation DeletePhoto($photoId: ID!) {
+  deletePhoto(photoId: $photoId) {
+    id
+    position
+    status
+    width
+    height
+    variants {
+      size
+      url
+    }
+  }
+}

@@ -52,6 +52,26 @@ export const OPERATIONS = {
   "CreateProfile": {
     "hash": "f3e41641e3149777fcc45578be0062dce0dd9c503cbbfac75f5b0d019a73eb44",
     "text": "mutation CreateProfile($input: ProfileInput!) {\n  updateProfile(input: $input) {\n    id\n    displayName\n    sharesDistance\n  }\n}"
+  },
+  "MyPhotos": {
+    "hash": "e4714f6da49733f9009ac523cc7f33083b391c160ada8329deed2d7858614abf",
+    "text": "query MyPhotos {\n  me {\n    id\n    photos {\n      id\n      position\n      status\n      width\n      height\n      variants {\n        size\n        url\n      }\n    }\n  }\n}"
+  },
+  "CreatePhotoUpload": {
+    "hash": "43746a0e8a736c632e3b3c73c9305239231ffc24d72cadfb637dc0e7ccfa0308",
+    "text": "mutation CreatePhotoUpload($contentType: String!, $byteLength: Int!) {\n  createPhotoUpload(contentType: $contentType, byteLength: $byteLength) {\n    uploadId\n    uploadUrl\n    expiresAt\n  }\n}"
+  },
+  "CompletePhotoUpload": {
+    "hash": "6f67fd9d058d87888cf62210ce21672155b7f3c6ed228958d31ba58ddcc2f14f",
+    "text": "mutation CompletePhotoUpload($uploadId: ID!) {\n  completePhotoUpload(uploadId: $uploadId) {\n    id\n    position\n    status\n    width\n    height\n    variants {\n      size\n      url\n    }\n  }\n}"
+  },
+  "ReorderPhotos": {
+    "hash": "1c64275a63a67d45472819e6b50bbdfa62818d83f5a7b0480729db98f45a5ff3",
+    "text": "mutation ReorderPhotos($photoIds: [ID!]!) {\n  reorderPhotos(photoIds: $photoIds) {\n    id\n    position\n    status\n    width\n    height\n    variants {\n      size\n      url\n    }\n  }\n}"
+  },
+  "DeletePhoto": {
+    "hash": "77433178c230546d2851c5430627ddfe6005a4fe8c10c695744aac00ff296eef",
+    "text": "mutation DeletePhoto($photoId: ID!) {\n  deletePhoto(photoId: $photoId) {\n    id\n    position\n    status\n    width\n    height\n    variants {\n      size\n      url\n    }\n  }\n}"
   }
 } as const;
 

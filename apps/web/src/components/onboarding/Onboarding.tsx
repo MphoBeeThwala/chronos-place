@@ -20,6 +20,7 @@ import {
 } from '@/lib/onboarding';
 import { type ConsentChoice, ConsentStep } from './ConsentStep';
 import { DateOfBirthStep } from './DateOfBirthStep';
+import { PhotoStep } from './PhotoStep';
 import { PrivacyWalkthrough } from './PrivacyWalkthrough';
 import { type ProfileDraft, ProfileStep } from './ProfileStep';
 
@@ -39,6 +40,7 @@ const TITLES = {
   dateOfBirth: { step: stepLabel('dateOfBirth'), title: 'Your date of birth' },
   walkthrough: { step: stepLabel('walkthrough'), title: 'How your privacy works' },
   profile: { step: stepLabel('profile'), title: 'Your profile' },
+  photos: { step: stepLabel('photos'), title: 'Your photos' },
   ineligible: { step: undefined, title: 'Chronos Place is for adults' },
   closed: { step: undefined, title: 'This account is closed' },
   active: { step: undefined, title: 'You’re all set' },
@@ -58,6 +60,9 @@ export function Onboarding() {
   const [signOut] = useMutation(SIGN_OUT);
   const [walkthroughDone, setWalkthroughDone] = useState(false);
   const [createProfile, { loading: creating }] = useMutation(CREATE_PROFILE);
+  // Photos follow the first profile save in this visit. They are optional, so a member who
+  // comes back later with a profile goes to the feed and adds photos from their profile.
+  const [profileSaved, setProfileSaved] = useState(false);
 
   const accountStep =
     finalStatus === 'INELIGIBLE'
@@ -80,12 +85,12 @@ export function Onboarding() {
         : noProfile
           ? afterActivation(false, walkthroughDone)
           : undefined;
-  const step = next === 'done' ? 'active' : next;
+  const step = profileSaved ? 'photos' : next === 'done' ? 'active' : next;
 
   useEffect(() => {
-    if (next === 'done') router.replace('/feed');
+    if (step === 'active') router.replace('/feed');
     else if (step) heading.current?.focus();
-  }, [next, step, router]);
+  }, [step, router]);
 
   if ((state.error || (profile.error && !noProfile)) && !step) {
     return (
@@ -130,7 +135,7 @@ export function Onboarding() {
     setError(undefined);
     try {
       await createProfile({ variables: { input: draft } });
-      router.replace('/feed');
+      setProfileSaved(true);
     } catch (err) {
       setError(messageOf(err));
     }
@@ -190,6 +195,13 @@ export function Onboarding() {
       )}
       {step === 'profile' && (
         <ProfileStep busy={creating} onSave={(draft) => void saveProfile(draft)} />
+      )}
+      {step === 'photos' && (
+        <PhotoStep
+          onFinish={() => {
+            router.replace('/feed');
+          }}
+        />
       )}
       {step === 'ineligible' && (
         <p style={muted}>
