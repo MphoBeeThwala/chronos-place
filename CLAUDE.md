@@ -108,6 +108,7 @@ pnpm new:service <name>      # generate a service from the template (--restricte
 pnpm test:service-template   # build, run, harden-check and scan a generated service image (needs Docker)
 pnpm contracts:gen           # generate TypeScript from the protobuf contracts (also runs in build/test)
 pnpm --filter @chronos/web operations:gen   # rebuild the approved-operations manifest after editing apps/web/src/graphql/operations.graphql
+pnpm --filter @chronos/web legal:gen        # rebuild the /terms and /privacy texts after an approved change to docs/legal/<version>.md
 ```
 
 Keep this section accurate. If you add or change a command, update it here.
