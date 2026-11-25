@@ -38,6 +38,11 @@ type Query {
   myHealthFilters: [String!]!
   "The member's selfie verification state (ADR-0022). Captures are uploaded to /verification/capture, not through GraphQL."
   verification: Verification!
+  """
+  Everything held about the member except health data, as one JSON document (ADR-0025). The
+  response is never cached. At most 5 per hour.
+  """
+  myDataExport: DataExport!
 }
 
 type Mutation {
@@ -78,8 +83,26 @@ type Mutation {
   "Asks for a person to review the latest failed selfie check (offered after 3 failures)."
   requestVerificationReview: Verification!
 
-  requestDataExport: Boolean!
-  deleteAccount(confirm: Boolean!): Boolean!
+  """
+  Texts a fresh code to the member's own number to confirm account deletion (ADR-0025). It can
+  only confirm deletion; a sign-in code cannot.
+  """
+  requestAccountDeletionCode: OtpChallenge!
+  """
+  Deletes the account once the code is right. Cannot be undone: every session ends at once and
+  all data is erased within 30 days. Returns the account, now PENDING_ERASURE.
+  """
+  deleteAccount(challengeId: ID!, code: String!): Account!
+}
+
+# ---- Data export (ADR-0025) ------------------------------------------------------------------
+
+type DataExport {
+  "The document's format, currently chronos-export/1."
+  format: String!
+  generatedAt: DateTime!
+  "The export itself, as JSON text. Photo links in it work for 24 hours."
+  json: String!
 }
 
 # ---- Sessions ----------------------------------------------------------------------------------

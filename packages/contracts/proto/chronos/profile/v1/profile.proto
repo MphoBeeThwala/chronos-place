@@ -49,6 +49,11 @@ service ProfileService {
   rpc ReorderPhotos(ReorderPhotosRequest) returns (ReorderPhotosResponse);
   // Deletes a photo and every size of it at once.
   rpc DeletePhoto(DeletePhotoRequest) returns (DeletePhotoResponse);
+
+  // Everything profile holds about the member, for "Download my data" (TASKS M1.8, ADR-0025),
+  // including the stored location, which only the member themselves ever sees. Photos come with
+  // links valid for 24 hours. Caller: gateway.
+  rpc ExportProfile(ExportProfileRequest) returns (ExportProfileResponse);
 }
 
 enum Intent {
@@ -297,4 +302,27 @@ message DeletePhotoRequest {
 
 message DeletePhotoResponse {
   repeated Photo photos = 1;
+}
+
+message ExportProfileRequest {
+  string account_id = 1;
+}
+
+// The member's stored location: already approximate (rounded in the browser, ADR-0023).
+message StoredLocation {
+  double latitude = 1;
+  double longitude = 2;
+  google.protobuf.Timestamp updated_at = 3;
+}
+
+message ExportProfileResponse {
+  // Unset when the member never created a profile.
+  Profile profile = 1;
+  Preferences preferences = 2;
+  // Unset when none is stored.
+  StoredLocation location = 3;
+  // Every status, in order, with links valid for 24 hours.
+  repeated Photo photos = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
 }

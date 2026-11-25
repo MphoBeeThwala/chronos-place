@@ -73,6 +73,7 @@ describe('client API schema', () => {
         'myHealthProfile',
         'healthProfileOf',
         'healthViewers',
+        'myDataExport',
       ]),
     );
     expect(mutations).toEqual(
@@ -92,7 +93,7 @@ describe('client API schema', () => {
         'setHealthVisibility',
         'shareHealthCard',
         'revokeHealthShare',
-        'requestDataExport',
+        'requestAccountDeletionCode',
         'deleteAccount',
       ]),
     );

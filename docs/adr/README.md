@@ -28,3 +28,4 @@ Status values: Proposed, Accepted, Superseded. Decisions below were taken by the
 | 0022 | Liveness verification with Smile ID, browser never contacts the vendor | Accepted (vendor terms and consent text need counsel) |
 | 0023 | Profile service: blurred location, catalogue prompts and interests, private mode free | Accepted |
 | 0024 | Photo pipeline: quarantine uploads, re-encode with sharp, private storage, moderation hook | Accepted |
+| 0025 | Account deletion (fresh code, no undo, services confirm, identity tombstone) and instant JSON export | Accepted (health export, decision g, proposed for M2) |
