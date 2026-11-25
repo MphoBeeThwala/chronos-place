@@ -13,6 +13,10 @@
       "types": "./dist/gen/chronos/identity/v1/identity.d.ts",
       "default": "./dist/gen/chronos/identity/v1/identity.js"
     },
+    "./profile": {
+      "types": "./dist/gen/chronos/profile/v1/profile.d.ts",
+      "default": "./dist/gen/chronos/profile/v1/profile.js"
+    },
     "./events": {
       "types": "./dist/src/events/index.d.ts",
       "default": "./dist/src/events/index.js"

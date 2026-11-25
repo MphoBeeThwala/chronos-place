@@ -1,0 +1,346 @@
+{
+  "id": "6cf188ab-da65-4ae4-aa3e-f19fa45ce64d",
+  "prevId": "51429f07-8d3e-45d9-a84f-8f1bc506d354",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "profile.preferences": {
+      "name": "preferences",
+      "schema": "profile",
+      "columns": {
+        "account_id": {
+          "name": "account_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "age_min": {
+          "name": "age_min",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "age_max": {
+          "name": "age_max",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "max_distance_km": {
+          "name": "max_distance_km",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "intents": {
+          "name": "intents",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "genders": {
+          "name": "genders",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "preferences_account_id_profiles_account_id_fk": {
+          "name": "preferences_account_id_profiles_account_id_fk",
+          "tableFrom": "preferences",
+          "tableTo": "profiles",
+          "schemaTo": "profile",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "account_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "preferences_age_check": {
+          "name": "preferences_age_check",
+          "value": "\"profile\".\"preferences\".\"age_min\" >= 18 and \"profile\".\"preferences\".\"age_max\" <= 99 and \"profile\".\"preferences\".\"age_min\" <= \"profile\".\"preferences\".\"age_max\""
+        },
+        "preferences_distance_check": {
+          "name": "preferences_distance_check",
+          "value": "\"profile\".\"preferences\".\"max_distance_km\" between 1 and 300"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "profile.profile_interests": {
+      "name": "profile_interests",
+      "schema": "profile",
+      "columns": {
+        "account_id": {
+          "name": "account_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "interest_id": {
+          "name": "interest_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "profile_interests_account_id_profiles_account_id_fk": {
+          "name": "profile_interests_account_id_profiles_account_id_fk",
+          "tableFrom": "profile_interests",
+          "tableTo": "profiles",
+          "schemaTo": "profile",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "account_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "profile_interests_account_id_interest_id_pk": {
+          "name": "profile_interests_account_id_interest_id_pk",
+          "columns": [
+            "account_id",
+            "interest_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "profile.profile_prompts": {
+      "name": "profile_prompts",
+      "schema": "profile",
+      "columns": {
+        "account_id": {
+          "name": "account_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position": {
+          "name": "position",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "prompt_id": {
+          "name": "prompt_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "answer": {
+          "name": "answer",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "profile_prompts_account_id_profiles_account_id_fk": {
+          "name": "profile_prompts_account_id_profiles_account_id_fk",
+          "tableFrom": "profile_prompts",
+          "tableTo": "profiles",
+          "schemaTo": "profile",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "account_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "profile_prompts_account_id_position_pk": {
+          "name": "profile_prompts_account_id_position_pk",
+          "columns": [
+            "account_id",
+            "position"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "profile_prompts_account_prompt_key": {
+          "name": "profile_prompts_account_prompt_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "account_id",
+            "prompt_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "profile_prompts_position_check": {
+          "name": "profile_prompts_position_check",
+          "value": "\"profile\".\"profile_prompts\".\"position\" between 0 and 2"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "profile.profiles": {
+      "name": "profiles",
+      "schema": "profile",
+      "columns": {
+        "account_id": {
+          "name": "account_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "bio": {
+          "name": "bio",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "intent": {
+          "name": "intent",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "gender": {
+          "name": "gender",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pronouns": {
+          "name": "pronouns",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "area_label": {
+          "name": "area_label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "location": {
+          "name": "location",
+          "type": "geography(point,4326)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "location_updated_at": {
+          "name": "location_updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "private_mode": {
+          "name": "private_mode",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "visible": {
+          "name": "visible",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "profiles_location_gix": {
+          "name": "profiles_location_gix",
+          "columns": [
+            {
+              "expression": "location",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "gist",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "profiles_intent_check": {
+          "name": "profiles_intent_check",
+          "value": "intent in ('long_term', 'dating', 'friendship', 'open')"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {
+    "profile": "profile"
+  },
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
