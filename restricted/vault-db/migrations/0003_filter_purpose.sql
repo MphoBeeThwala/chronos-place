@@ -1,0 +1,3 @@
+-- M2.6: a new access-log purpose for reading candidates' profiles to apply condition filters.
+ALTER TABLE "vault"."health_access_log" DROP CONSTRAINT "health_access_log_purpose_check";--> statement-breakpoint
+ALTER TABLE "vault"."health_access_log" ADD CONSTRAINT "health_access_log_purpose_check" CHECK ("vault"."health_access_log"."purpose" in ('profile_view','chat_card','moderation','export','erasure','filter'));

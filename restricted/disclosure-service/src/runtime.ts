@@ -6,12 +6,14 @@ import {
   type ReadinessRegistry,
 } from '@chronos/service-kit';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
+import type { Logger } from '@chronos/logger';
 import pg from 'pg';
 import { IdentityMemberFacts, type MemberFacts } from './access/member-facts.js';
 import { MatchingNotYetAvailable, type Relationships } from './access/relationships.js';
 import { SharingService } from './access/sharing.service.js';
 import { ViewService } from './access/view.service.js';
 import { ViewersService } from './access/viewers.service.js';
+import { FilterService } from './health/filter.service.js';
 import { HealthProfileService } from './health/health-profile.service.js';
 import { ConditionTaxonomy } from './health/taxonomy.js';
 import { AccessLog } from './vault/access-log.js';
@@ -44,6 +46,7 @@ export interface DisclosureRuntime {
   views: ViewService;
   sharing: SharingService;
   viewers: ViewersService;
+  filters: FilterService;
   close: () => Promise<void>;
 }
 
@@ -52,6 +55,7 @@ export function createDisclosureRuntime(
   config: DisclosureConfig,
   readiness: ReadinessRegistry,
   overrides: RuntimeOverrides = {},
+  logger?: Logger,
 ): DisclosureRuntime {
   const pool = new pg.Pool({ connectionString: config.VAULT_DATABASE_URL.reveal(), max: 10 });
   readiness.register('vault', async () => {
@@ -102,6 +106,14 @@ export function createDisclosureRuntime(
     views,
     sharing: new SharingService({ db, subjects, grants, relationships, members }),
     viewers: new ViewersService(db, subjects, accessLog),
+    filters: new FilterService({
+      db,
+      subjects,
+      keyring,
+      taxonomy,
+      accessLog,
+      ...(logger ? { logger } : {}),
+    }),
     close: async () => {
       members.close();
       await pool.end();

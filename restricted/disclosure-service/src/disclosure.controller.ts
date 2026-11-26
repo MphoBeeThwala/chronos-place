@@ -1,5 +1,6 @@
 import {
   ConditionStatus as WireStatus,
+  FilterOutcome as WireOutcome,
   GrantScope as WireScope,
   Purpose as WirePurpose,
   Visibility as WireVisibility,
@@ -16,6 +17,7 @@ import {
 } from './health/health-profile.js';
 import { INVALID_PROFILE } from './health/health-profile.service.js';
 import type { Scope, ViewPurpose } from './access/decide.js';
+import { MAX_CANDIDATES, type FilterOutcome } from './health/filter.service.js';
 import type { DisclosureRuntime } from './runtime.js';
 
 export const DISCLOSURE_RUNTIME = Symbol('DISCLOSURE_RUNTIME');
@@ -51,6 +53,11 @@ const SCOPE: Record<Scope, WireScope> = {
   full: WireScope.GRANT_SCOPE_FULL,
   conditions_only: WireScope.GRANT_SCOPE_CONDITIONS_ONLY,
 };
+const OUTCOME: Record<FilterOutcome, WireOutcome> = {
+  ok: WireOutcome.FILTER_OUTCOME_OK,
+  below_threshold: WireOutcome.FILTER_OUTCOME_BELOW_THRESHOLD,
+  viewer_not_sharing: WireOutcome.FILTER_OUTCOME_VIEWER_NOT_SHARING,
+};
 const SCOPE_FROM_WIRE = new Map<number, Scope>(
   (Object.entries(SCOPE) as [Scope, WireScope][]).map(([k, v]) => [v, k]),
 );
@@ -75,6 +82,14 @@ const schemas = {
     subjectAccountId: z.uuid(),
     pageSize: z.number().int().min(0).default(0),
     pageToken: z.string().max(200).default(''),
+  }),
+  filters: z.object({
+    accountId: z.uuid(),
+    wantedConditionCodes: z.array(z.string().max(40)).max(MAX_CONDITIONS).default([]),
+  }),
+  filterEligible: z.object({
+    viewerAccountId: z.uuid(),
+    candidateAccountIds: z.array(z.uuid()).max(MAX_CANDIDATES).default([]),
   }),
   view: z.object({
     viewerAccountId: z.uuid(),
@@ -227,6 +242,26 @@ export class DisclosureController {
   async listHealthViewers(request: unknown): Promise<object> {
     const { subjectAccountId, pageSize, pageToken } = parse(schemas.viewers, request);
     return this.#runtime.viewers.list(subjectAccountId, pageSize, pageToken);
+  }
+
+  @GrpcMethod(SERVICE, 'SetFilterPreferences')
+  async setFilterPreferences(request: unknown): Promise<object> {
+    const { accountId, wantedConditionCodes } = parse(schemas.filters, request);
+    await this.#runtime.filters.setPreferences(accountId, wantedConditionCodes);
+    return {};
+  }
+
+  @GrpcMethod(SERVICE, 'GetFilterPreferences')
+  async getFilterPreferences(request: unknown): Promise<object> {
+    const { accountId } = parse(schemas.account, request);
+    return { wantedConditionCodes: await this.#runtime.filters.getPreferences(accountId) };
+  }
+
+  @GrpcMethod(SERVICE, 'FilterEligibleSubjects')
+  async filterEligibleSubjects(request: unknown): Promise<object> {
+    const { viewerAccountId, candidateAccountIds } = parse(schemas.filterEligible, request);
+    const result = await this.#runtime.filters.filterEligible(viewerAccountId, candidateAccountIds);
+    return { outcome: OUTCOME[result.outcome], eligibleAccountIds: result.eligible };
   }
 
   @GrpcMethod(SERVICE, 'ListConditionTaxonomy')

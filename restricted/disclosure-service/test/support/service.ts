@@ -79,6 +79,12 @@ export interface DisclosureClient {
     }
   >;
   exportSubject: Call<Record<string, unknown>, unknown>;
+  setFilterPreferences: Call<{ accountId: string; wantedConditionCodes?: string[] }, object>;
+  getFilterPreferences: Call<{ accountId: string }, { wantedConditionCodes?: string[] }>;
+  filterEligibleSubjects: Call<
+    { viewerAccountId: string; candidateAccountIds?: string[] },
+    { outcome: number; eligibleAccountIds?: string[] }
+  >;
   setVisibility: Call<
     { accountId: string; visibility?: number; filterOptIn?: boolean },
     { visibility: number; filterOptIn: boolean }
