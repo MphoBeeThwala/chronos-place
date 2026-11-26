@@ -26,6 +26,32 @@ export const identityConfig = {
    * events wait safely in identity.outbox until it is set.
    */
   KAFKA_BROKERS: hostList.optional(),
+  /**
+   * Services that must confirm before an account is erased (ADR-0025 d), comma-separated. Each
+   * new service that stores member data joins this list when it is built.
+   */
+  ERASURE_CONFIRMING_SERVICES: z
+    .string()
+    .default('profile')
+    .transform((v) =>
+      v
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    )
+    .pipe(
+      z.array(
+        z.enum([
+          'profile',
+          'discovery',
+          'matching',
+          'messaging',
+          'moderation',
+          'notifications',
+          'payments',
+        ]),
+      ),
+    ),
 
   /**
    * Liveness vendor (ADR-0022). "fake" passes every capture and is development only. "smile-id"

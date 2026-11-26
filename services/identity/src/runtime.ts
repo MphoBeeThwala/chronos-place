@@ -1,7 +1,7 @@
 import { KMSClient } from '@aws-sdk/client-kms';
 import { S3Client } from '@aws-sdk/client-s3';
 import { KmsKeyWrapper, SubjectKeyring } from '@chronos/crypto';
-import { KafkaEventPublisher } from '@chronos/events';
+import { KafkaEventPublisher, KafkaEventSubscriber } from '@chronos/events';
 import type { Logger } from '@chronos/logger';
 import type { ReadinessRegistry, ServiceConfig } from '@chronos/service-kit';
 import { drizzle } from 'drizzle-orm/node-postgres';
@@ -16,6 +16,8 @@ import { type VaultEraser, VaultErasureRelay } from './consent/vault-erasure-rel
 import { DrizzleAccountKeyStore } from './crypto/account-key-store.js';
 import { DrizzleDeletionStore } from './deletion/deletion-store.js';
 import { DeletionService } from './deletion/deletion.service.js';
+import { DrizzleErasureStore } from './erasure/erasure-store.js';
+import { ErasureService } from './erasure/erasure.service.js';
 import { type EventPublisher, OutboxRelay } from './events/outbox.js';
 import { IdentityCleanup } from './maintenance/cleanup.js';
 import { every } from './maintenance/scheduler.js';
@@ -50,6 +52,7 @@ export interface IdentityRuntime {
   sessions: SessionService;
   verification: VerificationService;
   deletion: DeletionService;
+  erasure: ErasureService;
   signer: AccessTokenSigner;
   close: () => Promise<void>;
 }
@@ -69,6 +72,8 @@ function keyFrom(name: string, base64: string): Buffer {
 /** How often background work runs. */
 export const RELAY_INTERVAL_MS = 1_000;
 export const CLEANUP_INTERVAL_MS = 15 * 60 * 1000;
+/** How often ready erasures are finished (ADR-0025 f: minutes, not days). */
+export const ERASURE_INTERVAL_MS = 30_000;
 export const VAULT_ERASURE_INTERVAL_MS = 30_000;
 export const VERIFICATION_INTERVAL_MS = 5_000;
 
@@ -262,6 +267,26 @@ export function createIdentityRuntime(
     logger,
   });
 
+  const erasure = new ErasureService({
+    store: new DrizzleErasureStore(db),
+    keyring,
+    services: config.ERASURE_CONFIRMING_SERVICES,
+    forgetVerification: (id) => verification.forget(id),
+    logger,
+  });
+  const stopErasure = every('erasure', ERASURE_INTERVAL_MS, () => erasure.runOnce(), logger);
+  // Confirmations arrive as account.erasure_confirmed; without Kafka they wait in each service.
+  const confirmations = config.KAFKA_BROKERS
+    ? new KafkaEventSubscriber({ brokers: config.KAFKA_BROKERS, clientId: 'identity', logger })
+    : undefined;
+  if (confirmations) {
+    confirmations.subscribe('account.erasure_confirmed', (event) => erasure.confirmed(event));
+    // In the background: start-up stays synchronous. Unconsumed confirmations wait in Kafka.
+    confirmations.start().catch((err: unknown) => {
+      logger.error({ err }, 'erasure confirmations not consumed');
+    });
+  }
+
   const stopCleanup = every(
     'identity-cleanup',
     CLEANUP_INTERVAL_MS,
@@ -323,9 +348,17 @@ export function createIdentityRuntime(
     sessions,
     verification,
     deletion,
+    erasure,
     signer,
     close: async () => {
-      await Promise.all([stopCleanup(), stopRelay(), stopVaultErasure(), stopVerification()]);
+      await Promise.all([
+        stopCleanup(),
+        stopRelay(),
+        stopVaultErasure(),
+        stopVerification(),
+        stopErasure(),
+        confirmations?.close(),
+      ]);
       configured.close();
       keyring.clearCache();
       redis.disconnect();
