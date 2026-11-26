@@ -58,7 +58,7 @@ service IdentityService {
 
   // Facts other members may see about a member (TASKS M1.5, ADR-0023 decision f): age in whole
   // years and the verified badge. Never a date of birth. Only active accounts are returned; any
-  // other id is left out without saying why. At most 100 ids. Caller: profile.
+  // other id is left out without saying why. At most 100 ids. Callers: profile, disclosure-service.
   rpc GetMemberFacts(GetMemberFactsRequest) returns (GetMemberFactsResponse);
 
   // Account deletion and data export (TASKS M1.8, ADR-0025). Caller: gateway.

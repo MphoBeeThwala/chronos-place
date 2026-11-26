@@ -19,6 +19,7 @@ export const PROFILE_FIELD = 'health_profile';
 // Fixed messages: they never repeat what was sent (CLAUDE.md coding standards).
 export const INVALID_PROFILE = 'Invalid health profile.';
 export const PROFILE_CHANGED = 'Health profile changed elsewhere; reload and try again.';
+export const NO_PROFILE = 'Create your health profile first.';
 
 export interface HealthProfileDeps {
   db: NodePgDatabase;
@@ -86,7 +87,7 @@ export class HealthProfileService {
       decision: 'allow',
       reason: 'self',
     });
-    const row = await this.#open(vaultId);
+    const row = await this.open(vaultId);
     if (row === undefined) return undefined;
     return {
       profile: row.profile,
@@ -96,8 +97,42 @@ export class HealthProfileService {
     };
   }
 
-  /** Reads and decrypts a stored profile. Callers record the read in the access log first. */
-  async #open(vaultId: string) {
+  /**
+   * Sets who may see the profile and the filter opt-in (counts as a change: the version goes up).
+   * Not a read of health content, so nothing is audited.
+   */
+  async setVisibility(
+    accountId: string,
+    visibility: OwnHealthProfile['visibility'],
+    filterOptIn: boolean,
+  ): Promise<{ visibility: OwnHealthProfile['visibility']; filterOptIn: boolean }> {
+    const { db, subjects } = this.#deps;
+    const vaultId = await subjects.find(accountId);
+    const [row] =
+      vaultId === undefined
+        ? []
+        : await db
+            .update(healthProfiles)
+            .set({
+              visibility,
+              filterOptIn,
+              version: sql`${healthProfiles.version} + 1`,
+              updatedAt: sql`now()`,
+            })
+            .where(eq(healthProfiles.vaultId, vaultId))
+            .returning({
+              visibility: healthProfiles.visibility,
+              filterOptIn: healthProfiles.filterOptIn,
+            });
+    if (row === undefined) throw new DomainError('failed_precondition', NO_PROFILE);
+    return row;
+  }
+
+  /**
+   * Reads and decrypts a stored profile. **Callers must record the read in the access log first**
+   * (CLAUDE.md rule 9); this method does not.
+   */
+  async open(vaultId: string) {
     const { db, keyring } = this.#deps;
     const [row] = await db.select().from(healthProfiles).where(eq(healthProfiles.vaultId, vaultId));
     if (row === undefined) return undefined;
@@ -123,7 +158,7 @@ export class HealthProfileService {
       decision: 'allow',
       reason: 'self_update',
     });
-    const stored = await this.#open(vaultId);
+    const stored = await this.open(vaultId);
     const held = new Set(stored?.profile.conditions.map((c) => c.code));
     return retired.every((code) => held.has(code));
   }

@@ -291,6 +291,16 @@ canView(viewer, subject, purpose):
   ALWAYS write health_access_log (allow or deny)
 ```
 
+Implementation notes (M2.3, approved): the decision is a pure function (`restricted/disclosure-service/src/access/decide.ts`, 100% branch coverage enforced).
+
+- A subject with no health profile is denied for everyone (`no_profile`). Self is allowed in full before any outside fact is needed.
+- **Fail closed:** if matching or identity cannot answer, the view is denied (`relationship_unavailable`, `identity_unavailable`). Until the matching service exists (M3.1), every view by another member is denied.
+- Moderation is denied (`moderation_unavailable`) until M5 can prove an open report; the access log records the accessor as `staff:<id>`.
+- **What is shown:** `match_only` and `profile` show conditions only. Free text and the note are shared only through a grant with FULL scope.
+- Allowed views carry a 5-minute lease (`lease_expires_at`).
+- The caller only learns `allowed`, never the reason. "No profile" and "hidden" answer identically, and a subject with nothing in the vault leaves no row behind.
+- `SetVisibility` needs an existing profile and increments its version.
+
 Block and match state are fetched from matching via gRPC (or a short-TTL cache invalidated by `match.*` / `block.*` events). Revoking a grant or changing visibility takes effect immediately; clients must re-request rather than cache health views beyond the current screen.
 
 ### 4.3 Condition-aware discovery without leakage

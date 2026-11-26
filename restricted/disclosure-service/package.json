@@ -12,7 +12,7 @@
     "start": "node dist/main.js",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --coverage --passWithNoTests",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:privacy": "vitest run --config vitest.privacy.config.ts"
   },
@@ -39,6 +39,7 @@
     "@chronos/privacy-harness": "workspace:*",
     "@chronos/tsconfig": "workspace:*",
     "@testcontainers/postgresql": "^12.2.2",
-    "@types/pg": "^8.23.1"
+    "@types/pg": "^8.23.1",
+    "@vitest/coverage-v8": "5.0.3"
   }
 }

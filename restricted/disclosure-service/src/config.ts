@@ -12,4 +12,9 @@ export const disclosureConfig = {
   VAULT_DATA_KEY_ID: z.string().min(1),
   /** A local KMS stand-in in development; unset in AWS. */
   KMS_ENDPOINT: httpUrl.optional(),
+  /** host:port of identity, for whether members are active and verified (TECHNICAL_SPEC 4.2). */
+  IDENTITY_GRPC_ADDRESS: z
+    .string()
+    .regex(/^[A-Za-z0-9.-]+:\d{1,5}$/)
+    .default('127.0.0.1:50052'),
 };

@@ -1,5 +1,7 @@
 import {
   ConditionStatus as WireStatus,
+  GrantScope as WireScope,
+  Purpose as WirePurpose,
   Visibility as WireVisibility,
 } from '@chronos/contracts/disclosure';
 import { DomainError } from '@chronos/service-kit';
@@ -13,6 +15,7 @@ import {
   type OwnHealthProfile,
 } from './health/health-profile.js';
 import { INVALID_PROFILE } from './health/health-profile.service.js';
+import type { Scope, ViewPurpose } from './access/decide.js';
 import type { DisclosureRuntime } from './runtime.js';
 
 export const DISCLOSURE_RUNTIME = Symbol('DISCLOSURE_RUNTIME');
@@ -34,12 +37,37 @@ const VISIBILITY: Record<OwnHealthProfile['visibility'], WireVisibility> = {
   chat_grant: WireVisibility.VISIBILITY_CHAT_GRANT,
   profile: WireVisibility.VISIBILITY_PROFILE,
 };
+const VISIBILITY_FROM_WIRE = new Map<number, OwnHealthProfile['visibility']>(
+  (Object.entries(VISIBILITY) as [OwnHealthProfile['visibility'], WireVisibility][]).map(
+    ([k, v]) => [v, k],
+  ),
+);
+const PURPOSE_FROM_WIRE = new Map<number, ViewPurpose>([
+  [WirePurpose.PURPOSE_PROFILE_VIEW, 'profile_view'],
+  [WirePurpose.PURPOSE_CHAT_CARD, 'chat_card'],
+  [WirePurpose.PURPOSE_MODERATION, 'moderation'],
+]);
+const SCOPE: Record<Scope, WireScope> = {
+  full: WireScope.GRANT_SCOPE_FULL,
+  conditions_only: WireScope.GRANT_SCOPE_CONDITIONS_ONLY,
+};
 
 // Validated at the edge. Field names are the proto-loader camelCase. Caps here only stop oversized
 // input early; the service applies the real rules. Failures never echo what was sent.
 const schemas = {
   account: z.object({ accountId: z.uuid() }),
   taxonomy: z.object({ includeRetired: z.boolean().default(false) }),
+  visibility: z.object({
+    accountId: z.uuid(),
+    visibility: z.number().int().default(0),
+    filterOptIn: z.boolean().default(false),
+  }),
+  view: z.object({
+    viewerAccountId: z.uuid(),
+    subjectAccountId: z.uuid(),
+    purpose: z.number().int().default(0),
+    moderation: z.object({ staffId: z.uuid() }).optional(),
+  }),
   upsert: z.object({
     accountId: z.uuid(),
     expectedVersion: z.number().int().min(0).default(0),
@@ -68,6 +96,12 @@ function parse<T extends z.ZodType>(schema: T, request: unknown): z.output<T> {
   const result = schema.safeParse(request);
   if (!result.success) throw new DomainError('invalid_argument', INVALID_REQUEST);
   return result.data;
+}
+
+function known<T>(map: Map<number, T>, value: number): T {
+  const found = map.get(value);
+  if (found === undefined) throw new DomainError('invalid_argument', INVALID_REQUEST);
+  return found;
 }
 
 function statusFromWire(value: number): ConditionStatus {
@@ -121,6 +155,39 @@ export class DisclosureController {
         visibility: VISIBILITY[own.visibility],
         filterOptIn: own.filterOptIn,
         version: own.version,
+      },
+    };
+  }
+
+  @GrpcMethod(SERVICE, 'SetVisibility')
+  async setVisibility(request: unknown): Promise<object> {
+    const { accountId, visibility, filterOptIn } = parse(schemas.visibility, request);
+    const saved = await this.#runtime.profiles.setVisibility(
+      accountId,
+      known(VISIBILITY_FROM_WIRE, visibility),
+      filterOptIn,
+    );
+    return { visibility: VISIBILITY[saved.visibility], filterOptIn: saved.filterOptIn };
+  }
+
+  @GrpcMethod(SERVICE, 'ViewHealthProfile')
+  async viewHealthProfile(request: unknown): Promise<object> {
+    const { viewerAccountId, subjectAccountId, purpose, moderation } = parse(schemas.view, request);
+    const view = await this.#runtime.views.view({
+      viewerId: viewerAccountId,
+      subjectId: subjectAccountId,
+      purpose: known(PURPOSE_FROM_WIRE, purpose),
+      staffId: moderation?.staffId,
+    });
+    if (view === undefined) return { allowed: false };
+    return {
+      allowed: true,
+      profile: {
+        conditions: view.conditions.map((c) => ({ code: c.code, status: STATUS[c.status] })),
+        freeText: view.freeText ?? '',
+        note: view.note ?? '',
+        scope: SCOPE[view.scope],
+        leaseExpiresAt: view.leaseExpiresAt,
       },
     };
   }
