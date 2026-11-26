@@ -38,7 +38,7 @@ const LOG_ABANDONED_FAILED = 'abandoned photo upload cleanup failed';
 
 export const uploadKey = (uploadId: string) => `uploads/${uploadId}`;
 export const mediaKey = (photoId: string, size: number) => `photos/${photoId}/${String(size)}.webp`;
-const allSizes = (photoId: string) => PHOTO_SIZES.map((size) => mediaKey(photoId, size));
+export const allSizes = (photoId: string) => PHOTO_SIZES.map((size) => mediaKey(photoId, size));
 
 export interface PhotoView extends PhotoRecord {
   variants: { size: number; url: string }[];

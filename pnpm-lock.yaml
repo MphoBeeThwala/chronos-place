@@ -596,6 +596,9 @@ importers:
       '@chronos/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@chronos/events':
+        specifier: workspace:*
+        version: link:../../packages/events
       '@chronos/logger':
         specifier: workspace:*
         version: link:../../packages/logger

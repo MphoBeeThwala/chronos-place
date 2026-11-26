@@ -14,6 +14,9 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
  *   they are processed (and by a 1-day lifecycle rule as a backstop);
  * - media: processed WebP sizes only, under random keys, read through short-lived presigned GETs.
  */
+/** A storage operation did not complete. The message never names files or members. */
+export class PhotoStorageError extends Error {}
+
 export interface PhotoStorage {
   /** A presigned PUT that accepts exactly this content type and byte length. */
   uploadUrl(
@@ -114,12 +117,17 @@ export class S3PhotoStorage implements PhotoStorage {
 
   async deleteMedia(keys: readonly string[]): Promise<void> {
     if (keys.length === 0) return;
-    await this.#o.client.send(
+    const result = await this.#o.client.send(
       new DeleteObjectsCommand({
         Bucket: this.#o.mediaBucket,
         Delete: { Objects: keys.map((Key) => ({ Key })), Quiet: true },
       }),
     );
+    // A batch delete reports failed keys in the response instead of throwing. Treat any as a
+    // failure, so callers keep the rows that name the files and try again.
+    if ((result.Errors?.length ?? 0) > 0) {
+      throw new PhotoStorageError('some photo files could not be deleted');
+    }
   }
 
   viewUrl(key: string, expiresIn: number): Promise<string> {
