@@ -16,5 +16,8 @@
   "43746a0e8a736c632e3b3c73c9305239231ffc24d72cadfb637dc0e7ccfa0308": "mutation CreatePhotoUpload($contentType: String!, $byteLength: Int!) {\n  createPhotoUpload(contentType: $contentType, byteLength: $byteLength) {\n    uploadId\n    uploadUrl\n    expiresAt\n  }\n}",
   "6f67fd9d058d87888cf62210ce21672155b7f3c6ed228958d31ba58ddcc2f14f": "mutation CompletePhotoUpload($uploadId: ID!) {\n  completePhotoUpload(uploadId: $uploadId) {\n    id\n    position\n    status\n    width\n    height\n    variants {\n      size\n      url\n    }\n  }\n}",
   "1c64275a63a67d45472819e6b50bbdfa62818d83f5a7b0480729db98f45a5ff3": "mutation ReorderPhotos($photoIds: [ID!]!) {\n  reorderPhotos(photoIds: $photoIds) {\n    id\n    position\n    status\n    width\n    height\n    variants {\n      size\n      url\n    }\n  }\n}",
-  "77433178c230546d2851c5430627ddfe6005a4fe8c10c695744aac00ff296eef": "mutation DeletePhoto($photoId: ID!) {\n  deletePhoto(photoId: $photoId) {\n    id\n    position\n    status\n    width\n    height\n    variants {\n      size\n      url\n    }\n  }\n}"
+  "77433178c230546d2851c5430627ddfe6005a4fe8c10c695744aac00ff296eef": "mutation DeletePhoto($photoId: ID!) {\n  deletePhoto(photoId: $photoId) {\n    id\n    position\n    status\n    width\n    height\n    variants {\n      size\n      url\n    }\n  }\n}",
+  "ce7b6344fd78c95bda9b096d442da83d4d43becb494ba86dee30a403a196b9e8": "query MyDataExport {\n  myDataExport {\n    format\n    generatedAt\n    json\n  }\n}",
+  "2aad36b4394a40839cf56ee1a57ef51c3df04456360169e8d6fb35815605ae26": "mutation RequestAccountDeletionCode {\n  requestAccountDeletionCode {\n    challengeId\n    expiresAt\n    retryAfterSeconds\n  }\n}",
+  "31b7c46a166b44fd95b4177f2f99b416cf22d7ebd2194a174569ac4939cdee67": "mutation DeleteAccount($challengeId: ID!, $code: String!) {\n  deleteAccount(challengeId: $challengeId, code: $code) {\n    id\n    status\n  }\n}"
 }

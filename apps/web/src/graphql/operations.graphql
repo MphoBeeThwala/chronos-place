@@ -185,3 +185,28 @@ mutation DeletePhoto($photoId: ID!) {
     }
   }
 }
+
+# Your data and account (TASKS M1.8, ADR-0025).
+
+query MyDataExport {
+  myDataExport {
+    format
+    generatedAt
+    json
+  }
+}
+
+mutation RequestAccountDeletionCode {
+  requestAccountDeletionCode {
+    challengeId
+    expiresAt
+    retryAfterSeconds
+  }
+}
+
+mutation DeleteAccount($challengeId: ID!, $code: String!) {
+  deleteAccount(challengeId: $challengeId, code: $code) {
+    id
+    status
+  }
+}

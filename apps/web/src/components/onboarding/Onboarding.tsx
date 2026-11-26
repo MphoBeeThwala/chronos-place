@@ -6,6 +6,7 @@
  * reader users hear where they are.
  */
 import { gql, useMutation, useQuery } from '@apollo/client';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
@@ -230,6 +231,13 @@ export function Onboarding() {
         >
           Sign out
         </Button>
+      )}
+      {step !== 'ineligible' && step !== 'active' && step !== 'closed' && (
+        <p className="text-center text-sm">
+          <Link href="/account" className="touch-target inline-flex items-center underline">
+            Your data and account
+          </Link>
+        </p>
       )}
     </section>
   );

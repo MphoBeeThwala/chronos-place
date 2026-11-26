@@ -43,6 +43,11 @@ test('a new member agrees to terms and privacy, then confirms a date of birth', 
   // Health is never asked here, and the draft marketing text is not offered.
   await expect(page.getByText(/updates and community news/)).toHaveCount(0);
   await expectAccessible(page, 'step 1: consent');
+  // Downloading or deleting doesn't wait for onboarding (ADR-0025).
+  await expect(page.getByRole('link', { name: 'Your data and account' })).toHaveAttribute(
+    'href',
+    '/account',
+  );
 
   const agree = page.getByRole('button', { name: 'Agree and continue' });
   await expect(agree).toBeDisabled();

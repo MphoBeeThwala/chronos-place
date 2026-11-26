@@ -16,7 +16,8 @@ export const PUBLIC_MUTATIONS = ['requestOtp', 'verifyOtp', 'refreshSession'] as
 
 /**
  * Root fields a signed-in member may use before onboarding is finished (status PENDING_ONBOARDING):
- * the onboarding steps themselves (ADR-0020: consents, then date of birth) and session handling.
+ * the onboarding steps themselves (ADR-0020: consents, then date of birth), session handling, and
+ * downloading their data or deleting the account (ADR-0025).
  */
 export const ONBOARDING_FIELDS = [
   'account',
@@ -25,6 +26,10 @@ export const ONBOARDING_FIELDS = [
   'recordConsent',
   'setDateOfBirth',
   'signOut',
+  // A member's rights don't wait for onboarding (approved 2026-11-26, ADR-0025).
+  'myDataExport',
+  'requestAccountDeletionCode',
+  'deleteAccount',
   ...PUBLIC_MUTATIONS,
 ] as const;
 
