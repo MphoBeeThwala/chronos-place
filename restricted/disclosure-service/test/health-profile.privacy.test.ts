@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { ConditionStatus } from '@chronos/contracts/disclosure';
+import { ConditionStatus, Purpose, Visibility } from '@chronos/contracts/disclosure';
 import { usePrivacyHarness } from '@chronos/privacy-harness/vitest';
 import { runMigrations } from '@chronos/vault-db';
 import { firstValueFrom as call } from 'rxjs';
@@ -49,6 +49,25 @@ describe('health profile privacy', () => {
         note,
       });
       await call(client.getOwnHealthProfile({ accountId }));
+      // Views: allowed (self) and denied (another member), plus the setting change.
+      await call(client.setVisibility({ accountId, visibility: Visibility.VISIBILITY_PROFILE }));
+      const purpose = Purpose.PURPOSE_PROFILE_VIEW;
+      await call(
+        client.viewHealthProfile({
+          viewerAccountId: accountId,
+          subjectAccountId: accountId,
+          purpose,
+        }),
+      );
+      const denied = await call(
+        client.viewHealthProfile({
+          viewerAccountId: randomUUID(),
+          subjectAccountId: accountId,
+          purpose,
+        }),
+      );
+      // A denial says nothing at all: not why, not the setting, nothing from the profile.
+      expect(denied).toEqual({ allowed: false });
       // Failures: unknown code, over-long text, a stale version, and an undecryptable row.
       await attempt({ conditions: [{ code: unknownCode, status: LIVING_WITH }], freeText: words });
       await attempt({ conditions: [], freeText: `${words} ${'x'.repeat(600)}` });
@@ -71,6 +90,8 @@ describe('health profile privacy', () => {
     for (const line of [...privacy.logs.texts(), ...privacy.grpc.texts()]) {
       expect(line).not.toContain(accountId);
       expect(line).not.toMatch(/living_with|"other"/);
+      // Nor the access decision's reasons: they reveal a member's setting.
+      expect(line).not.toMatch(/relationship_unavailable|not_verified|no_grant|"hidden"/);
     }
   });
 });

@@ -267,6 +267,6 @@ describe('storage', () => {
 
 describe('not yet implemented', () => {
   it('answers UNIMPLEMENTED for calls from later tasks', async () => {
-    expect((await grpcError(call(client.viewHealthProfile({})))).code).toBe(status.UNIMPLEMENTED);
+    expect((await grpcError(call(client.grantDisclosure({})))).code).toBe(status.UNIMPLEMENTED);
   });
 });

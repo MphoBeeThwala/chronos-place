@@ -6,6 +6,7 @@ import { bootstrapService, type RunningService } from '@chronos/service-kit';
 import { ClientProxyFactory, Transport, type ClientGrpc } from '@nestjs/microservices';
 import type { Observable } from 'rxjs';
 import { createAppModule } from '../../src/app.module.js';
+import type { RuntimeOverrides } from '../../src/runtime.js';
 import { disclosureConfig } from '../../src/config.js';
 import { DISCLOSURE_PACKAGE, DISCLOSURE_PROTO } from '../../src/proto.js';
 
@@ -40,7 +41,26 @@ export interface DisclosureClient {
     { includeRetired?: boolean },
     { entries?: { code: string; labelEn: string; active: boolean }[] }
   >;
-  viewHealthProfile: Call<Record<string, unknown>, unknown>;
+  viewHealthProfile: Call<
+    {
+      viewerAccountId: string;
+      subjectAccountId: string;
+      purpose?: number;
+      moderation?: { reportId?: string; staffId?: string };
+    },
+    {
+      allowed: boolean;
+      profile?: WireProfile & {
+        scope: number;
+        leaseExpiresAt: unknown;
+      };
+    }
+  >;
+  grantDisclosure: Call<Record<string, unknown>, unknown>;
+  setVisibility: Call<
+    { accountId: string; visibility?: number; filterOptIn?: boolean },
+    { visibility: number; filterOptIn: boolean }
+  >;
 }
 
 const freePort = (): Promise<number> =>
@@ -54,6 +74,8 @@ const freePort = (): Promise<number> =>
       });
     });
   });
+
+const SHARED_WRAPPER = new InMemoryKeyWrapper();
 
 /** The database URL, connecting with the runtime role's real privileges. */
 export const asServiceRole = (url: string): string => {
@@ -71,12 +93,15 @@ export interface StartedService {
 export async function startService(
   databaseUrl: string,
   logs?: LoggerOptions['destination'],
+  overrides: Omit<RuntimeOverrides, 'keyring'> = {},
 ): Promise<StartedService> {
   const grpcPort = await freePort();
-  const wrapper = new InMemoryKeyWrapper();
+  // One wrapper for every test service, like one KMS key for every instance in production.
+  const wrapper = SHARED_WRAPPER;
   const service: RunningService = await bootstrapService({
     module: createAppModule({
       keyring: (store) => new SubjectKeyring({ wrapper, store, cacheTtlMs: 0 }),
+      ...overrides,
     }),
     extraConfig: disclosureConfig,
     grpc: { packageName: DISCLOSURE_PACKAGE, protoPath: DISCLOSURE_PROTO },
@@ -130,4 +155,35 @@ export async function grpcError(
     (e: unknown) => e,
   )) as { code?: number; details?: string } | undefined;
   return { code: error?.code, details: error?.details };
+}
+
+/** Identity stand-in: active members and which of them are verified. Set `down` to fail. */
+export class FakeMembers {
+  readonly verified = new Map<string, boolean>();
+  down = false;
+
+  verifiedById(ids: readonly string[]): Promise<Map<string, boolean>> {
+    if (this.down) return Promise.reject(new Error('identity unreachable'));
+    return Promise.resolve(
+      new Map(
+        ids.flatMap((id) =>
+          this.verified.has(id) ? [[id, this.verified.get(id) === true] as const] : [],
+        ),
+      ),
+    );
+  }
+
+  close(): void {}
+}
+
+/** Matching stand-in: matches and blocks between pairs (either order). */
+export class FakeRelationships {
+  readonly matches = new Set<string>();
+  readonly blocks = new Set<string>();
+  static key = (a: string, b: string) => [a, b].sort().join(':');
+
+  between(a: string, b: string) {
+    const key = FakeRelationships.key(a, b);
+    return Promise.resolve({ blocked: this.blocks.has(key), activeMatch: this.matches.has(key) });
+  }
 }

@@ -3,9 +3,13 @@ import { KmsKeyWrapper, SubjectKeyring } from '@chronos/crypto';
 import type { ReadinessRegistry } from '@chronos/service-kit';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
+import { IdentityMemberFacts, type MemberFacts } from './access/member-facts.js';
+import { MatchingNotYetAvailable, type Relationships } from './access/relationships.js';
+import { ViewService } from './access/view.service.js';
 import { HealthProfileService } from './health/health-profile.service.js';
 import { ConditionTaxonomy } from './health/taxonomy.js';
 import { AccessLog } from './vault/access-log.js';
+import { Grants } from './vault/grants.js';
 import { VaultKeyStore } from './vault/key-store.js';
 import { SubjectDirectory } from './vault/subjects.js';
 
@@ -14,11 +18,15 @@ export interface DisclosureConfig {
   VAULT_DATA_KEY_ID: string;
   KMS_ENDPOINT?: string | undefined;
   AWS_REGION: string;
+  IDENTITY_GRPC_ADDRESS: string;
 }
 
-/** Test seams: a keyring with an in-memory wrapper instead of KMS. */
+/** Test seams: an in-memory KMS wrapper, fake identity and matching. */
 export interface RuntimeOverrides {
   keyring?: (keys: VaultKeyStore) => SubjectKeyring;
+  members?: MemberFacts;
+  relationships?: Relationships;
+  now?: () => number;
 }
 
 export interface DisclosureRuntime {
@@ -27,6 +35,7 @@ export interface DisclosureRuntime {
   keys: VaultKeyStore;
   taxonomy: ConditionTaxonomy;
   profiles: HealthProfileService;
+  views: ViewService;
   close: () => Promise<void>;
 }
 
@@ -56,12 +65,29 @@ export function createDisclosureRuntime(
       store: keys,
     });
   const taxonomy = new ConditionTaxonomy(db);
-  const profiles = new HealthProfileService({
+  const accessLog = new AccessLog(db);
+  const profiles = new HealthProfileService({ db, subjects, keyring, taxonomy, accessLog });
+  const members = overrides.members ?? new IdentityMemberFacts(config.IDENTITY_GRPC_ADDRESS);
+  const views = new ViewService({
     db,
     subjects,
-    keyring,
-    taxonomy,
-    accessLog: new AccessLog(db),
+    grants: new Grants(db),
+    relationships: overrides.relationships ?? new MatchingNotYetAvailable(),
+    members,
+    profiles,
+    accessLog,
+    ...(overrides.now ? { now: overrides.now } : {}),
   });
-  return { db, subjects, keys, taxonomy, profiles, close: () => pool.end() };
+  return {
+    db,
+    subjects,
+    keys,
+    taxonomy,
+    profiles,
+    views,
+    close: async () => {
+      members.close();
+      await pool.end();
+    },
+  };
 }
