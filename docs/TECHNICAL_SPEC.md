@@ -300,6 +300,8 @@ Implementation notes (M2.3, approved): the decision is a pure function (`restric
 - Allowed views carry a 5-minute lease (`lease_expires_at`).
 - The caller only learns `allowed`, never the reason. "No profile" and "hidden" answer identically, and a subject with nothing in the vault leaves no row behind.
 - `SetVisibility` needs an existing profile and increments its version.
+- Grants (M2.4): `GrantDisclosure` needs a saved profile and an active, unblocked match with an active viewer (one fixed refusal for all cases). A scope change revokes the live grant and inserts a new one. `RevokeDisclosure` takes effect on the viewer's next request; an open view lasts at most its lease.
+- `ListHealthViewers` (M2.4) aggregates `allow` rows with `account:` accessors other than the member. Refused attempts, own views and moderator views are not listed. Pages use an opaque keyset token; reading the list is recorded as `self_viewers`.
 
 Block and match state are fetched from matching via gRPC (or a short-TTL cache invalidated by `match.*` / `block.*` events). Revoking a grant or changing visibility takes effect immediately; clients must re-request rather than cache health views beyond the current screen.
 
