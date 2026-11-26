@@ -215,11 +215,17 @@ message ListHealthViewersResponse {
   string next_page_token = 2;
 }
 
-message ListConditionTaxonomyRequest {}
+message ListConditionTaxonomyRequest {
+  // Also return retired entries, so a member's own profile can still show a condition that has
+  // since been taken off the list. Pickers should offer active entries only.
+  bool include_retired = 1;
+}
 
 message TaxonomyEntry {
   string code = 1;
   string label_en = 2;
+  // False for a retired entry: members who have it keep it, nobody can newly add it.
+  bool active = 3;
 }
 
 message ListConditionTaxonomyResponse {

@@ -36,7 +36,10 @@ export interface DisclosureClient {
       };
     }
   >;
-  listConditionTaxonomy: Call<object, { entries?: { code: string; labelEn: string }[] }>;
+  listConditionTaxonomy: Call<
+    { includeRetired?: boolean },
+    { entries?: { code: string; labelEn: string; active: boolean }[] }
+  >;
   viewHealthProfile: Call<Record<string, unknown>, unknown>;
 }
 
