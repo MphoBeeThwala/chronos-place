@@ -33,8 +33,9 @@ Status: Accepted (2026-11-26, product owner approved decisions a–c, h, i and t
   - **Rate limit:** at most 5 per member per hour.
 - **d. Each service deletes its own data and confirms.**
   - **Profile:** deletes the profile, prompts, interests, preferences and photo rows, and every stored file (all sizes, plus any unfinished upload in quarantine), then sends `account.erasure_confirmed`.
+  - **Matching (M3.1):** ends the member's active matches (`match.ended`, so chats close), deletes every like, pass, match and block that names them either way, and confirms through its outbox in the same transaction.
   - **Idempotent:** consumers skip duplicates by `eventId` (spec 7), and deleting what is already gone still confirms.
-  - **Expected confirmations:** a list in identity's configuration, today only `profile`. Each new service that stores member data joins the list when it is built.
+  - **Expected confirmations:** a list in identity's configuration, today `profile` and `matching`. Each new service that stores member data joins the list when it is built.
 - **e. Identity goes last and leaves a tombstone.** After every expected confirmation, identity:
   - destroys the member's data key in `account_keys`. This crypto-shreds the encrypted number;
   - deletes their sessions, refresh tokens, code challenges, consent records and verification records;

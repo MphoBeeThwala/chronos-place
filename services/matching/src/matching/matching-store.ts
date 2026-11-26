@@ -178,6 +178,65 @@ export class MatchingStore {
     return candidateIds.filter((id) => id !== viewerId && !hidden.has(id));
   }
 
+  /**
+   * Account erasure (ADR-0025 d): ends the member's active matches (match.ended goes out, so chats
+   * close), deletes every like, pass, match and block that names them either way, and confirms with
+   * account.erasure_confirmed. All in one transaction holding the lock on every pair involved, so
+   * the confirmation is only sent if the rows are really gone. Safe to repeat.
+   */
+  async erase(accountId: string): Promise<{ matches: number; likes: number; blocks: number }> {
+    return this.#db.transaction(async (tx) => {
+      const others = await this.#counterparts(tx, accountId);
+      for (const other of others) {
+        const [a, b] = ordered(accountId, other);
+        await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${a}:${b}`}, 0))`);
+      }
+      // Counterparts found after the locks too: a like that landed while we waited is caught.
+      for (const other of await this.#counterparts(tx, accountId)) {
+        await this.#end(tx, accountId, other, 'erasure');
+      }
+      const deletedLikes = await tx
+        .delete(likes)
+        .where(or(eq(likes.fromId, accountId), eq(likes.toId, accountId)))
+        .returning({ fromId: likes.fromId });
+      const deletedBlocks = await tx
+        .delete(blocks)
+        .where(or(eq(blocks.blockerId, accountId), eq(blocks.blockedId, accountId)))
+        .returning({ blockerId: blocks.blockerId });
+      const deletedMatches = await tx
+        .delete(matches)
+        .where(or(eq(matches.aId, accountId), eq(matches.bId, accountId)))
+        .returning({ id: matches.id });
+      await this.#emit(
+        tx,
+        createEvent(
+          'account.erasure_confirmed',
+          'matching',
+          { accountId, service: 'matching' },
+          { now: this.#now() },
+        ),
+      );
+      return {
+        matches: deletedMatches.length,
+        likes: deletedLikes.length,
+        blocks: deletedBlocks.length,
+      };
+    });
+  }
+
+  /** Everyone the member has a like, pass, match or block with, either way, sorted (lock order). */
+  async #counterparts(tx: Tx, accountId: string): Promise<string[]> {
+    const { rows } = await tx.execute<{ other: string }>(sql`
+      select to_id as other from matching.likes where from_id = ${accountId}
+      union select from_id from matching.likes where to_id = ${accountId}
+      union select blocked_id from matching.blocks where blocker_id = ${accountId}
+      union select blocker_id from matching.blocks where blocked_id = ${accountId}
+      union select b_id from matching.matches where a_id = ${accountId}
+      union select a_id from matching.matches where b_id = ${accountId}
+      order by 1`);
+    return rows.map((r) => r.other);
+  }
+
   async #pair<T>(x: string, y: string, run: (tx: Tx) => Promise<T>): Promise<T> {
     const [a, b] = ordered(x, y);
     return this.#db.transaction(async (tx) => {
@@ -219,7 +278,7 @@ export class MatchingStore {
       });
   }
 
-  async #end(tx: Tx, x: string, y: string, reason: 'unmatch' | 'block'): Promise<void> {
+  async #end(tx: Tx, x: string, y: string, reason: 'unmatch' | 'block' | 'erasure'): Promise<void> {
     const [aId, bId] = ordered(x, y);
     const ended = await tx
       .update(matches)
