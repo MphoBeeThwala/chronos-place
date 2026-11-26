@@ -106,7 +106,8 @@ pnpm test:e2e                # Playwright tests for apps/web (starts the app its
 pnpm test:e2e:stack          # onboarding end to end against the real identity, profile and gateway, with axe checks (needs the stack up)
 pnpm db:migrate              # core-database migrations (identity, profile and matching). Needs the stack up
 pnpm db:migrate:vault        # Health Vault migrations, roles and audit-log lock (restricted/vault-db). Needs the stack up
-pnpm seed                    # NOT YET: synthetic data only, from tools/seed (arrives with M1.5)
+pnpm seed                    # synthetic members into the local core DB (tools/seed; --members N, --reset). Needs db:migrate
+pnpm test:speed              # M3.2 feed speed test: seeds 200,000 synthetic members in a fresh DB (needs TEST_POSTGRES_URL, TEST_REDIS_URL)
 pnpm check:deps              # banned third-party SDKs (rule 7); also runs in CI
 pnpm new:service <name>      # generate a service from the template (--restricted for restricted/)
 pnpm test:service-template   # build, run, harden-check and scan a generated service image (needs Docker)

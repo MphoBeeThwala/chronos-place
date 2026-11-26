@@ -892,6 +892,9 @@ importers:
       '@chronos/logger':
         specifier: workspace:*
         version: link:../../packages/logger
+      '@chronos/seed':
+        specifier: workspace:*
+        version: link:../seed
       '@chronos/service-kit':
         specifier: workspace:*
         version: link:../../packages/service-kit
@@ -913,6 +916,9 @@ importers:
       drizzle-orm:
         specifier: ^0.45.4
         version: 0.45.4(@opentelemetry/api@1.9.1)(@types/pg@8.23.1)(pg@8.23.1)
+      ioredis:
+        specifier: ^5.11.1
+        version: 5.11.1
       pg:
         specifier: ^8.23.1
         version: 8.23.1
@@ -928,6 +934,25 @@ importers:
       '@chronos/tsconfig':
         specifier: workspace:*
         version: link:../../packages/tsconfig
+
+  tools/seed:
+    dependencies:
+      '@chronos/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      pg:
+        specifier: ^8.23.1
+        version: 8.23.1
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+    devDependencies:
+      '@chronos/tsconfig':
+        specifier: workspace:*
+        version: link:../../packages/tsconfig
+      '@types/pg':
+        specifier: ^8.23.1
+        version: 8.23.1
 
 packages:
 

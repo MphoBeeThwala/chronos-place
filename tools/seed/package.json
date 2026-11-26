@@ -1,0 +1,32 @@
+{
+  "name": "@chronos/seed",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Synthetic members for development and speed tests (CLAUDE.md rule 6). Never real data.",
+  "exports": {
+    ".": {
+      "types": "./dist/seed.d.ts",
+      "default": "./dist/seed.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "seed": "node dist/cli.js",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@chronos/config": "workspace:*",
+    "pg": "^8.23.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@chronos/tsconfig": "workspace:*",
+    "@types/pg": "^8.23.1"
+  }
+}
