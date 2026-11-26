@@ -1,9 +1,11 @@
+import { type EventPublisher, KafkaEventPublisher, KafkaEventSubscriber } from '@chronos/events';
 import type { Logger } from '@chronos/logger';
 import type { ReadinessRegistry, ServiceConfig } from '@chronos/service-kit';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 import { DEVELOPMENT_ENVIRONMENTS, type profileConfig } from './config.js';
 import { IdentityMemberFacts, type MemberFacts } from './identity/member-facts.js';
+import { ProfileEraser } from './erasure/profile-eraser.js';
 import { every } from './maintenance/scheduler.js';
 import {
   AutoApproveModerator,
@@ -23,9 +25,15 @@ import { ProfileService } from './profiles/profile.service.js';
 
 export type ProfileConfig = ServiceConfig<typeof profileConfig>;
 
+/** Without Kafka nothing consumes erasure requests, so nothing is ever published either. */
+const NO_PUBLISHER: EventPublisher = {
+  publish: () => Promise.reject(new Error('KAFKA_BROKERS is not set')),
+};
+
 export interface ProfileRuntime {
   profiles: ProfileService;
   photos: PhotoService;
+  eraser: ProfileEraser;
   close: () => Promise<void>;
 }
 
@@ -35,6 +43,8 @@ export interface RuntimeOverrides {
   /** Tests replace photo storage and the moderation hook. */
   photoStorage?: PhotoStorage;
   moderator?: PhotoModerator;
+  /** Tests replace where erasure confirmations go. */
+  publisher?: EventPublisher;
 }
 
 /** How often quarantine objects of abandoned uploads are cleared. */
@@ -129,6 +139,36 @@ export function createProfileRuntime(
     moderator,
     logger,
   });
+  // Account erasure (ADR-0025 d): requests arrive from identity; the confirmation goes back.
+  const kafka = config.KAFKA_BROKERS
+    ? {
+        publisher: new KafkaEventPublisher({
+          brokers: config.KAFKA_BROKERS,
+          clientId: 'profile',
+          logger,
+        }),
+        subscriber: new KafkaEventSubscriber({
+          brokers: config.KAFKA_BROKERS,
+          clientId: 'profile',
+          logger,
+        }),
+      }
+    : undefined;
+  const eraser = new ProfileEraser({
+    db,
+    storage: media.storage,
+    publisher: overrides.publisher ?? kafka?.publisher ?? NO_PUBLISHER,
+    logger,
+  });
+  if (kafka) {
+    kafka.subscriber.subscribe('account.erasure_requested', (event) => eraser.erase(event));
+    // In the background: start-up stays synchronous. Unconsumed requests wait in Kafka.
+    kafka.subscriber.start().catch((err: unknown) => {
+      logger.error({ err }, 'erasure requests not consumed');
+    });
+  } else {
+    logger.warn('erasure requests not consumed: KAFKA_BROKERS is not set (ADR-0025)');
+  }
   const stopSweep = every(
     'abandoned-photo-uploads',
     ABANDONED_UPLOAD_SWEEP_MS,
@@ -138,8 +178,11 @@ export function createProfileRuntime(
   return {
     profiles,
     photos,
+    eraser,
     close: async () => {
       await stopSweep();
+      await kafka?.subscriber.close();
+      await kafka?.publisher.close();
       facts.close();
       media.close();
       await pool.end();

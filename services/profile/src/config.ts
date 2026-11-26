@@ -1,4 +1,4 @@
-import { httpUrl, postgresUrl, secret } from '@chronos/config';
+import { hostList, httpUrl, postgresUrl, secret } from '@chronos/config';
 import { z } from 'zod';
 
 /** The profile service's own settings, merged with the kit's (ADR-0023). */
@@ -8,6 +8,12 @@ export const DEVELOPMENT_ENVIRONMENTS = ['local', 'test', 'development'] as cons
 export const profileConfig = {
   DATABASE_URL: postgresUrl,
   /** host:port of the identity service, for members' ages and verified badges (ADR-0023 f). */
+  /**
+   * Kafka brokers (ADR-0019), locally Redpanda at 127.0.0.1:19092. Profile receives
+   * account.erasure_requested and confirms with account.erasure_confirmed (ADR-0025). Unset:
+   * erasure requests wait in Kafka until it is set.
+   */
+  KAFKA_BROKERS: hostList.optional(),
   IDENTITY_GRPC_ADDRESS: z
     .string()
     .regex(/^[A-Za-z0-9.-]+:\d{1,5}$/)

@@ -24,6 +24,7 @@
     "@aws-sdk/s3-request-presigner": "^3.1177.0",
     "@chronos/config": "workspace:*",
     "@chronos/contracts": "workspace:*",
+    "@chronos/events": "workspace:*",
     "@chronos/logger": "workspace:*",
     "@chronos/service-kit": "workspace:*",
     "@grpc/grpc-js": "^1.14.5",
