@@ -58,10 +58,20 @@ export interface ProfileServiceDeps {
 
 /** The most profiles one request may ask for. */
 export const MAX_PUBLIC_PROFILES = 50;
+/** The largest candidate page discovery may ask for (ADR-0026). */
+export const MAX_CANDIDATES = 500;
+
+export type CandidatesOutcome = 'ok' | 'no_profile' | 'no_location';
+export interface CandidatePage {
+  outcome: CandidatesOutcome;
+  candidates: { accountId: string; privateMode: boolean }[];
+  /** Where the next page starts; undefined when there is none. */
+  next: { distanceMeters: number; accountId: string } | undefined;
+}
 const LOCATION_SET = 'location set';
 const LOCATION_CLEARED = 'location cleared';
 
-export interface PublicProfile extends Omit<PublicProfileRecord, 'distanceMeters'> {
+export interface PublicProfile extends Omit<PublicProfileRecord, 'distanceMeters' | 'privateMode'> {
   age: number;
   verified: boolean;
   /** Undefined when either member has no location. */
@@ -69,13 +79,22 @@ export interface PublicProfile extends Omit<PublicProfileRecord, 'distanceMeters
 }
 
 const publicView = (
-  { distanceMeters, ...record }: PublicProfileRecord,
+  record: PublicProfileRecord,
   fact: { age: number; verified: boolean },
 ): PublicProfile => ({
-  ...record,
+  accountId: record.accountId,
+  displayName: record.displayName,
+  bio: record.bio,
+  intent: record.intent,
+  gender: record.gender,
+  pronouns: record.pronouns,
+  areaLabel: record.areaLabel,
+  prompts: record.prompts,
+  interests: record.interests,
+  // The private flag stays here: nobody is told that a profile is private.
   age: fact.age,
   verified: fact.verified,
-  distanceKm: distanceMeters === null ? undefined : displayDistanceKm(distanceMeters),
+  distanceKm: record.distanceMeters === null ? undefined : displayDistanceKm(record.distanceMeters),
 });
 
 const invalid = (message: string): never => {
@@ -185,22 +204,66 @@ export class ProfileService {
   /**
    * Profiles as `viewerId` may see them (M1.5 AC): a rounded distance and never a coordinate,
    * whole-year ages from identity, only active members, and never anyone blocked either way
-   * (M3.1). Keeps the request order.
+   * (M3.1), and a private profile only to members its owner liked. Keeps the request order.
    */
   async publicProfiles(viewerId: string, ids: readonly string[]): Promise<PublicProfile[]> {
     const requested = [...new Set(ids)].filter((id) => id !== viewerId);
     if (requested.length > MAX_PUBLIC_PROFILES) invalid(MESSAGES.tooMany);
-    const unique = await this.#d.visibility.visibleTo(viewerId, requested);
-    if (unique.length === 0) return [];
-    const records = await this.#d.profiles.publicProfiles(viewerId, unique);
+    if (requested.length === 0) return [];
+    const records = await this.#d.profiles.publicProfiles(viewerId, requested);
     if (records.length === 0) return [];
-    const facts = await this.#d.facts.get(records.map((r) => r.accountId));
+    const unique = await this.#d.visibility.visibleTo(
+      viewerId,
+      requested.filter((id) => records.some((r) => r.accountId === id)),
+      records.filter((r) => r.privateMode).map((r) => r.accountId),
+    );
+    if (unique.length === 0) return [];
+    const facts = await this.#d.facts.get(unique);
     const byId = new Map(records.map((r) => [r.accountId, r]));
     return unique.flatMap((id) => {
       const record = byId.get(id);
       const fact = facts.get(id);
       return record && fact ? [publicView(record, fact)] : [];
     });
+  }
+
+  /**
+   * One page of discovery candidates for the viewer, nearest first (ADR-0026, approved: age and
+   * gender must fit both ways; no location means no feed). Only ids and the private flag leave.
+   */
+  async candidates(
+    viewerId: string,
+    pageSize: number,
+    after?: { distanceMeters: number; accountId: string },
+  ): Promise<CandidatePage> {
+    const empty = (outcome: CandidatesOutcome): CandidatePage => ({
+      outcome,
+      candidates: [],
+      next: undefined,
+    });
+    const viewer = await this.#d.profiles.candidateViewer(viewerId);
+    if (!viewer) return empty('no_profile');
+    if (!viewer.hasLocation) return empty('no_location');
+    const viewerAge = (await this.#d.facts.get([viewerId])).get(viewerId)?.age;
+    // An account that is not active sees nobody.
+    if (viewerAge === undefined) return empty('ok');
+    const size = Math.min(Math.max(pageSize, 1), MAX_CANDIDATES);
+    const rows = await this.#d.profiles.candidates(viewerId, viewerAge, size, after);
+    const facts = await this.#d.facts.get(rows.map((r) => r.accountId));
+    const last = rows.at(-1);
+    return {
+      outcome: 'ok',
+      candidates: rows.flatMap((r) => {
+        const age = facts.get(r.accountId)?.age;
+        return age !== undefined && age >= viewer.ageMin && age <= viewer.ageMax
+          ? [{ accountId: r.accountId, privateMode: r.privateMode }]
+          : [];
+      }),
+      next:
+        rows.length === size && last
+          ? { distanceMeters: last.distanceMeters, accountId: last.accountId }
+          : undefined,
+    };
   }
 
   #changes(update: ProfileUpdate): ProfileChanges {

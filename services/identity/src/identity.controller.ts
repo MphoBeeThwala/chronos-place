@@ -42,7 +42,7 @@ const schemas = {
     challengeId: z.string().max(64),
     code: z.string().max(16),
   }),
-  memberFacts: z.object({ accountIds: z.array(uuid).max(100).default([]) }),
+  memberFacts: z.object({ accountIds: z.array(uuid).max(1000).default([]) }),
   consent: z.object({
     accountId: uuid,
     type: z.number().int(),

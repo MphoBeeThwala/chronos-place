@@ -8,9 +8,16 @@ import {
 } from '@grpc/grpc-js';
 import { loadSync } from '@grpc/proto-loader';
 
-/** Which members a viewer may be shown: blocked pairs never see each other (M3.1 AC). */
+/**
+ * Which members a viewer may be shown: blocked pairs never see each other (M3.1 AC), and members in
+ * private mode only see-able by members they liked (ADR-0023).
+ */
 export interface BlockVisibility {
-  visibleTo(viewerId: string, ids: readonly string[]): Promise<string[]>;
+  visibleTo(
+    viewerId: string,
+    ids: readonly string[],
+    privateIds?: readonly string[],
+  ): Promise<string[]>;
   close?(): void;
 }
 
@@ -54,11 +61,19 @@ export class MatchingVisibility implements BlockVisibility {
     };
   }
 
-  visibleTo(viewerId: string, ids: readonly string[]): Promise<string[]> {
+  visibleTo(
+    viewerId: string,
+    ids: readonly string[],
+    privateIds: readonly string[] = [],
+  ): Promise<string[]> {
     if (ids.length === 0) return Promise.resolve([]);
     return new Promise((resolve) => {
       this.#client.filterVisible(
-        { viewerAccountId: viewerId, candidateAccountIds: [...ids] },
+        {
+          viewerAccountId: viewerId,
+          candidateAccountIds: [...ids],
+          privateAccountIds: [...privateIds],
+        },
         new Metadata(),
         { deadline: new Date(Date.now() + TIMEOUT_MS) },
         (error, response) => {

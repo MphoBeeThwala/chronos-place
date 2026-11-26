@@ -31,10 +31,16 @@ service ProfileService {
   // Caller: gateway.
   rpc SetLocation(SetLocationRequest) returns (SetLocationResponse);
   // Profiles as another member sees them, with a rounded distance and never a coordinate (M1.5 AC).
-  // Leaves out, without saying why: unknown ids, paused profiles, profiles in private mode (until
-  // discovery can tell whom the member liked, M3), accounts that are not active, and the viewer.
-  // At most 50 ids; results keep the request order. Callers: gateway, discovery (M3).
+  // Leaves out, without saying why: unknown ids, paused profiles, anyone blocked either way or in
+  // private mode without having liked the viewer (matching decides, M3.1), accounts that are not
+  // active, and the viewer. At most 50 ids; results keep the request order.
+  // Callers: gateway, discovery (M3).
   rpc GetPublicProfiles(GetPublicProfilesRequest) returns (GetPublicProfilesResponse);
+  // Members the viewer could be offered in discovery, nearest first (M3.2, ADR-0026): visible, with
+  // a location within the viewer's distance, the viewer's intents, and age and gender fitting
+  // both members' preferences. Ids and the private-mode flag only; matching then removes blocks,
+  // members already seen and private members who did not like the viewer. Caller: discovery.
+  rpc FindCandidates(FindCandidatesRequest) returns (FindCandidatesResponse);
 
   // Photos (TASKS M1.6, ADR-0024). Caller: gateway.
   // A presigned PUT into quarantine for one photo: valid 5 minutes, for exactly this content type
@@ -325,4 +331,34 @@ message ExportProfileResponse {
   repeated Photo photos = 4;
   google.protobuf.Timestamp created_at = 5;
   google.protobuf.Timestamp updated_at = 6;
+}
+
+enum CandidatesOutcome {
+  CANDIDATES_OUTCOME_UNSPECIFIED = 0;
+  CANDIDATES_OUTCOME_OK = 1;
+  // The viewer has no profile yet.
+  CANDIDATES_OUTCOME_NO_PROFILE = 2;
+  // The viewer has not shared a location: the app asks them to (ADR-0026).
+  CANDIDATES_OUTCOME_NO_LOCATION = 3;
+}
+
+message Candidate {
+  string account_id = 1;
+  bool private_mode = 2;
+}
+
+message FindCandidatesRequest {
+  string viewer_account_id = 1;
+  // At most 500; 0 means 500.
+  int32 page_size = 2;
+  // From next_page_token; empty for the nearest.
+  string page_token = 3;
+}
+
+message FindCandidatesResponse {
+  CandidatesOutcome outcome = 1;
+  // Nearest first. A page can hold fewer than page_size, or none, and still have a next page.
+  repeated Candidate candidates = 2;
+  // Empty when there are no more.
+  string next_page_token = 3;
 }

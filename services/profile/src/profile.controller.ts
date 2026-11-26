@@ -1,4 +1,5 @@
 import {
+  CandidatesOutcome as WireOutcome,
   PhotoModeration as WireModeration,
   Intent as WireIntent,
 } from '@chronos/contracts/profile';
@@ -9,7 +10,7 @@ import { z } from 'zod';
 import type { Intent, PhotoModeration } from './db/schema.js';
 import type { PhotoView } from './photos/photo.service.js';
 import type { OwnProfileRecord } from './profiles/profile-store.js';
-import type { PublicProfile } from './profiles/profile.service.js';
+import type { CandidatesOutcome, PublicProfile } from './profiles/profile.service.js';
 import type { ProfileRuntime } from './runtime.js';
 
 export const PROFILE_RUNTIME = Symbol('PROFILE_RUNTIME');
@@ -23,6 +24,26 @@ const INTENT: Record<Intent, WireIntent> = {
   friendship: WireIntent.INTENT_FRIENDSHIP,
   open: WireIntent.INTENT_OPEN,
 };
+const OUTCOME: Record<CandidatesOutcome, WireOutcome> = {
+  ok: WireOutcome.CANDIDATES_OUTCOME_OK,
+  no_profile: WireOutcome.CANDIDATES_OUTCOME_NO_PROFILE,
+  no_location: WireOutcome.CANDIDATES_OUTCOME_NO_LOCATION,
+};
+
+/** Candidate page tokens: the last row's distance and id, opaque to discovery. */
+const candidateCursor = z.object({ d: z.number().nonnegative(), id: z.uuid() });
+const encodeCursor = (c: { distanceMeters: number; accountId: string }) =>
+  Buffer.from(JSON.stringify({ d: c.distanceMeters, id: c.accountId })).toString('base64url');
+function decodeCursor(token: string): { distanceMeters: number; accountId: string } | undefined {
+  if (token === '') return undefined;
+  try {
+    const c = candidateCursor.parse(JSON.parse(Buffer.from(token, 'base64url').toString('utf8')));
+    return { distanceMeters: c.d, accountId: c.id };
+  } catch {
+    throw new DomainError('invalid_argument', INVALID_REQUEST);
+  }
+}
+
 const INTENT_FROM_WIRE = new Map<number, Intent>(
   (Object.entries(INTENT) as [Intent, WireIntent][]).map(([k, v]) => [v, k]),
 );
@@ -63,6 +84,11 @@ const schemas = {
   publicProfiles: z.object({
     viewerAccountId: uuid,
     accountIds: z.array(uuid).max(100).default([]),
+  }),
+  candidates: z.object({
+    viewerAccountId: uuid,
+    pageSize: z.number().int().min(0).max(500).default(0),
+    pageToken: z.string().max(200).default(''),
   }),
   photoUpload: z.object({
     accountId: uuid,
@@ -220,6 +246,21 @@ export class ProfileController {
     // Approved photos only (ADR-0024 decision e); pending and rejected ones are the owner's alone.
     const photos = await this.#runtime.photos.approvedFor(profiles.map((p) => p.accountId));
     return { profiles: profiles.map((p) => publicProfile(p, photos.get(p.accountId))) };
+  }
+
+  @GrpcMethod(SERVICE, 'FindCandidates')
+  async findCandidates(request: unknown) {
+    const { viewerAccountId, pageSize, pageToken } = parse(schemas.candidates, request);
+    const page = await this.#runtime.profiles.candidates(
+      viewerAccountId,
+      pageSize === 0 ? 500 : pageSize,
+      decodeCursor(pageToken),
+    );
+    return {
+      outcome: OUTCOME[page.outcome],
+      candidates: page.candidates,
+      nextPageToken: page.next ? encodeCursor(page.next) : '',
+    };
   }
 
   @GrpcMethod(SERVICE, 'CreatePhotoUpload')

@@ -1,5 +1,5 @@
 import { createEvent, partitionKey, type EventOf, type Topic } from '@chronos/contracts/events';
-import { and, desc, eq, inArray, lt, or, sql } from 'drizzle-orm';
+import { and, desc, eq, lt, or, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { blocks, likes, matches, outbox } from '../db/schema.js';
 
@@ -182,21 +182,62 @@ export class MatchingStore {
     return { blocked, activeMatchId: match?.status === 'active' ? match.id : '' };
   }
 
-  /** The candidates not blocked either way with the viewer, in the order given. */
-  async filterVisible(viewerId: string, candidateIds: readonly string[]): Promise<string[]> {
-    if (candidateIds.length === 0) return [];
-    const ids = [...candidateIds];
-    const rows = await this.#db
-      .select({ blockerId: blocks.blockerId, blockedId: blocks.blockedId })
-      .from(blocks)
-      .where(
-        or(
-          and(eq(blocks.blockerId, viewerId), inArray(blocks.blockedId, ids)),
-          and(eq(blocks.blockedId, viewerId), inArray(blocks.blockerId, ids)),
-        ),
-      );
-    const hidden = new Set(rows.map((r) => (r.blockerId === viewerId ? r.blockedId : r.blockerId)));
-    return candidateIds.filter((id) => id !== viewerId && !hidden.has(id));
+  /**
+   * The candidates the viewer may see, in the order given: nobody blocked either way, and members
+   * in private mode only if they liked the viewer (ADR-0023).
+   */
+  async filterVisible(
+    viewerId: string,
+    candidateIds: readonly string[],
+    privateIds: readonly string[] = [],
+  ): Promise<string[]> {
+    return this.#filter(viewerId, candidateIds, privateIds, false);
+  }
+
+  /**
+   * What discovery may offer (ADR-0026): filterVisible's rules, and nobody the viewer already
+   * liked or passed, nor anyone they were ever matched with (an unmatch is final).
+   */
+  async filterCandidates(
+    viewerId: string,
+    candidateIds: readonly string[],
+    privateIds: readonly string[] = [],
+  ): Promise<string[]> {
+    return this.#filter(viewerId, candidateIds, privateIds, true);
+  }
+
+  async #filter(
+    viewerId: string,
+    candidateIds: readonly string[],
+    privateIds: readonly string[],
+    excludeSeen: boolean,
+  ): Promise<string[]> {
+    const ids = [...new Set(candidateIds)].filter((id) => id !== viewerId);
+    if (ids.length === 0) return [];
+    const privateSet = new Set(privateIds);
+    // Postgres array literals, sent as one parameter each (the ids are validated uuids).
+    const all = `{${ids.join(',')}}`;
+    const privates = `{${ids.filter((id) => privateSet.has(id)).join(',')}}`;
+    // One round trip: everyone to leave out, with the reason folded into a single id list.
+    const { rows } = await this.#db.execute<{ id: string }>(sql`
+      select blocked_id as id from matching.blocks
+        where blocker_id = ${viewerId} and blocked_id = any(${all}::uuid[])
+      union select blocker_id from matching.blocks
+        where blocked_id = ${viewerId} and blocker_id = any(${all}::uuid[])
+      union select p.id from unnest(${privates}::uuid[]) as p(id)
+        where not exists (select 1 from matching.likes l
+          where l.from_id = p.id and l.to_id = ${viewerId} and l.kind = 'like')
+      ${
+        excludeSeen
+          ? sql`union select to_id from matching.likes
+                  where from_id = ${viewerId} and to_id = any(${all}::uuid[])
+                union select case when a_id = ${viewerId} then b_id else a_id end from matching.matches
+                  where (a_id = ${viewerId} and b_id = any(${all}::uuid[]))
+                     or (b_id = ${viewerId} and a_id = any(${all}::uuid[]))`
+          : sql``
+      }`);
+    const hidden = new Set(rows.map((r) => r.id));
+    return ids.filter((id) => !hidden.has(id));
   }
 
   /**
