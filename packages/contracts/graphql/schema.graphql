@@ -22,6 +22,7 @@ type Query {
   me: Me!
   "Prompt questions and interests members choose from. Contains no member data."
   profileCatalogue: ProfileCatalogue!
+  "Members to discover, nearest first for now (ranking is M3.3). At most 50 per page."
   feed(first: Int = 20, after: String): FeedConnection!
   profile(id: ID!): PublicProfile
   "The member's current matches, newest first. A match whose profile is paused or gone is left out."
@@ -309,7 +310,17 @@ type FeedEdge {
   node: PublicProfile!
 }
 
+enum FeedStatus {
+  OK
+  "The member has not created a profile yet."
+  PROFILE_REQUIRED
+  "The member has not shared an area: the feed is empty until they do (ADR-0026 c)."
+  LOCATION_REQUIRED
+}
+
 type FeedConnection {
+  "Why the feed is empty when it is not OK. The app chooses the words."
+  status: FeedStatus!
   edges: [FeedEdge!]!
   pageInfo: PageInfo!
 }

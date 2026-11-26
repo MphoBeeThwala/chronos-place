@@ -27,6 +27,11 @@ export const gatewayConfig = {
     .string()
     .regex(/^[A-Za-z0-9.-]+:\d{1,5}$/)
     .default('127.0.0.1:50055'),
+  /** host:port of the discovery service's gRPC API: the feed (M3.2). */
+  DISCOVERY_GRPC_ADDRESS: z
+    .string()
+    .regex(/^[A-Za-z0-9.-]+:\d{1,5}$/)
+    .default('127.0.0.1:50057'),
   /** host:port of the matching service's gRPC API: likes, matches and blocks (M3.1). */
   MATCHING_GRPC_ADDRESS: z
     .string()

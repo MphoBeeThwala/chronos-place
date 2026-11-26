@@ -18,6 +18,7 @@ import {
   QUERY_LIMITS,
 } from './limits/query-limits.js';
 import { healthResolvers } from './graphql/health-resolvers.js';
+import { discoveryResolvers } from './graphql/discovery-resolvers.js';
 import { exportResolvers } from './graphql/export-resolvers.js';
 import { identityResolvers } from './graphql/identity-resolvers.js';
 import { matchingResolvers } from './graphql/matching-resolvers.js';
@@ -45,6 +46,7 @@ const defaultResolvers = (runtime: GatewayRuntime): ResolverMap =>
     exportResolvers(runtime),
     healthResolvers(runtime),
     matchingResolvers(runtime),
+    discoveryResolvers(runtime),
   );
 
 const SDL = readFileSync(schemaPath, 'utf8');

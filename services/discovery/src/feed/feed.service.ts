@@ -1,0 +1,118 @@
+import { randomUUID } from 'node:crypto';
+import type { Logger } from '@chronos/logger';
+import { DomainError } from '@chronos/service-kit';
+import { z } from 'zod';
+import type { CachedFeed, FeedCache } from './feed-cache.js';
+import {
+  type CandidateFilter,
+  type CandidateSource,
+  DependencyUnavailable,
+  type Outcome,
+} from './sources.js';
+
+/** A built feed holds up to this many members; a new one is built when it expires. */
+export const FEED_SIZE = 200;
+/** Candidate pages read while building, so a member who has seen everyone nearby still gets some. */
+export const MAX_CANDIDATE_PAGES = 4;
+export const DEFAULT_PAGE = 20;
+export const MAX_PAGE = 50;
+
+const INVALID = 'Invalid request.';
+const UNAVAILABLE = 'Discovery is unavailable. Try again.';
+
+export interface FeedPage {
+  outcome: Outcome;
+  accountIds: string[];
+  nextPageToken: string;
+}
+
+const cursor = z.object({ g: z.string().max(64), o: z.number().int().min(0).max(FEED_SIZE) });
+const encode = (c: z.infer<typeof cursor>) => Buffer.from(JSON.stringify(c)).toString('base64url');
+function decode(token: string): z.infer<typeof cursor> | undefined {
+  if (token === '') return undefined;
+  try {
+    return cursor.parse(JSON.parse(Buffer.from(token, 'base64url').toString('utf8')));
+  } catch {
+    throw new DomainError('invalid_argument', INVALID);
+  }
+}
+
+export interface FeedServiceDeps {
+  source: CandidateSource;
+  filter: CandidateFilter;
+  cache: FeedCache;
+  logger: Logger;
+}
+
+/**
+ * The discovery feed (TASKS M3.2, ADR-0026). A feed is built from profile's candidates, filtered by
+ * matching and kept for 15 minutes as account ids. Every page is filtered by matching again, so a
+ * block or a like made since takes effect at once. If profile or matching cannot answer, nothing is
+ * shown: an unfiltered feed could show someone a member blocked.
+ */
+export class FeedService {
+  readonly #d: FeedServiceDeps;
+
+  constructor(deps: FeedServiceDeps) {
+    this.#d = deps;
+  }
+
+  async page(viewerId: string, pageSize: number, pageToken: string): Promise<FeedPage> {
+    const size = pageSize === 0 ? DEFAULT_PAGE : Math.min(Math.max(pageSize, 1), MAX_PAGE);
+    const at = decode(pageToken);
+    try {
+      let feed = await this.#d.cache.get(viewerId);
+      if (!feed) {
+        const built = await this.#build(viewerId);
+        if (built.outcome !== 'ok')
+          return { outcome: built.outcome, accountIds: [], nextPageToken: '' };
+        feed = built.feed;
+        await this.#d.cache.set(viewerId, feed);
+      }
+      // A cursor from an older feed starts the new one from the top.
+      const offset = at?.g === feed.generation ? at.o : 0;
+      const slice = feed.items.slice(offset, offset + size);
+      const kept = await this.#d.filter.filter(
+        viewerId,
+        slice.map((i) => i.id),
+        slice.filter((i) => i.private).map((i) => i.id),
+      );
+      const next = offset + size;
+      return {
+        outcome: 'ok',
+        accountIds: kept,
+        nextPageToken: next < feed.items.length ? encode({ g: feed.generation, o: next }) : '',
+      };
+    } catch (error) {
+      if (error instanceof DependencyUnavailable) {
+        this.#d.logger.warn('feed dependency unavailable');
+        throw new DomainError('unavailable', UNAVAILABLE);
+      }
+      throw error;
+    }
+  }
+
+  async #build(
+    viewerId: string,
+  ): Promise<{ outcome: 'ok'; feed: CachedFeed } | { outcome: Exclude<Outcome, 'ok'> }> {
+    const items: CachedFeed['items'] = [];
+    let token = '';
+    let pages = 0;
+    do {
+      const page = await this.#d.source.page(viewerId, token);
+      if (page.outcome !== 'ok') return { outcome: page.outcome };
+      const ids = page.candidates.map((c) => c.accountId);
+      const privates = new Set(
+        page.candidates.filter((c) => c.privateMode).map((c) => c.accountId),
+      );
+      const kept = await this.#d.filter.filter(viewerId, ids, [...privates]);
+      for (const id of kept) {
+        if (items.length < FEED_SIZE) items.push({ id, private: privates.has(id) });
+      }
+      token = page.nextPageToken;
+      pages += 1;
+    } while (token !== '' && items.length < FEED_SIZE && pages < MAX_CANDIDATE_PAGES);
+    this.#d.logger.info({ accountId: viewerId, size: items.length, pages }, 'feed built');
+    return { outcome: 'ok', feed: { generation: randomUUID(), items } };
+  }
+}

@@ -96,7 +96,8 @@ describe('query limits', () => {
     const response = await gql(gateway.url, '{ feed { edges { node { id photos { url } } } } }', {
       cookie,
     });
-    expect(codes(response)).toEqual(['NOT_AVAILABLE']);
+    // Past every limit: it reaches discovery, which does not run in this test.
+    expect(codes(response)).toEqual(['UNAVAILABLE']);
   });
 
   it('refuses oversized queries and variables before parsing them', async () => {

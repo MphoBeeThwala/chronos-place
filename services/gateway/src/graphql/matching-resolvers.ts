@@ -6,7 +6,7 @@ import { toDate, type WireTimestamp } from '../identity/identity-client.js';
 import type { MatchingClient } from '../matching/matching-client.js';
 import type { ProfileClient } from '../profile/profile-client.js';
 import type { ResolverMap } from './not-available.js';
-import { promptQuestions, publicProfile, type WirePublicProfile } from './public-profile.js';
+import { profileLookup } from './public-profile.js';
 
 /** The most matches one page returns: as many as one profile lookup can name. */
 export const MATCHES_PAGE_MAX = 50;
@@ -53,25 +53,7 @@ export function matchingResolvers(deps: MatchingResolverDeps): ResolverMap {
       throw fromGrpc(error, { notFound: MATCH_NOT_FOUND });
     }
   };
-  const profileCall = async <T>(method: string, request: object): Promise<T> => {
-    try {
-      return await deps.profile.call<T>(method, request);
-    } catch (error) {
-      throw fromGrpc(error);
-    }
-  };
-  const questions = promptQuestions(() => profileCall('getCatalogue', {}));
-  const profilesFor = async (viewerAccountId: string, accountIds: string[]) => {
-    if (accountIds.length === 0) return new Map<string, ReturnType<typeof publicProfile>>();
-    const [{ profiles = [] }, prompts] = await Promise.all([
-      profileCall<{ profiles?: WirePublicProfile[] }>('getPublicProfiles', {
-        viewerAccountId,
-        accountIds,
-      }),
-      questions(),
-    ]);
-    return new Map(profiles.map((p) => [p.accountId, publicProfile(p, prompts)]));
-  };
+  const profilesFor = profileLookup(deps.profile);
 
   const viewerOf = (ctx: unknown): string => {
     const { viewer } = ctx as GatewayContext;
