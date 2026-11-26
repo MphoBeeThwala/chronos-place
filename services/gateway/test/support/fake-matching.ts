@@ -6,33 +6,39 @@ import {
   status,
 } from '@grpc/grpc-js';
 import { loadSync } from '@grpc/proto-loader';
+import { DISCOVERY_PROTO } from '../../src/discovery/discovery-client.js';
 import { MATCHING_PROTO } from '../../src/matching/matching-client.js';
 import { GrpcFailure } from './fake-identity.js';
 
 type Handler = (request: Record<string, unknown>) => unknown;
 
 /**
- * A stand-in for the matching service, speaking the real matching.v1 contract over gRPC. Tests add
- * handlers (by camelCase method name, e.g. "getMatch") for what they exercise; anything else
- * answers UNIMPLEMENTED.
+ * A stand-in for one service, speaking its real contract over gRPC. Tests add handlers (by camelCase
+ * method name, e.g. "getMatch") for what they exercise; anything else answers UNIMPLEMENTED.
  */
-export class FakeMatching {
+class FakeGrpcService {
   readonly handlers = new Map<string, Handler>();
   readonly calls: { method: string; request: Record<string, unknown> }[] = [];
   #server = new Server();
   port = 0;
+  readonly #protoPath: string;
+  readonly #path: string[];
+
+  constructor(protoPath: string, service: string) {
+    this.#protoPath = protoPath;
+    this.#path = service.split('.');
+  }
 
   async start(): Promise<void> {
-    const definition = loadSync(MATCHING_PROTO, {
+    const definition = loadSync(this.#protoPath, {
       keepCase: false,
       longs: String,
       enums: Number,
       defaults: true,
     });
-    const pkg = loadPackageDefinition(definition) as unknown as {
-      chronos: { matching: { v1: { MatchingService: { service: ServiceDefinition } } } };
-    };
-    const { service } = pkg.chronos.matching.v1.MatchingService;
+    let node: unknown = loadPackageDefinition(definition);
+    for (const part of this.#path) node = (node as Record<string, unknown>)[part];
+    const { service } = node as { service: ServiceDefinition };
     const implementation = Object.fromEntries(
       Object.values(service).map((method) => {
         const name = method.originalName ?? '';
@@ -73,5 +79,17 @@ export class FakeMatching {
         resolve();
       });
     });
+  }
+}
+
+export class FakeMatching extends FakeGrpcService {
+  constructor() {
+    super(MATCHING_PROTO, 'chronos.matching.v1.MatchingService');
+  }
+}
+
+export class FakeDiscovery extends FakeGrpcService {
+  constructor() {
+    super(DISCOVERY_PROTO, 'chronos.discovery.v1.DiscoveryService');
   }
 }

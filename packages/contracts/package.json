@@ -21,6 +21,10 @@
       "types": "./dist/gen/chronos/matching/v1/matching.d.ts",
       "default": "./dist/gen/chronos/matching/v1/matching.js"
     },
+    "./discovery": {
+      "types": "./dist/gen/chronos/discovery/v1/discovery.d.ts",
+      "default": "./dist/gen/chronos/discovery/v1/discovery.js"
+    },
     "./events": {
       "types": "./dist/src/events/index.d.ts",
       "default": "./dist/src/events/index.js"

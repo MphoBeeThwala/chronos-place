@@ -79,14 +79,14 @@ describe('sign-in guard (M1.3 AC: unauthenticated access blocked except OTP muta
   });
 
   it('lets an active member reach the rest of the schema', async () => {
-    // feed is not built yet (M3), so getting past the guard means NOT_AVAILABLE.
+    // No discovery runs in this test, so getting past the guard means UNAVAILABLE.
     expect(
       codes(
         await gql(gateway.url, '{ feed { pageInfo { hasNextPage } } }', {
           cookie: await signedIn(ACTIVE),
         }),
       ),
-    ).toEqual(['NOT_AVAILABLE']);
+    ).toEqual(['UNAVAILABLE']);
   });
 
   it('keeps a member who has not finished signing up to the onboarding steps', async () => {

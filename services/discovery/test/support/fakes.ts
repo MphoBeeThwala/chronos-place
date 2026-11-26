@@ -1,0 +1,55 @@
+import type { CandidateFilter, CandidatePage, CandidateSource } from '../../src/feed/sources.js';
+import { DependencyUnavailable } from '../../src/feed/sources.js';
+
+/** Profile's candidates, as pages tests set up. Tokens are the page index. */
+export class FakeSource implements CandidateSource {
+  pages: CandidatePage[] = [];
+  calls = 0;
+  down = false;
+
+  page(_viewerId: string, pageToken: string): Promise<CandidatePage> {
+    this.calls += 1;
+    if (this.down) return Promise.reject(new DependencyUnavailable());
+    const index = pageToken === '' ? 0 : Number(pageToken);
+    const page = this.pages[index] ?? { outcome: 'ok', candidates: [], nextPageToken: '' };
+    return Promise.resolve(page);
+  }
+
+  /** One OK page per list; each links to the next. */
+  set(...lists: { accountId: string; privateMode?: boolean }[][]): void {
+    this.pages = lists.map((list, i) => ({
+      outcome: 'ok',
+      candidates: list.map((c) => ({
+        accountId: c.accountId,
+        privateMode: c.privateMode ?? false,
+      })),
+      nextPageToken: i + 1 < lists.length ? String(i + 1) : '',
+    }));
+  }
+}
+
+/** Matching's FilterCandidates: hides ids in `hidden`, and private ids not in `likedViewer`. */
+export class FakeFilter implements CandidateFilter {
+  readonly hidden = new Set<string>();
+  readonly likedViewer = new Set<string>();
+  readonly requests: { ids: string[]; privateIds: string[] }[] = [];
+  down = false;
+
+  filter(
+    _viewerId: string,
+    ids: readonly string[],
+    privateIds: readonly string[],
+  ): Promise<string[]> {
+    this.requests.push({ ids: [...ids], privateIds: [...privateIds] });
+    if (this.down) return Promise.reject(new DependencyUnavailable());
+    return Promise.resolve(
+      ids.filter(
+        (id) => !this.hidden.has(id) && (!privateIds.includes(id) || this.likedViewer.has(id)),
+      ),
+    );
+  }
+}
+
+let n = 0;
+export const member = () => `99999999-9999-4999-8999-${String((n += 1)).padStart(12, '0')}`;
+export const VIEWER = '99999999-9999-4999-8999-999999999999';

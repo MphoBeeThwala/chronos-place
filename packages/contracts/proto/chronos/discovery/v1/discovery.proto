@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package chronos.discovery.v1;
+
+// The discovery feed (TASKS M3.2, ADR-0026).
+//
+// Conventions
+// - Callers are authenticated by mTLS identity and checked against a per-method allow-list (M2.5).
+// - Ids only: discovery never holds profile text, coordinates, distances or health data. The
+//   gateway asks profile for the cards, which applies blocks and rounding again.
+// - gRPC status codes: INVALID_ARGUMENT for a bad id or page token, UNAVAILABLE when a service
+//   discovery depends on cannot answer (nothing is shown unfiltered). Messages are fixed.
+service DiscoveryService {
+  // One page of the viewer's feed, in order. The list is kept for 15 minutes (approved); each page
+  // is checked with matching again, so a block or a like since then takes effect at once.
+  // Caller: gateway.
+  rpc GetFeed(GetFeedRequest) returns (GetFeedResponse);
+}
+
+enum FeedOutcome {
+  FEED_OUTCOME_UNSPECIFIED = 0;
+  FEED_OUTCOME_OK = 1;
+  // The viewer has no profile yet.
+  FEED_OUTCOME_NO_PROFILE = 2;
+  // The viewer has not shared a location: the app asks them to (ADR-0026 c).
+  FEED_OUTCOME_NO_LOCATION = 3;
+}
+
+message GetFeedRequest {
+  string viewer_account_id = 1;
+  // At most 50; 0 means 20.
+  int32 page_size = 2;
+  // From next_page_token; empty for the start of the feed.
+  string page_token = 3;
+}
+
+message GetFeedResponse {
+  FeedOutcome outcome = 1;
+  // In feed order. Can hold fewer than page_size and still have a next page.
+  repeated string account_ids = 2;
+  // Empty at the end of the feed.
+  string next_page_token = 3;
+}
