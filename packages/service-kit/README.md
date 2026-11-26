@@ -46,3 +46,29 @@ pnpm --filter @chronos/profile test
 ```
 
 The generated service has config, probes, shutdown and telemetry from the kit, a test that boots it, and a Dockerfile (build from the repo root). `pnpm test:service-template` proves the whole path, including the image: non-root, no shell, read-only filesystem, clean SIGTERM, Trivy clean.
+
+## Caller allow-list (M2.5)
+
+```ts
+await bootstrapService({
+  module: AppModule,
+  grpc: { packageName: 'chronos.disclosure.v1', protoPath },
+  allowList: {
+    service: 'chronos.disclosure.v1.DisclosureService',
+    methods: {
+      GetOwnHealthProfile: ['gateway'],
+      ViewHealthProfile: ['gateway', { caller: 'moderation', when: (req) => isModeration(req) }],
+    },
+  },
+});
+```
+
+- **Identity:** the caller is the service named in its verified client certificate
+  (`spiffe://<GRPC_TRUST_DOMAIN>/<service>`, see ADR-0004).
+- **Default deny:** an unlisted method, an unlisted caller and a call without a client certificate
+  all get `PERMISSION_DENIED` before the handler runs. The gRPC health service is exempt.
+- **Required** outside local and test for any service with a gRPC API.
+- **Clients:** `grpcClientCredentials(config, 'identity')` sends this service's certificate and
+  refuses a server that isn't `identity`.
+- **Certificates:** `@chronos/service-kit/pki` makes a CA and service certificates for development
+  (`pnpm dev:certs`) and tests. Never use it for deployed environments.

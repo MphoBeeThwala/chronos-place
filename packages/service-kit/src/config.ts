@@ -12,6 +12,11 @@ const kitShape = z.object({
   GRPC_TLS_CERT_PATH: z.string().min(1).optional(),
   GRPC_TLS_KEY_PATH: z.string().min(1).optional(),
   GRPC_TLS_CA_PATH: z.string().min(1).optional(),
+  /** Trust domain of service identities: `spiffe://<this>/<service>` (M2.5). */
+  GRPC_TRUST_DOMAIN: z
+    .string()
+    .regex(/^[a-z0-9.-]{1,253}$/)
+    .default('chronos-place.internal'),
 });
 
 /**

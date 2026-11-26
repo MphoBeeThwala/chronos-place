@@ -14,6 +14,10 @@
     "./instrument": {
       "types": "./dist/instrument.d.ts",
       "default": "./dist/instrument.js"
+    },
+    "./pki": {
+      "types": "./dist/pki.d.ts",
+      "default": "./dist/pki.js"
     }
   },
   "files": [
