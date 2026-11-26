@@ -107,15 +107,25 @@ describe('consent records on PostgreSQL', () => {
       accountId,
       requestedAt: new Date().toISOString(),
     });
+    const vaultRequestId = randomUUID();
     await store.record(randomUUID(), accountId, entry('terms', false, Date.now()), {
-      startAccountErasure: { events: [event] },
+      startAccountErasure: { vaultRequestId, events: [event] },
     });
-    const { rows } = await db.pool.query<{ status: string; events: string }>(
-      `select status, (select count(*) from identity.outbox where id = $2)::text as events
+    const { rows } = await db.pool.query(
+      `select status, phone_lookup is null as number_freed, erasure_requested_at is not null as timed,
+              (select count(*) from identity.outbox where id = $2)::int as events,
+              (select count(*) from identity.vault_erasure_requests where id = $3)::int as vault
          from identity.accounts where id = $1`,
-      [accountId, event.eventId],
+      [accountId, event.eventId, vaultRequestId],
     );
-    expect(rows[0]).toEqual({ status: 'pending_erasure', events: '1' });
+    // ADR-0025: the number can open a new account at once; health erasure is queued.
+    expect(rows[0]).toEqual({
+      status: 'pending_erasure',
+      number_freed: true,
+      timed: true,
+      events: 1,
+      vault: 1,
+    });
   });
 
   it('writes nothing at all when part of the transaction fails', async () => {

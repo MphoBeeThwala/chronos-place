@@ -34,6 +34,8 @@ describe('identity migrations', () => {
       'account_keys',
       'accounts',
       'consent_records',
+      'deletion_challenges',
+      'erasure_confirmations',
       'otp_challenges',
       'outbox',
       'refresh_tokens',

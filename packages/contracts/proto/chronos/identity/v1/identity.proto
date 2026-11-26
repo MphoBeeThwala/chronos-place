@@ -80,7 +80,11 @@ enum AccountStatus {
   // The date of birth given is under 18. The account cannot be used.
   ACCOUNT_STATUS_INELIGIBLE = 3;
   ACCOUNT_STATUS_SUSPENDED = 4;
+  // Deletion has started (ADR-0025): every session has ended and each service is deleting its data.
   ACCOUNT_STATUS_PENDING_ERASURE = 5;
+  // Deletion is complete. Only the bare account id remains, so late or repeated events can be
+  // answered safely. Never returned for a member; listed so every stored status has a value.
+  ACCOUNT_STATUS_ERASED = 6;
 }
 
 // Request context supplied by the gateway.

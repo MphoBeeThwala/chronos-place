@@ -5,10 +5,17 @@ import { DomainError } from '@chronos/service-kit';
 import type { ChallengeStore } from './challenge-store.js';
 import { type CodeHasher, generateCode, isWellFormedCode } from './code.js';
 import type { KeyedHasher } from './keyed-hash.js';
-import { OTP_LIMITS, type WindowLimit } from './limits.js';
+import { OTP_LIMITS } from './limits.js';
 import type { OtpSender } from './otp-sender.js';
 import { parseSouthAfricanMobile } from './phone.js';
 import type { RateLimitStore } from './rate-limiter.js';
+import {
+  clearWrongCodes,
+  enforceNotLocked,
+  enforceSendLimits,
+  recordWrongCode,
+  startCooldown,
+} from './send-limits.js';
 
 /** KMS encryption-context purpose for identity's per-account keys (ADR-0018). */
 export const IDENTITY_KEY_PURPOSE = 'identity';
@@ -35,23 +42,15 @@ export interface VerifiedPhone {
   phoneNonce: Buffer;
 }
 
-/** Thrown when a limit or lockout applies. The message is generic; the wait is for the gateway. */
-export class OtpRateLimitedError extends DomainError {
-  readonly retryAfterSeconds: number;
-
-  constructor(retryAfterSeconds: number) {
-    super('resource_exhausted', 'Too many attempts. Try again later.');
-    this.retryAfterSeconds = retryAfterSeconds;
-  }
-}
+export { OtpRateLimitedError } from './send-limits.js';
 
 // Fixed messages. "Code not accepted" covers wrong, expired, used and unknown challenges alike, so
 // a caller learns nothing about which it was, or whether the number has an account.
 const INVALID_NUMBER = 'Enter a South African mobile number.';
-const CODE_NOT_ACCEPTED = 'Code not accepted.';
-const SEND_FAILED = 'The code could not be sent. Try again.';
+export const CODE_NOT_ACCEPTED = 'Code not accepted.';
+export const SEND_FAILED = 'The code could not be sent. Try again.';
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface OtpServiceDeps {
   challenges: ChallengeStore;
@@ -85,32 +84,7 @@ export class OtpService {
     const phoneKey = this.#d.lookupHasher.hash('phone', phone);
     const tag = phoneKey.toString('hex');
 
-    const locked = await this.#d.limits.ttl(`lock:${tag}`);
-    if (locked > 0) throw new OtpRateLimitedError(locked);
-    const cooldown = await this.#d.limits.ttl(`cooldown:${tag}`);
-    if (cooldown > 0) throw new OtpRateLimitedError(cooldown);
-
-    // Every request counts against every window, including rejected ones.
-    const windows: [string, WindowLimit][] = [
-      [`ip:${this.#d.lookupHasher.hash('ip', client.ip).toString('hex')}`, OTP_LIMITS.perIp],
-      [
-        `device:${this.#d.lookupHasher.hash('device', client.deviceId).toString('hex')}`,
-        OTP_LIMITS.perDevice,
-      ],
-      ...OTP_LIMITS.perPhone.map((limit): [string, WindowLimit] => [`phone:${tag}`, limit]),
-    ];
-    let wait = 0;
-    for (const [key, limit] of windows) {
-      const { count, resetSeconds } = await this.#d.limits.hit(
-        `${key}:${limit.name}`,
-        limit.windowSeconds,
-      );
-      if (count > limit.limit) wait = Math.max(wait, resetSeconds);
-    }
-    if (wait > 0) {
-      this.#d.logger.info({ reason: 'rate_limited' }, 'otp request refused');
-      throw new OtpRateLimitedError(wait);
-    }
+    await enforceSendLimits(this.#d, tag, client);
 
     const challengeId = this.#d.newId();
     const prospectiveAccountId = this.#d.newId();
@@ -127,7 +101,7 @@ export class OtpService {
       codeHash: this.#d.codeHasher.hash(challengeId, code),
       expiresAt,
     });
-    await this.#d.limits.set(`cooldown:${tag}`, OTP_LIMITS.resendCooldownSeconds);
+    await startCooldown(this.#d, tag);
 
     try {
       await this.#d.sender.send(phone, code);
@@ -148,8 +122,7 @@ export class OtpService {
     if (!open) throw new DomainError('unauthenticated', CODE_NOT_ACCEPTED);
 
     const tag = open.phoneLookup.toString('hex');
-    const locked = await this.#d.limits.ttl(`lock:${tag}`);
-    if (locked > 0) throw new OtpRateLimitedError(locked);
+    await enforceNotLocked(this.#d, tag);
 
     // The try is counted before the code is compared, so parallel guesses cannot beat the limit.
     const attempt = await this.#d.challenges.recordAttempt(
@@ -160,20 +133,14 @@ export class OtpService {
     if (!attempt) throw new DomainError('unauthenticated', CODE_NOT_ACCEPTED);
 
     if (!this.#d.codeHasher.matches(challengeId, code, attempt.codeHash)) {
-      const { lockout } = OTP_LIMITS;
-      const { count } = await this.#d.limits.hit(`fail:${tag}`, lockout.failureWindowSeconds);
-      if (count >= lockout.failures) {
-        await this.#d.limits.set(`lock:${tag}`, lockout.lockSeconds);
-        await this.#d.limits.delete(`fail:${tag}`);
-        this.#d.logger.warn({ challengeId }, 'otp lockout applied');
-      }
+      await recordWrongCode(this.#d, tag, challengeId);
       throw new DomainError('unauthenticated', CODE_NOT_ACCEPTED);
     }
 
     if (!(await this.#d.challenges.consume(challengeId, now))) {
       throw new DomainError('unauthenticated', CODE_NOT_ACCEPTED);
     }
-    await this.#d.limits.delete(`fail:${tag}`);
+    await clearWrongCodes(this.#d, tag);
     this.#d.logger.info({ challengeId }, 'otp verified');
     return {
       phoneLookup: attempt.phoneLookup,

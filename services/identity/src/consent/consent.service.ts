@@ -75,6 +75,7 @@ export class ConsentService {
     const endsAccount = !granted && WITHDRAWAL_ENDS_ACCOUNT.includes(type);
     if (endsAccount) {
       effects.startAccountErasure = {
+        vaultRequestId: this.#d.newId(),
         events: [
           createEvent(
             'account.erasure_requested',

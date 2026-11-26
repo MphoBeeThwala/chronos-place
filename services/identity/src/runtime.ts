@@ -14,6 +14,8 @@ import { ConsentService } from './consent/consent.service.js';
 import { DrizzleConsentStore } from './consent/consent-store.js';
 import { type VaultEraser, VaultErasureRelay } from './consent/vault-erasure-relay.js';
 import { DrizzleAccountKeyStore } from './crypto/account-key-store.js';
+import { DrizzleDeletionStore } from './deletion/deletion-store.js';
+import { DeletionService } from './deletion/deletion.service.js';
 import { type EventPublisher, OutboxRelay } from './events/outbox.js';
 import { IdentityCleanup } from './maintenance/cleanup.js';
 import { every } from './maintenance/scheduler.js';
@@ -47,6 +49,7 @@ export interface IdentityRuntime {
   accounts: AccountService;
   sessions: SessionService;
   verification: VerificationService;
+  deletion: DeletionService;
   signer: AccessTokenSigner;
   close: () => Promise<void>;
 }
@@ -210,15 +213,16 @@ export function createIdentityRuntime(
   );
   const accountStore = new DrizzleAccountStore(db);
 
-  const otp = new OtpService({
-    challenges: new DrizzleChallengeStore(db),
+  // Sign-in and deletion codes share the limits store, sender and hashers (ADR-0025).
+  const codeDeps = {
     limits: new RedisRateLimitStore(redis),
     sender: overrides.sender ?? new MailpitOtpSender({ baseUrl: config.MAILPIT_URL }),
     keyring,
     lookupHasher,
     codeHasher: new CodeHasher(keyFrom('OTP_CODE_KEY', config.OTP_CODE_KEY.reveal())),
     logger,
-  });
+  };
+  const otp = new OtpService({ challenges: new DrizzleChallengeStore(db), ...codeDeps });
   const sessions = new SessionService({
     sessions: new DrizzleSessionStore(db),
     signer,
@@ -241,6 +245,11 @@ export function createIdentityRuntime(
     revokeAllSessions: (id, reason) => sessions.revokeAll(id, reason),
     forgetVerification: (id) => verification.forget(id),
     logger,
+  });
+  const deletion = new DeletionService({
+    store: new DrizzleDeletionStore(db),
+    ...codeDeps,
+    revokeAllSessions: (id, reason) => sessions.revokeAll(id, reason),
   });
   const verificationStore = new DrizzleVerificationStore(db);
   const verification: VerificationService = new VerificationService({
@@ -313,6 +322,7 @@ export function createIdentityRuntime(
     accounts,
     sessions,
     verification,
+    deletion,
     signer,
     close: async () => {
       await Promise.all([stopCleanup(), stopRelay(), stopVaultErasure(), stopVerification()]);

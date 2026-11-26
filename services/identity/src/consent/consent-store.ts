@@ -1,13 +1,8 @@
-import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import { asc, desc, eq } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import {
-  accounts,
-  consentRecords,
-  type ConsentType,
-  outbox,
-  vaultErasureRequests,
-} from '../db/schema.js';
-import { type OutboxEvent, outboxValues } from '../events/outbox.js';
+import { consentRecords, type ConsentType, vaultErasureRequests } from '../db/schema.js';
+import { startErasure } from '../accounts/erasure.js';
+import type { OutboxEvent } from '../events/outbox.js';
 
 export interface ConsentEntry {
   type: ConsentType;
@@ -20,8 +15,11 @@ export interface ConsentEntry {
 export interface ConsentEffects {
   /** Queue erasure of the member's health data, with this idempotency key. */
   vaultErasureRequestId?: string;
-  /** Mark the account pending erasure and publish these events (account.erasure_requested). */
-  startAccountErasure?: { events: readonly OutboxEvent[] };
+  /**
+   * Start account erasure (ADR-0025): pending_erasure, number freed, health erasure queued under
+   * this key, and these events published (account.erasure_requested).
+   */
+  startAccountErasure?: { vaultRequestId: string; events: OutboxEvent[] };
 }
 
 export interface ConsentStore {
@@ -65,17 +63,11 @@ export class DrizzleConsentStore implements ConsentStore {
           .values({ id: effects.vaultErasureRequestId, accountId });
       }
       if (effects.startAccountErasure) {
-        await tx
-          .update(accounts)
-          .set({ status: 'pending_erasure', updatedAt: entry.recordedAt })
-          .where(
-            and(
-              eq(accounts.id, accountId),
-              inArray(accounts.status, ['pending_onboarding', 'active']),
-            ),
-          );
-        const { events } = effects.startAccountErasure;
-        if (events.length > 0) await tx.insert(outbox).values(events.map(outboxValues));
+        await startErasure(tx, {
+          accountId,
+          now: entry.recordedAt,
+          ...effects.startAccountErasure,
+        });
       }
     });
   }

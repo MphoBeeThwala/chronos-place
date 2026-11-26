@@ -16,6 +16,7 @@ import {
   integer,
   jsonb,
   pgSchema,
+  primaryKey,
   smallint,
   text,
   timestamp,
@@ -35,6 +36,7 @@ export const ACCOUNT_STATUSES = [
   'ineligible',
   'suspended',
   'pending_erasure',
+  'erased',
 ] as const;
 export type AccountStatus = (typeof ACCOUNT_STATUSES)[number];
 
@@ -42,17 +44,28 @@ export const accounts = identity.table(
   'accounts',
   {
     id: uuid('id').primaryKey(),
-    /** HMAC-SHA256 of the E.164 number under the lookup key. Finds the account without decrypting. */
-    phoneLookup: bytea('phone_lookup').notNull().unique(),
-    /** The number sealed under this account's data key (AES-256-GCM, tag appended). */
-    phoneCiphertext: bytea('phone_ciphertext').notNull(),
-    phoneNonce: bytea('phone_nonce').notNull(),
+    /**
+     * HMAC-SHA256 of the E.164 number under the lookup key. Finds the account without decrypting.
+     * Cleared when deletion starts, so the number can open a new account (ADR-0025). Kept only for
+     * under-18 and banned accounts, to stop them signing up again.
+     */
+    phoneLookup: bytea('phone_lookup').unique(),
+    /**
+     * The number sealed under this account's data key (AES-256-GCM, tag appended). Cleared, and the
+     * key shredded, when erasure completes.
+     */
+    phoneCiphertext: bytea('phone_ciphertext'),
+    phoneNonce: bytea('phone_nonce'),
     status: text('status', { enum: ACCOUNT_STATUSES }).notNull(),
     /** Null until onboarding; the 18+ rule is applied when it is set. */
     dateOfBirth: date('date_of_birth', { mode: 'string' }),
     /** Liveness passed (M1.4). */
     verifiedAt: timestamp('verified_at', { withTimezone: true }),
     locale: text('locale').notNull().default('en-ZA'),
+    /** When deletion started (ADR-0025). Erasure overdue after 7 days is counted from here. */
+    erasureRequestedAt: timestamp('erasure_requested_at', { withTimezone: true }),
+    /** When erasure completed. The row is then only this id, its status and these two times. */
+    erasedAt: timestamp('erased_at', { withTimezone: true }),
     createdAt,
     updatedAt,
   },
@@ -60,6 +73,11 @@ export const accounts = identity.table(
     check(
       'accounts_status_check',
       sql.raw(`${t.status.name} in (${ACCOUNT_STATUSES.map((s) => `'${s}'`).join(', ')})`),
+    ),
+    // An erased account is only its id: the database refuses one that still holds personal data.
+    check(
+      'accounts_erased_is_empty',
+      sql`${t.status} <> 'erased' or (${t.phoneLookup} is null and ${t.phoneCiphertext} is null and ${t.phoneNonce} is null and ${t.dateOfBirth} is null and ${t.verifiedAt} is null)`,
     ),
   ],
 );
@@ -95,6 +113,44 @@ export const otpChallenges = identity.table(
     index('otp_challenges_phone_lookup_idx').on(t.phoneLookup, t.createdAt),
     index('otp_challenges_expires_at_idx').on(t.expiresAt),
   ],
+);
+
+/**
+ * Codes that confirm account deletion (ADR-0025). Kept apart from sign-in challenges, so a sign-in
+ * code can never confirm a deletion and a deletion code can never sign anyone in. The number is
+ * not stored here: it is read from the account when the code is sent.
+ */
+export const deletionChallenges = identity.table(
+  'deletion_challenges',
+  {
+    id: uuid('id').primaryKey(),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => accounts.id, { onDelete: 'cascade' }),
+    /** HMAC-SHA256 over challenge id and code under the code key. */
+    codeHash: bytea('code_hash').notNull(),
+    attempts: smallint('attempts').notNull().default(0),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    consumedAt: timestamp('consumed_at', { withTimezone: true }),
+    createdAt,
+  },
+  (t) => [index('deletion_challenges_account_idx').on(t.accountId, t.createdAt)],
+);
+
+/**
+ * Which services have deleted a member's data (spec 7, ADR-0025). Identity finishes erasure once
+ * every expected service is listed, then deletes these rows with the rest.
+ */
+export const erasureConfirmations = identity.table(
+  'erasure_confirmations',
+  {
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => accounts.id, { onDelete: 'cascade' }),
+    service: text('service').notNull(),
+    confirmedAt: timestamp('confirmed_at', { withTimezone: true }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.accountId, t.service] })],
 );
 
 /** A session is one sign-in on one device: a family of refresh tokens. */
