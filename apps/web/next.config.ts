@@ -32,6 +32,8 @@ function storageOrigin(): string | undefined {
 const STORAGE = storageOrigin();
 
 const config: NextConfig = {
+  // The middleware builds the CSP per request; the storage origin is fixed at build time.
+  env: { CHRONOS_STORAGE_ORIGIN: STORAGE ?? '' },
   // Strict mode for catching React lifecycle issues early.
   reactStrictMode: true,
 
@@ -52,19 +54,7 @@ const config: NextConfig = {
             key: 'Strict-Transport-Security',
             value: 'max-age=63072000; includeSubDomains; preload',
           },
-          {
-            // Health pages add a stricter CSP at the route level.
-            key: 'Content-Security-Policy',
-            value: [
-              "default-src 'self'",
-              "script-src 'self' 'unsafe-inline'", // Next.js needs unsafe-inline for hydration chunks in dev
-              "style-src 'self' 'unsafe-inline'",
-              `img-src 'self' data: blob: https:${STORAGE ? ` ${STORAGE}` : ''}`,
-              "font-src 'self'",
-              `connect-src 'self'${STORAGE ? ` ${STORAGE}` : ''}`,
-              "frame-ancestors 'none'",
-            ].join('; '),
-          },
+          // Content-Security-Policy is set per request, with a nonce, in src/middleware.ts.
         ],
       },
       {

@@ -3,6 +3,8 @@
  * Sets HTML lang, theme, fonts, global styles, skip-link, and providers.
  */
 import type { Metadata, Viewport } from 'next';
+import { headers } from 'next/headers';
+import { NONCE_HEADER } from '@/lib/csp';
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages, getLocale } from 'next-intl/server';
 import '@/styles/globals.css';
@@ -29,6 +31,7 @@ export const viewport: Viewport = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const nonce = (await headers()).get(NONCE_HEADER) ?? undefined;
   const locale = await getLocale();
   const messages = await getMessages();
 
@@ -36,7 +39,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang={locale} suppressHydrationWarning>
       <head>
         {/* Inline theme script: runs before paint to prevent flash of wrong theme. */}
-        <ThemeScript />
+        <ThemeScript nonce={nonce} />
       </head>
       <body>
         {/* Skip-to-content for keyboard / screen-reader users (WCAG 2.4.1). */}
@@ -45,7 +48,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         </a>
 
         <NextIntlClientProvider messages={messages}>
-          <ApolloWrapper>{children}</ApolloWrapper>
+          <ApolloWrapper nonce={nonce}>{children}</ApolloWrapper>
         </NextIntlClientProvider>
       </body>
     </html>

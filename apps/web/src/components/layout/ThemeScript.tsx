@@ -3,7 +3,7 @@
  * Prevents flash of wrong theme on hydration.
  * This is a Server Component — it renders a <script> tag.
  */
-export function ThemeScript() {
+export function ThemeScript({ nonce }: { nonce?: string | undefined }) {
   const script = `
 (function() {
   try {
@@ -15,5 +15,10 @@ export function ThemeScript() {
 })();
 `.trim();
 
-  return <script dangerouslySetInnerHTML={{ __html: script }} />;
+  // Carries the request's nonce: the CSP blocks inline scripts without it (ADR-0017). Browsers
+  // hide a nonce from the page after load (so injected code cannot read it), which React would
+  // otherwise report as a hydration mismatch.
+  return (
+    <script nonce={nonce} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: script }} />
+  );
 }
