@@ -72,6 +72,18 @@ export const OPERATIONS = {
   "DeletePhoto": {
     "hash": "77433178c230546d2851c5430627ddfe6005a4fe8c10c695744aac00ff296eef",
     "text": "mutation DeletePhoto($photoId: ID!) {\n  deletePhoto(photoId: $photoId) {\n    id\n    position\n    status\n    width\n    height\n    variants {\n      size\n      url\n    }\n  }\n}"
+  },
+  "MyDataExport": {
+    "hash": "ce7b6344fd78c95bda9b096d442da83d4d43becb494ba86dee30a403a196b9e8",
+    "text": "query MyDataExport {\n  myDataExport {\n    format\n    generatedAt\n    json\n  }\n}"
+  },
+  "RequestAccountDeletionCode": {
+    "hash": "2aad36b4394a40839cf56ee1a57ef51c3df04456360169e8d6fb35815605ae26",
+    "text": "mutation RequestAccountDeletionCode {\n  requestAccountDeletionCode {\n    challengeId\n    expiresAt\n    retryAfterSeconds\n  }\n}"
+  },
+  "DeleteAccount": {
+    "hash": "31b7c46a166b44fd95b4177f2f99b416cf22d7ebd2194a174569ac4939cdee67",
+    "text": "mutation DeleteAccount($challengeId: ID!, $code: String!) {\n  deleteAccount(challengeId: $challengeId, code: $code) {\n    id\n    status\n  }\n}"
   }
 } as const;
 

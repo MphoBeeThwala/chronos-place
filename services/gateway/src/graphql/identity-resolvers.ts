@@ -245,6 +245,50 @@ export function identityResolvers(deps: IdentityResolverDeps): ResolverMap {
         endSession(c);
         return true;
       },
+      // Account deletion (TASKS M1.8, ADR-0025): a fresh code to the member's own number.
+      requestAccountDeletionCode: async (_parent, _args, ctx) => {
+        const c = ctx as GatewayContext;
+        const viewer = viewerOf(c);
+        const result = await call<{
+          challengeId: string;
+          expiresAt: Date | WireTimestamp;
+          retryAfterSeconds: number;
+        }>('requestDeletionCode', {
+          accountId: viewer.accountId,
+          client: { deviceId: c.deviceId, ip: c.ip },
+        });
+        return {
+          challengeId: result.challengeId,
+          expiresAt: toDate(result.expiresAt).toISOString(),
+          retryAfterSeconds: result.retryAfterSeconds,
+        };
+      },
+      deleteAccount: async (_parent, raw, ctx) => {
+        const c = ctx as GatewayContext;
+        const viewer = viewerOf(c);
+        const { challengeId, code } = parse(args.verifyOtp, raw);
+        let result: { account: WireAccount };
+        try {
+          result = await call<{ account: WireAccount }>('deleteAccount', {
+            accountId: viewer.accountId,
+            challengeId,
+            code,
+            client: { deviceId: c.deviceId, ip: c.ip },
+          });
+        } catch (error) {
+          // The session was checked before this call, so identity's UNAUTHENTICATED here means the
+          // code. Reported as input, or clients would refresh the session and retry the same wrong
+          // code, using up two of its tries.
+          if (error instanceof GraphQLError && error.extensions['code'] === 'UNAUTHENTICATED') {
+            throw new GraphQLError(error.message, { extensions: { code: 'BAD_USER_INPUT' } });
+          }
+          throw error;
+        }
+        // Identity has ended every session; clear this device's cookies too.
+        deps.forgetAccountState(viewer.accountId);
+        endSession(c);
+        return account(result.account);
+      },
       setDateOfBirth: async (_parent, raw, ctx) => {
         const c = ctx as GatewayContext;
         const viewer = viewerOf(c);

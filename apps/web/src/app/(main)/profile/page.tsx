@@ -15,6 +15,11 @@ export default function ProfilePage() {
           Verify your profile with a selfie
         </Link>
       </p>
+      <p className="mt-2">
+        <Link href="/account" className="underline touch-target inline-flex items-center">
+          Your data and account
+        </Link>
+      </p>
     </section>
   );
 }
