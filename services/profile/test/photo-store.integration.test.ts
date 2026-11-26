@@ -96,7 +96,10 @@ describe('photos on PostgreSQL', () => {
     await photos.setModeration(shown.id, 'approved');
     await photos.setModeration(theirs.id, 'approved');
     await photos.setModeration(hidden.id, 'rejected');
-    expect((await photos.approved([one, two])).map((p) => p.id)).toEqual([shown.id, theirs.id]);
+    // Grouped by member (ordered by account id, which is random here), each member's in order.
+    const listed = await photos.approved([one, two]);
+    expect(listed.map((p) => p.id).sort()).toEqual([shown.id, theirs.id].sort());
+    expect(listed.filter((p) => p.accountId === one).map((p) => p.id)).toEqual([shown.id]);
   });
 
   it('tracks uploads: own only, open until expiry, then swept oldest first', async () => {

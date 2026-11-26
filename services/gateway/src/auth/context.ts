@@ -25,6 +25,8 @@ export interface GatewayContext {
   refreshToken?: string;
   /** Set-Cookie values to send with the response. */
   setCookies: string[];
+  /** Set by a resolver whose answer must never be cached (sends Cache-Control: no-store). */
+  noStore?: boolean;
   cookieOptions: CookieOptions;
   /** The HTTP reply, so Set-Cookie headers can be added after the operation runs. */
   reply?: { header: (name: string, value: string[]) => unknown };

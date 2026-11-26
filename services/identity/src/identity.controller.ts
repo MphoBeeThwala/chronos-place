@@ -293,4 +293,38 @@ export class IdentityController {
     await this.#runtime.deletion.deleteAccount(accountId, challengeId, code);
     return { account: account(await this.#runtime.accounts.get(accountId)) };
   }
+
+  @GrpcMethod(SERVICE, 'ExportAccount')
+  async exportAccount(request: unknown) {
+    const { accountId } = parse(schemas.account, request);
+    const data = await this.#runtime.exporter.export(accountId);
+    return {
+      account: account(await this.#runtime.accounts.get(accountId)),
+      phoneE164: data.phone,
+      ...(data.dateOfBirth ? { dateOfBirth: data.dateOfBirth } : {}),
+      createdAt: timestamp(data.createdAt),
+      consents: data.consents.map((c) => ({
+        type: CONSENT[c.type],
+        policyVersion: c.policyVersion,
+        granted: c.granted,
+        recordedAt: timestamp(c.recordedAt),
+      })),
+      sessions: data.sessions.map((x) => ({
+        createdAt: timestamp(x.createdAt),
+        lastUsedAt: timestamp(x.lastUsedAt),
+        expiresAt: timestamp(x.expiresAt),
+        ...(x.revokedAt ? { revokedAt: timestamp(x.revokedAt) } : {}),
+      })),
+      verifications: data.verifications.map((x) => ({
+        provider: x.provider,
+        outcome: x.outcome,
+        failure:
+          x.failure === 'poor_quality' || x.failure === 'not_confirmed'
+            ? VERIFICATION_FAILURE[x.failure]
+            : VerificationFailure.VERIFICATION_FAILURE_UNSPECIFIED,
+        createdAt: timestamp(x.createdAt),
+        ...(x.decidedAt ? { decidedAt: timestamp(x.decidedAt) } : {}),
+      })),
+    };
+  }
 }

@@ -15,6 +15,8 @@ import {
 /** Upload links last 5 minutes; view links 1 hour (ADR-0024 decisions a and d). */
 export const UPLOAD_TTL_SECONDS = 5 * 60;
 export const VIEW_TTL_SECONDS = 60 * 60;
+/** Links in "Download my data" last a day, so the file stays useful for a while (ADR-0025 c). */
+export const EXPORT_TTL_SECONDS = 24 * 60 * 60;
 /** Quarantine objects of uploads never completed are deleted this long after the link expires. */
 export const ABANDONED_GRACE_MS = 10 * 60 * 1000;
 
@@ -175,6 +177,13 @@ export class PhotoService {
     return Promise.all((await this.#d.photos.list(accountId)).map((p) => this.#view(p)));
   }
 
+  /** The member's photos, every status, with links that last a day (ADR-0025 c). */
+  async listForExport(accountId: string): Promise<PhotoView[]> {
+    return Promise.all(
+      (await this.#d.photos.list(accountId)).map((p) => this.#view(p, EXPORT_TTL_SECONDS)),
+    );
+  }
+
   /** Approved photos of several members, grouped by member, in each member's order. */
   async approvedFor(accountIds: readonly string[]): Promise<Map<string, PhotoView[]>> {
     const byMember = new Map<string, PhotoView[]>();
@@ -218,12 +227,12 @@ export class PhotoService {
     return cleared;
   }
 
-  async #view(photo: PhotoRecord): Promise<PhotoView> {
+  async #view(photo: PhotoRecord, ttlSeconds = VIEW_TTL_SECONDS): Promise<PhotoView> {
     // A photo smaller than a size was stored at its own size under that key; every key exists.
     const variants = await Promise.all(
       PHOTO_SIZES.map(async (size) => ({
         size: Math.min(size, Math.max(photo.width, photo.height)),
-        url: await this.#d.storage.viewUrl(mediaKey(photo.id, size), VIEW_TTL_SECONDS),
+        url: await this.#d.storage.viewUrl(mediaKey(photo.id, size), ttlSeconds),
       })),
     );
     return { ...photo, variants };

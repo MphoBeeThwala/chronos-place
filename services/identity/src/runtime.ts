@@ -18,6 +18,7 @@ import { DrizzleDeletionStore } from './deletion/deletion-store.js';
 import { DeletionService } from './deletion/deletion.service.js';
 import { DrizzleErasureStore } from './erasure/erasure-store.js';
 import { ErasureService } from './erasure/erasure.service.js';
+import { AccountExporter } from './export/account-export.js';
 import { type EventPublisher, OutboxRelay } from './events/outbox.js';
 import { IdentityCleanup } from './maintenance/cleanup.js';
 import { every } from './maintenance/scheduler.js';
@@ -53,6 +54,7 @@ export interface IdentityRuntime {
   verification: VerificationService;
   deletion: DeletionService;
   erasure: ErasureService;
+  exporter: AccountExporter;
   signer: AccessTokenSigner;
   close: () => Promise<void>;
 }
@@ -349,6 +351,7 @@ export function createIdentityRuntime(
     verification,
     deletion,
     erasure,
+    exporter: new AccountExporter({ db, keyring, logger }),
     signer,
     close: async () => {
       await Promise.all([

@@ -12,6 +12,8 @@ export const RATE_LIMITS = {
    * three sizes, and the 6-photo cap does not stop delete-and-re-upload loops.
    */
   photoUploadsPerAccount: { limit: 20, windowSeconds: 60 * 60 },
+  /** "Download my data", per member (approved 2026-11-26, ADR-0025 c). */
+  dataExportsPerAccount: { limit: 5, windowSeconds: 60 * 60 },
 } as const;
 
 export interface RateLimitStore {
@@ -91,6 +93,23 @@ export class RateLimiter {
       throw new GraphQLError('You have added a lot of photos recently. Try again later.', {
         extensions: { code: 'RATE_LIMITED', retryAfterSeconds: resetSeconds },
       });
+    }
+  }
+
+  /** Counts one data export by the member; refuses past the hourly limit. */
+  async checkDataExport(accountId: string): Promise<void> {
+    const { limit, windowSeconds } = RATE_LIMITS.dataExportsPerAccount;
+    const { count, resetSeconds } = await this.#store.hit(
+      `data-export:${accountId}`,
+      windowSeconds,
+    );
+    if (count > limit) {
+      throw new GraphQLError(
+        'You have downloaded your data a few times recently. Try again later.',
+        {
+          extensions: { code: 'RATE_LIMITED', retryAfterSeconds: resetSeconds },
+        },
+      );
     }
   }
 
