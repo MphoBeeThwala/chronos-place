@@ -4,12 +4,14 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { RATE_LIMITS } from '../src/limits/rate-limit.js';
 import { FakeDisclosure } from './support/fake-disclosure.js';
 import { AccountStatus, FakeIdentity, GrpcFailure } from './support/fake-identity.js';
+import { FakeMatching } from './support/fake-matching.js';
 import { FakeProfile } from './support/fake-profile.js';
 import { codes, gql, startGateway, type TestGateway } from './support/gateway.js';
 
 const identity = new FakeIdentity();
 const profile = new FakeProfile();
 const disclosure = new FakeDisclosure();
+const matching = new FakeMatching();
 let gateway: TestGateway;
 let n = 0;
 const member = () => {
@@ -36,14 +38,14 @@ const OWN = {
 const MY_HEALTH = `{ myHealthProfile { conditions { code status } freeText note visibility filterOptIn version } }`;
 
 beforeAll(async () => {
-  await Promise.all([identity.start(), profile.start(), disclosure.start()]);
-  gateway = await startGateway(identity, { profile, disclosure });
+  await Promise.all([identity.start(), profile.start(), disclosure.start(), matching.start()]);
+  gateway = await startGateway(identity, { profile, disclosure, matching });
   disclosure.handlers.set('getOwnHealthProfile', () => OWN);
 });
 
 afterAll(async () => {
   await gateway.service.shutdown('test');
-  await Promise.all([identity.stop(), profile.stop(), disclosure.stop()]);
+  await Promise.all([identity.stop(), profile.stop(), disclosure.stop(), matching.stop()]);
 });
 
 describe('own health profile', () => {
@@ -201,13 +203,54 @@ describe('settings', () => {
     });
   });
 
-  it('keeps sharing from a chat closed until matches exist (M3)', async () => {
-    const response = await gql(
-      gateway.url,
-      `mutation { shareHealthCard(matchId: "m", scope: FULL) }`,
-      await as(member()),
-    );
-    expect(codes(response)).toEqual(['NOT_AVAILABLE']);
+  describe('sharing with a match (M3.1)', () => {
+    const SHARE = `mutation($m: ID!, $s: GrantScope!) { shareHealthCard(matchId: $m, scope: $s) }`;
+    const MATCH = 'cccccccc-cccc-4ccc-8ccc-000000000001';
+
+    it('shares with whoever the active match is with', async () => {
+      const [id, other] = [member(), member()];
+      matching.handlers.set('getMatch', () => ({
+        match: { matchId: MATCH, otherAccountId: other },
+      }));
+      disclosure.handlers.set('grantDisclosure', () => ({ grantId: MATCH }));
+      const response = await gql(gateway.url, SHARE, {
+        ...(await as(id)),
+        variables: { m: MATCH, s: 'CONDITIONS_ONLY' },
+      });
+      expect(response.body.data).toEqual({ shareHealthCard: true });
+      expect(response.headers.get('cache-control')).toBe('no-store');
+      expect(matching.calls.at(-1)?.request).toEqual({ accountId: id, matchId: MATCH });
+      expect(lastCall('grantDisclosure')?.request).toEqual({
+        subjectAccountId: id,
+        viewerAccountId: other,
+        scope: GrantScope.GRANT_SCOPE_CONDITIONS_ONLY,
+      });
+    });
+
+    it("refuses an ended, unknown or someone else's match, like the vault does", async () => {
+      matching.handlers.set('getMatch', () => {
+        throw new GrpcFailure(status.NOT_FOUND, 'That match was not found.');
+      });
+      const before = disclosure.calls.length;
+      const response = await gql(gateway.url, SHARE, {
+        ...(await as(member())),
+        variables: { m: MATCH, s: 'FULL' },
+      });
+      expect(response.body.errors?.map((e) => [e.message, e.extensions?.code])).toEqual([
+        ['You can share only with a current match.', 'FAILED_PRECONDITION'],
+      ]);
+      expect(disclosure.calls.length).toBe(before);
+    });
+
+    it('rejects a malformed match id before asking anyone', async () => {
+      const before = matching.calls.length;
+      const response = await gql(gateway.url, SHARE, {
+        ...(await as(member())),
+        variables: { m: 'not-a-match', s: 'FULL' },
+      });
+      expect(codes(response)).toEqual(['BAD_USER_INPUT']);
+      expect(matching.calls.length).toBe(before);
+    });
   });
 });
 

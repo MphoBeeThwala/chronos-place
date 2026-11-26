@@ -109,15 +109,20 @@ export class MatchingController {
       size + 1,
       pageToken === '' ? undefined : decode(pageToken),
     );
-    const page = rows.slice(0, size);
+    const page = rows.slice(0, size).map((m) => ({
+      ...m,
+      cursor: encode({ t: m.createdAt.toISOString(), id: m.matchId }),
+    }));
     const last = page.at(-1);
-    return {
-      matches: page,
-      nextPageToken:
-        rows.length > size && last
-          ? encode({ t: last.createdAt.toISOString(), id: last.matchId })
-          : '',
-    };
+    return { matches: page, nextPageToken: rows.length > size && last ? last.cursor : '' };
+  }
+
+  @GrpcMethod(SERVICE, 'GetMatch')
+  async getMatch(request: unknown): Promise<object> {
+    const { accountId, matchId } = parse(schemas.unmatch, request);
+    const match = await this.#runtime.store.activeMatch(accountId, matchId);
+    if (!match) throw new DomainError('not_found', MATCH_NOT_FOUND);
+    return { match: { ...match, cursor: '' } };
   }
 
   @GrpcMethod(SERVICE, 'ListBlocked')

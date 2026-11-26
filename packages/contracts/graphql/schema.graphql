@@ -24,7 +24,10 @@ type Query {
   profileCatalogue: ProfileCatalogue!
   feed(first: Int = 20, after: String): FeedConnection!
   profile(id: ID!): PublicProfile
+  "The member's current matches, newest first. A match whose profile is paused or gone is left out."
   matches(first: Int = 50, after: String): MatchConnection!
+  "Members the member has blocked, newest first, so a block can be undone from settings."
+  blockedMembers: [BlockedMember!]!
 
   "The member's own health profile. Null when none has been created."
   myHealthProfile: HealthProfile
@@ -68,15 +71,22 @@ type Mutation {
   reorderPhotos(photoIds: [ID!]!): [Photo!]!
   deletePhoto(photoId: ID!): [Photo!]!
 
+  "A like back makes a match. Liking someone you cannot see quietly does nothing."
   like(accountId: ID!): LikeResult!
+  "They are not shown to the member again."
   pass(accountId: ID!): Boolean!
+  "Ends the match for both, for good: the two are never matched again."
   unmatch(matchId: ID!): Boolean!
+  "Ends any match and hides both members from each other everywhere. Always true."
   block(accountId: ID!): Boolean!
+  "Removes the member's own block. Restores nothing: no match, no likes. Always true."
+  unblock(accountId: ID!): Boolean!
   report(input: ReportInput!): Report!
 
   upsertHealthProfile(input: HealthProfileInput!): HealthProfile!
   setHealthVisibility(visibility: HealthVisibility!, filterOptIn: Boolean): HealthProfile!
   setHealthFilters(conditionCodes: [String!]!): [String!]!
+  "Shares the member's health details with one current match. The share ends with the match."
   shareHealthCard(matchId: ID!, scope: GrantScope!): Boolean!
   revokeHealthShare(accountId: ID!): Boolean!
 
@@ -318,6 +328,11 @@ type MatchEdge {
 type MatchConnection {
   edges: [MatchEdge!]!
   pageInfo: PageInfo!
+}
+
+type BlockedMember {
+  accountId: ID!
+  blockedAt: DateTime!
 }
 
 type LikeResult {

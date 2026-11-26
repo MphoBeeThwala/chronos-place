@@ -38,7 +38,7 @@ export AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test
 random() { head -c 32 /dev/urandom | base64; }
 
 echo "Building and migrating…"
-pnpm turbo run build --filter=@chronos/identity --filter=@chronos/profile \
+pnpm turbo run build --filter=@chronos/identity --filter=@chronos/profile --filter=@chronos/matching \
   --filter=@chronos/gateway --filter='@chronos/web^...' --output-logs=errors-only
 pnpm db:migrate >/dev/null
 # Service-to-service mTLS (M2.5): each service presents its own dev certificate.
@@ -79,10 +79,12 @@ start profile 8102 GRPC_PORT=50053 DATABASE_URL="$DATABASE_URL" \
   IDENTITY_GRPC_ADDRESS=127.0.0.1:50052 PHOTO_UPLOAD_BUCKET=photo-uploads \
   PHOTO_MEDIA_BUCKET=photo-media S3_ENDPOINT=http://127.0.0.1:8333 \
   S3_ACCESS_KEY_ID="$S3_ACCESS_KEY_ID" S3_SECRET_ACCESS_KEY="$S3_SECRET_ACCESS_KEY"
+# Profile asks matching for blocks and shows nobody without it (M3.1).
+start matching 8106 GRPC_PORT=50056 DATABASE_URL="$DATABASE_URL"
 start gateway 4000 GRPC_PORT=50054 REDIS_URL="$REDIS_URL" RATE_LIMIT_HASH_KEY="$(random)" \
   COOKIE_SECURE=false PERSISTED_OPERATIONS_PATH="$ROOT/apps/web/src/graphql/persisted-operations.json"
 
-for port in 8101 8102 4000; do
+for port in 8101 8102 8106 4000; do
   for _ in $(seq 60); do
     curl -sf "http://127.0.0.1:$port/readyz" >/dev/null && continue 2
     sleep 1

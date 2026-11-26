@@ -20,9 +20,13 @@ export interface MatchingClient {
   listMatches: Call<
     { accountId: string; pageSize?: number; pageToken?: string },
     {
-      matches?: { matchId: string; otherAccountId: string; createdAt: unknown }[];
+      matches?: { matchId: string; otherAccountId: string; createdAt: unknown; cursor: string }[];
       nextPageToken: string;
     }
+  >;
+  getMatch: Call<
+    { accountId: string; matchId: string },
+    { match?: { matchId: string; otherAccountId: string } }
   >;
   listBlocked: Call<
     { accountId: string },

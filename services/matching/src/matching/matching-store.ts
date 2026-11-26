@@ -146,6 +146,27 @@ export class MatchingStore {
     }));
   }
 
+  /** One of the member's active matches, or undefined if it is ended or not theirs. */
+  async activeMatch(accountId: string, matchId: string): Promise<MatchSummary | undefined> {
+    const [row] = await this.#db
+      .select({ id: matches.id, aId: matches.aId, bId: matches.bId, createdAt: matches.createdAt })
+      .from(matches)
+      .where(
+        and(
+          eq(matches.id, matchId),
+          eq(matches.status, 'active'),
+          or(eq(matches.aId, accountId), eq(matches.bId, accountId)),
+        ),
+      );
+    return row
+      ? {
+          matchId: row.id,
+          otherAccountId: row.aId === accountId ? row.bId : row.aId,
+          createdAt: row.createdAt,
+        }
+      : undefined;
+  }
+
   async listBlocked(blockerId: string): Promise<{ accountId: string; blockedAt: Date }[]> {
     const rows = await this.#db
       .select({ accountId: blocks.blockedId, blockedAt: blocks.createdAt })

@@ -29,6 +29,9 @@ service MatchingService {
   rpc Unblock(UnblockRequest) returns (UnblockResponse);
   // The member's active matches, newest first. Caller: gateway.
   rpc ListMatches(ListMatchesRequest) returns (ListMatchesResponse);
+  // One of the member's active matches: who it is with. NOT_FOUND unless the match is active and
+  // theirs (sharing a health card names the match, not the person). Caller: gateway.
+  rpc GetMatch(GetMatchRequest) returns (GetMatchResponse);
   // Members the member has blocked, newest first (for settings). Caller: gateway.
   rpc ListBlocked(ListBlockedRequest) returns (ListBlockedResponse);
   // Whether two members are blocked either way, and their active match. Callers: disclosure-service, messaging (M4).
@@ -75,6 +78,8 @@ message Match {
   string match_id = 1;
   string other_account_id = 2;
   google.protobuf.Timestamp created_at = 3;
+  // Pass as page_token to get the matches after this one.
+  string cursor = 4;
 }
 message ListMatchesRequest {
   string account_id = 1;
@@ -85,6 +90,14 @@ message ListMatchesRequest {
 message ListMatchesResponse {
   repeated Match matches = 1;
   string next_page_token = 2;
+}
+
+message GetMatchRequest {
+  string account_id = 1;
+  string match_id = 2;
+}
+message GetMatchResponse {
+  Match match = 1;
 }
 
 message BlockedMember {

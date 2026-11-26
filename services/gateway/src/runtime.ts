@@ -11,6 +11,7 @@ import { DEVELOPMENT_ENVIRONMENTS, type gatewayConfig } from './config.js';
 import { IdentityClient } from './identity/identity-client.js';
 import { IDENTITY_PROTO } from './identity/proto.js';
 import { DisclosureClient } from './disclosure/disclosure-client.js';
+import { MatchingClient } from './matching/matching-client.js';
 import { ProfileClient } from './profile/profile-client.js';
 
 export type GatewayConfig = ServiceConfig<typeof gatewayConfig>;
@@ -25,6 +26,7 @@ export interface GatewayRuntime {
   identity: IdentityClient;
   profile: ProfileClient;
   disclosure: DisclosureClient;
+  matching: MatchingClient;
   keys: SigningKeyCache;
   /** State and verified flag of an account, cached briefly for the guard. */
   accountInfo: (accountId: string) => Promise<AccountInfo>;
@@ -52,6 +54,7 @@ export function createGatewayRuntime(
     identity?: IdentityClient;
     profile?: ProfileClient;
     disclosure?: DisclosureClient;
+    matching?: MatchingClient;
     refreshLock?: RefreshLock;
     rateLimitStore?: RateLimitStore;
     persistedOperations?: PersistedOperations;
@@ -77,6 +80,12 @@ export function createGatewayRuntime(
     new DisclosureClient({
       address: config.DISCLOSURE_GRPC_ADDRESS,
       credentials: grpcClientCredentials(config, 'disclosure-service'),
+    });
+  const matching =
+    overrides.matching ??
+    new MatchingClient({
+      address: config.MATCHING_GRPC_ADDRESS,
+      credentials: grpcClientCredentials(config, 'matching'),
     });
   const keys = new SigningKeyCache({
     fetch: async () =>
@@ -126,6 +135,7 @@ export function createGatewayRuntime(
     identity,
     profile,
     disclosure,
+    matching,
     keys,
     accountInfo,
     forgetAccountState: (accountId) => states.delete(accountId),
@@ -137,6 +147,7 @@ export function createGatewayRuntime(
       identity.close();
       profile.close();
       disclosure.close();
+      matching.close();
       redis?.disconnect();
     },
   };
