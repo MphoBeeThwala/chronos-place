@@ -92,6 +92,7 @@ docs/
 ```
 pnpm install                 # install
 pnpm dev:infra               # start local stack (docker compose); also dev:infra:down|reset|status
+pnpm dev:certs               # local CA + one mTLS certificate per service in tools/.certs (git-ignored); --force to replace
 pnpm test:infra              # prove the Health Vault DB is unreachable outside its network (needs the stack up)
 pnpm dev                     # run all apps/services in watch mode
 pnpm build                   # build every package and app (Turborepo)

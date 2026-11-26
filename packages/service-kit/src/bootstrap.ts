@@ -4,7 +4,8 @@ import { loadConfig, loadConfigOrExit, type Env } from '@chronos/config';
 import { createLogger, type Logger, type LogMode } from '@chronos/logger';
 import { ServerCredentials } from '@grpc/grpc-js';
 import { Global, Module, type DynamicModule, type Type } from '@nestjs/common';
-import { APP_INTERCEPTOR, NestFactory } from '@nestjs/core';
+import { type AllowList, CallerAllowListGuard } from './allow-list.js';
+import { APP_GUARD, APP_INTERCEPTOR, NestFactory } from '@nestjs/core';
 import { Transport, type MicroserviceOptions } from '@nestjs/microservices';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
 import type { z } from 'zod';
@@ -27,6 +28,11 @@ export interface ServiceOptions<Extra extends z.ZodRawShape> {
   extraConfig?: Extra;
   /** The service's gRPC API. The standard health service is always added. */
   grpc?: { packageName: string; protoPath: string | string[] };
+  /**
+   * Who may call each gRPC method, identified by mTLS client certificate (M2.5). Required outside
+   * local and test for services with a gRPC API; default deny.
+   */
+  allowList?: AllowList;
   /** `allowlist` for services under restricted/ (ADR-0002). */
   loggerMode?: LogMode;
   /**
@@ -71,6 +77,8 @@ function kitModule(parts: {
   config: unknown;
   logger: Logger;
   readiness: ReadinessRegistry;
+  allowList: AllowList | undefined;
+  trustDomain: string;
 }): DynamicModule {
   @Global()
   @Module({})
@@ -83,6 +91,14 @@ function kitModule(parts: {
       { provide: SERVICE_LOGGER, useValue: parts.logger },
       { provide: ReadinessRegistry, useValue: parts.readiness },
       { provide: APP_INTERCEPTOR, useClass: RequestContextInterceptor },
+      ...(parts.allowList === undefined
+        ? []
+        : [
+            {
+              provide: APP_GUARD,
+              useValue: new CallerAllowListGuard(parts.allowList, parts.logger, parts.trustDomain),
+            },
+          ]),
     ],
     exports: [SERVICE_CONFIG, SERVICE_LOGGER, ReadinessRegistry],
   };
@@ -127,7 +143,26 @@ export async function bootstrapService<Extra extends z.ZodRawShape = z.ZodRawSha
         }));
   const readiness = new ReadinessRegistry();
 
-  @Module({ imports: [kitModule({ config, logger, readiness }), options.module] })
+  if (
+    options.grpc !== undefined &&
+    options.allowList === undefined &&
+    config.NODE_ENV !== 'local' &&
+    config.NODE_ENV !== 'test'
+  ) {
+    throw new Error('A gRPC service needs a caller allow-list outside local and test (M2.5)');
+  }
+  @Module({
+    imports: [
+      kitModule({
+        config,
+        logger,
+        readiness,
+        allowList: options.allowList,
+        trustDomain: config.GRPC_TRUST_DOMAIN,
+      }),
+      options.module,
+    ],
+  })
   class RootModule {}
 
   const app = await NestFactory.create<NestFastifyApplication>(RootModule, new FastifyAdapter(), {

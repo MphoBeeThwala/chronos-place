@@ -34,3 +34,6 @@ apps/web/playwright-report/
 apps/web/test-results/
 .env.local
 *.tsbuildinfo
+
+# Local mTLS certificates (pnpm dev:certs). Private keys: never commit.
+tools/.certs/
