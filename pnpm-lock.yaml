@@ -658,6 +658,45 @@ importers:
         specifier: ^12.2.0
         version: 12.2.2
 
+  tools/acceptance:
+    devDependencies:
+      '@aws-sdk/client-s3':
+        specifier: ^3.1177.0
+        version: 3.1177.0
+      '@chronos/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@chronos/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@chronos/crypto':
+        specifier: workspace:*
+        version: link:../../packages/crypto
+      '@chronos/events':
+        specifier: workspace:*
+        version: link:../../packages/events
+      '@chronos/logger':
+        specifier: workspace:*
+        version: link:../../packages/logger
+      '@chronos/service-kit':
+        specifier: workspace:*
+        version: link:../../packages/service-kit
+      '@chronos/tsconfig':
+        specifier: workspace:*
+        version: link:../../packages/tsconfig
+      '@types/pg':
+        specifier: ^8.23.1
+        version: 8.23.1
+      drizzle-orm:
+        specifier: ^0.45.4
+        version: 0.45.4(@opentelemetry/api@1.9.1)(@types/pg@8.23.1)(pg@8.23.1)
+      pg:
+        specifier: ^8.23.1
+        version: 8.23.1
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+
   tools/repo-checks:
     devDependencies:
       '@chronos/tsconfig':
