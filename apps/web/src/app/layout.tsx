@@ -10,13 +10,16 @@ import { getMessages, getLocale } from 'next-intl/server';
 import '@/styles/globals.css';
 import { ThemeScript } from '@/components/layout/ThemeScript';
 import { ApolloWrapper } from '@/components/layout/ApolloWrapper';
+import { IdleTimeout } from '@/components/safety/IdleTimeout';
+import { QuickExit } from '@/components/safety/QuickExit';
 
 export const metadata: Metadata = {
   title: {
     default: 'Chronos Place',
     template: '%s — Chronos Place',
   },
-  description: 'A connection platform for people living with or beyond chronic health conditions.',
+  // Neutral: link previews and history show this (ADR-0017, TASKS M1.9).
+  description: 'Dating and connection, on your terms.',
   robots: { index: false, follow: false }, // No indexing until public launch.
   manifest: '/site.webmanifest',
 };
@@ -49,6 +52,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
         <NextIntlClientProvider messages={messages}>
           <ApolloWrapper nonce={nonce}>{children}</ApolloWrapper>
+          {/* Safety controls on every screen (ADR-0017, TASKS M1.9). */}
+          <QuickExit />
+          <IdleTimeout />
         </NextIntlClientProvider>
       </body>
     </html>
