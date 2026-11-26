@@ -55,13 +55,16 @@ export class InMemoryAccountStore implements AccountStore {
     return Promise.resolve(true);
   }
 
-  activeFacts(ids: readonly string[]) {
+  /** When each account last used a session, for the activity bucket. */
+  readonly lastActive = new Map<string, Date>();
+
+  activeFacts(ids: readonly string[], withActivity = false) {
     return Promise.resolve(
       ids.flatMap((id) => {
         const row = this.rows.get(id);
-        return row?.status === 'active' && row.dateOfBirth !== null
-          ? [{ id, dateOfBirth: row.dateOfBirth, verified: row.verified === true }]
-          : [];
+        if (row?.status !== 'active' || row.dateOfBirth === null) return [];
+        const fact = { id, dateOfBirth: row.dateOfBirth, verified: row.verified === true };
+        return [withActivity ? { ...fact, lastActiveAt: this.lastActive.get(id) ?? null } : fact];
       }),
     );
   }

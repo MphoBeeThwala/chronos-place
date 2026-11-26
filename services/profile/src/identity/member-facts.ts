@@ -12,11 +12,15 @@ import { loadSync } from '@grpc/proto-loader';
 export interface MemberFact {
   age: number;
   verified: boolean;
+  /** Only when asked for, for ranking (ADR-0027). Never shown to anyone. */
+  activity?: ActivityBucket;
 }
+
+export type ActivityBucket = 'today' | 'this_week' | 'this_month' | 'longer';
 
 /** Facts for the active members among `ids`; any other id is missing from the map. */
 export interface MemberFacts {
-  get(ids: readonly string[]): Promise<Map<string, MemberFact>>;
+  get(ids: readonly string[], options?: { activity?: boolean }): Promise<Map<string, MemberFact>>;
   close(): void;
 }
 
@@ -24,6 +28,13 @@ const IDENTITY_PROTO = fileURLToPath(
   import.meta.resolve('@chronos/contracts/proto/chronos/identity/v1/identity.proto'),
 );
 const TIMEOUT_MS = 2_000;
+/** identity.v1 Activity, by number. */
+const ACTIVITY = new Map<number, ActivityBucket>([
+  [1, 'today'],
+  [2, 'this_week'],
+  [3, 'this_month'],
+  [4, 'longer'],
+]);
 
 type Unary = (
   request: object,
@@ -59,11 +70,14 @@ export class IdentityMemberFacts implements MemberFacts {
     };
   }
 
-  get(ids: readonly string[]): Promise<Map<string, MemberFact>> {
+  get(
+    ids: readonly string[],
+    options: { activity?: boolean } = {},
+  ): Promise<Map<string, MemberFact>> {
     if (ids.length === 0) return Promise.resolve(new Map<string, MemberFact>());
     return new Promise<Map<string, MemberFact>>((resolve, reject) => {
       this.#client.getMemberFacts(
-        { accountIds: [...ids] },
+        { accountIds: [...ids], includeActivity: options.activity === true },
         new Metadata(),
         { deadline: new Date(Date.now() + TIMEOUT_MS) },
         (error, response) => {
@@ -72,9 +86,27 @@ export class IdentityMemberFacts implements MemberFacts {
             return;
           }
           const members =
-            (response as { members?: { accountId: string; age: number; verified: boolean }[] })
-              .members ?? [];
-          resolve(new Map(members.map((m) => [m.accountId, { age: m.age, verified: m.verified }])));
+            (
+              response as {
+                members?: {
+                  accountId: string;
+                  age: number;
+                  verified: boolean;
+                  activity?: number;
+                }[];
+              }
+            ).members ?? [];
+          resolve(
+            new Map(
+              members.map((m) => {
+                const activity = ACTIVITY.get(m.activity ?? 0);
+                return [
+                  m.accountId,
+                  { age: m.age, verified: m.verified, ...(activity ? { activity } : {}) },
+                ];
+              }),
+            ),
+          );
         },
       );
     });

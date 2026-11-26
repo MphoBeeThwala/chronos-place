@@ -62,9 +62,23 @@ export const MAX_PUBLIC_PROFILES = 50;
 export const MAX_CANDIDATES = 500;
 
 export type CandidatesOutcome = 'ok' | 'no_profile' | 'no_location';
+/** Ranking v1's signals, each 0 to 100 (ADR-0027). No health data, no distance, no date. */
+export interface RankingFeatures {
+  closeness: number;
+  activity: number;
+  mutualFit: number;
+  completeness: number;
+  newness: number;
+}
+
+/** Activity buckets as scores (approved, ADR-0027). */
+export const ACTIVITY_SCORE = { today: 100, this_week: 60, this_month: 30, longer: 0 } as const;
+/** The verified badge's share of completeness. */
+export const VERIFIED_SCORE = 25;
+
 export interface CandidatePage {
   outcome: CandidatesOutcome;
-  candidates: { accountId: string; privateMode: boolean }[];
+  candidates: { accountId: string; privateMode: boolean; features: RankingFeatures }[];
   /** Where the next page starts; undefined when there is none. */
   next: { distanceMeters: number; accountId: string } | undefined;
 }
@@ -248,16 +262,31 @@ export class ProfileService {
     // An account that is not active sees nobody.
     if (viewerAge === undefined) return empty('ok');
     const size = Math.min(Math.max(pageSize, 1), MAX_CANDIDATES);
-    const rows = await this.#d.profiles.candidates(viewerId, viewerAge, size, after);
-    const facts = await this.#d.facts.get(rows.map((r) => r.accountId));
+    const rows = await this.#d.profiles.candidates(viewerId, viewerAge, size, after, this.#d.now());
+    const facts = await this.#d.facts.get(
+      rows.map((r) => r.accountId),
+      { activity: true },
+    );
     const last = rows.at(-1);
     return {
       outcome: 'ok',
       candidates: rows.flatMap((r) => {
-        const age = facts.get(r.accountId)?.age;
-        return age !== undefined && age >= viewer.ageMin && age <= viewer.ageMax
-          ? [{ accountId: r.accountId, privateMode: r.privateMode }]
-          : [];
+        const fact = facts.get(r.accountId);
+        if (fact === undefined || fact.age < viewer.ageMin || fact.age > viewer.ageMax) return [];
+        return [
+          {
+            accountId: r.accountId,
+            privateMode: r.privateMode,
+            features: {
+              closeness: r.signals.closeness,
+              activity: ACTIVITY_SCORE[fact.activity ?? 'longer'],
+              mutualFit: r.signals.mutualFit,
+              completeness:
+                r.signals.completenessWithoutBadge + (fact.verified ? VERIFIED_SCORE : 0),
+              newness: r.signals.newness,
+            },
+          },
+        ];
       }),
       next:
         rows.length === size && last

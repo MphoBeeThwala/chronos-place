@@ -1,4 +1,5 @@
 import {
+  Activity as WireActivity,
   AccountStatus,
   ConsentType,
   VerificationFailure,
@@ -9,6 +10,7 @@ import { Controller, Inject } from '@nestjs/common';
 import { GrpcMethod } from '@nestjs/microservices';
 import { z } from 'zod';
 import type { AccountRecord } from './accounts/account-store.js';
+import type { ActivityBucket } from './accounts/account.service.js';
 import type { ConsentType as StoredConsent, AccountStatus as StoredStatus } from './db/schema.js';
 import type { IdentityRuntime } from './runtime.js';
 import type { SessionTokens } from './sessions/session.service.js';
@@ -17,6 +19,13 @@ import type { VerificationView } from './verification/verification.service.js';
 
 export const IDENTITY_RUNTIME = Symbol('IDENTITY_RUNTIME');
 
+/** Ranking only (ADR-0027). */
+const ACTIVITY: Record<ActivityBucket, WireActivity> = {
+  today: WireActivity.ACTIVITY_TODAY,
+  this_week: WireActivity.ACTIVITY_THIS_WEEK,
+  this_month: WireActivity.ACTIVITY_THIS_MONTH,
+  longer: WireActivity.ACTIVITY_LONGER,
+};
 const SERVICE = 'IdentityService';
 const INVALID_REQUEST = 'Invalid request.';
 
@@ -42,7 +51,10 @@ const schemas = {
     challengeId: z.string().max(64),
     code: z.string().max(16),
   }),
-  memberFacts: z.object({ accountIds: z.array(uuid).max(1000).default([]) }),
+  memberFacts: z.object({
+    accountIds: z.array(uuid).max(1000).default([]),
+    includeActivity: z.boolean().default(false),
+  }),
   consent: z.object({
     accountId: uuid,
     type: z.number().int(),
@@ -271,8 +283,13 @@ export class IdentityController {
 
   @GrpcMethod(SERVICE, 'GetMemberFacts')
   async getMemberFacts(request: unknown) {
-    const { accountIds } = parse(schemas.memberFacts, request);
-    return { members: await this.#runtime.accounts.memberFacts(accountIds) };
+    const { accountIds, includeActivity } = parse(schemas.memberFacts, request);
+    const members = await this.#runtime.accounts.memberFacts(accountIds, includeActivity);
+    return {
+      members: members.map(({ activity, ...m }) =>
+        activity === undefined ? m : { ...m, activity: ACTIVITY[activity] },
+      ),
+    };
   }
 
   // Account deletion (TASKS M1.8, ADR-0025).

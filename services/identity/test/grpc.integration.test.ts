@@ -1,6 +1,11 @@
 import { randomBytes } from 'node:crypto';
 import { createServer } from 'node:net';
-import { AccountStatus, ConsentType, VerificationStatus } from '@chronos/contracts/identity';
+import {
+  Activity,
+  AccountStatus,
+  ConsentType,
+  VerificationStatus,
+} from '@chronos/contracts/identity';
 import { SubjectKeyring } from '@chronos/crypto';
 import { InMemoryKeyWrapper } from '@chronos/crypto/testing';
 import { bootstrapService, type RunningService } from '@chronos/service-kit';
@@ -82,8 +87,8 @@ interface IdentityClient {
   >;
   getVerification: Call<{ accountId: string }, { verification: Verification }>;
   getMemberFacts: Call<
-    { accountIds: string[] },
-    { members?: { accountId: string; age: number; verified: boolean }[] }
+    { accountIds: string[]; includeActivity?: boolean },
+    { members?: { accountId: string; age: number; verified: boolean; activity: number }[] }
   >;
 }
 
@@ -412,7 +417,15 @@ describe('identity gRPC API', () => {
     expect(members).toHaveLength(1);
     expect(members?.[0]).toMatchObject({ accountId: adult.account.accountId, verified: false });
     expect(members?.[0]?.age).toBeGreaterThanOrEqual(36);
-    const tooMany = Array.from({ length: 101 }, () => adult.account.accountId);
+    // No activity unless asked for (ADR-0027); asked for, the session just used reads as today.
+    expect(members?.[0]?.activity ?? Activity.ACTIVITY_UNSPECIFIED).toBe(
+      Activity.ACTIVITY_UNSPECIFIED,
+    );
+    const ranked = await call(
+      identity.getMemberFacts({ accountIds: [adult.account.accountId], includeActivity: true }),
+    );
+    expect(ranked.members?.[0]?.activity).toBe(Activity.ACTIVITY_TODAY);
+    const tooMany = Array.from({ length: 1001 }, () => adult.account.accountId);
     expect((await grpcError(call(identity.getMemberFacts({ accountIds: tooMany })))).code).toBe(
       status.INVALID_ARGUMENT,
     );

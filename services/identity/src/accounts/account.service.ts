@@ -40,6 +40,18 @@ export interface AccountServiceDeps {
   now?: () => Date;
 }
 
+/** Coarse buckets only (ADR-0027): ranking needs no more, and a bucket reveals less. */
+export type ActivityBucket = 'today' | 'this_week' | 'this_month' | 'longer';
+const DAY_MS = 24 * 60 * 60 * 1000;
+export function activityBucket(lastActiveAt: Date | null, now: Date): ActivityBucket {
+  if (lastActiveAt === null) return 'longer';
+  const age = now.getTime() - lastActiveAt.getTime();
+  if (age <= DAY_MS) return 'today';
+  if (age <= 7 * DAY_MS) return 'this_week';
+  if (age <= 30 * DAY_MS) return 'this_month';
+  return 'longer';
+}
+
 export class AccountService {
   readonly #d: Required<AccountServiceDeps>;
 
@@ -104,14 +116,20 @@ export class AccountService {
    */
   async memberFacts(
     ids: readonly string[],
-  ): Promise<{ accountId: string; age: number; verified: boolean }[]> {
-    const today = todayInSouthAfrica(this.#d.now());
-    const facts = await this.#d.accounts.activeFacts([...new Set(ids)]);
+    includeActivity = false,
+  ): Promise<{ accountId: string; age: number; verified: boolean; activity?: ActivityBucket }[]> {
+    const now = this.#d.now();
+    const today = todayInSouthAfrica(now);
+    const facts = await this.#d.accounts.activeFacts([...new Set(ids)], includeActivity);
     return facts.flatMap((f) => {
       const [year, month, day] = f.dateOfBirth.split('-').map(Number) as [number, number, number];
       const age = ageOn({ year, month, day }, today);
       // Defensive: an active account is always an adult (ADR-0018).
-      return age >= MINIMUM_AGE ? [{ accountId: f.id, age, verified: f.verified }] : [];
+      if (age < MINIMUM_AGE) return [];
+      const fact = { accountId: f.id, age, verified: f.verified };
+      return [
+        includeActivity ? { ...fact, activity: activityBucket(f.lastActiveAt ?? null, now) } : fact,
+      ];
     });
   }
 

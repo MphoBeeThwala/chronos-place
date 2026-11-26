@@ -345,6 +345,22 @@ enum CandidatesOutcome {
 message Candidate {
   string account_id = 1;
   bool private_mode = 2;
+  // Ranking v1's signals (M3.3, ADR-0027), each 0 to 100. No health data, no distance, no date.
+  RankingFeatures features = 3;
+}
+
+message RankingFeatures {
+  // 100 next door, 0 at the viewer's distance limit.
+  int32 closeness = 1;
+  // 100 active today, 60 this week, 30 this month, 0 longer ago. Never shown to anyone.
+  int32 activity = 2;
+  // 50 when the candidate's intents include the viewer's, 50 when the viewer is within the
+  // candidate's own distance.
+  int32 mutual_fit = 3;
+  // Bio 20, prompts 25, interests 10, verified 25, one approved photo 20 (photos count lightly).
+  int32 completeness = 4;
+  // 100 on the day they joined, fading to 0 after 14 days.
+  int32 newness = 5;
 }
 
 message FindCandidatesRequest {

@@ -276,6 +276,7 @@ describe('discovery candidates (M3.2, ADR-0026)', () => {
       'accountId',
       'distanceMeters',
       'privateMode',
+      'signals',
     ]);
   });
 
@@ -297,5 +298,56 @@ describe('discovery candidates (M3.2, ADR-0026)', () => {
       ageMin: 18,
       ageMax: 99,
     });
+  });
+});
+
+describe('ranking signals in the database (M3.3, ADR-0027)', () => {
+  it('works them out for the page, with one approved photo counting fully and pending ones not', async () => {
+    const store = new DrizzleProfileStore(drizzle(db.pool));
+    // Somewhere none of the other tests put anyone.
+    const spot = { latitude: -31.0, longitude: 26.0 };
+    const viewer = account();
+    await store.create(
+      viewer,
+      fields,
+      { prompts: [], interests: [] },
+      { ...DEFAULT_PREFERENCES, maxDistanceKm: 10 },
+    );
+    await store.setLocation(viewer, spot, new Date());
+    const [withPhoto, pendingPhoto] = [account(), account()];
+    for (const id of [withPhoto, pendingPhoto]) {
+      await store.create(
+        id,
+        { ...fields, bio: 'Synthetic bio' },
+        {
+          prompts: [{ promptId: 'laugh', answer: 'A' }],
+          interests: ['hiking', 'cooking', 'baking'],
+        },
+        { ...DEFAULT_PREFERENCES, intents: ['friendship'] },
+      );
+      await store.setLocation(id, spot, new Date());
+    }
+    const photo = (accountId: string, position: number, moderation: string) =>
+      db.pool.query(
+        `insert into profile.profile_photos (id, account_id, position, width, height, moderation)
+         values (gen_random_uuid(), $1, $2, 640, 640, $3)`,
+        [accountId, position, moderation],
+      );
+    await photo(withPhoto, 0, 'approved');
+    await photo(withPhoto, 1, 'approved');
+    await photo(pendingPhoto, 0, 'pending');
+
+    const now = new Date(Date.now() + 7 * 86_400_000);
+    const rows = await store.candidates(viewer, 30, 10, undefined, now);
+    const by = new Map(rows.map((r) => [r.accountId, r.signals]));
+    // Same cell: closest possible. Their intents leave out the viewer's (dating): half the fit.
+    // Bio 20 + one prompt of three 8 + interests 10, + 20 for the approved photos (counted once).
+    expect(by.get(withPhoto)).toEqual({
+      closeness: 100,
+      mutualFit: 50,
+      completenessWithoutBadge: 58,
+      newness: 50,
+    });
+    expect(by.get(pendingPhoto)?.completenessWithoutBadge).toBe(38);
   });
 });

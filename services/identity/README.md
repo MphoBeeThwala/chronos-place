@@ -1,6 +1,6 @@
 # @chronos/identity
 
-Accounts, phone OTP and sessions (TASKS M1.1, [ADR-0018](../../docs/adr/0018-identity-accounts-otp-sessions.md)). gRPC API: `chronos.identity.v1.IdentityService` in `@chronos/contracts`. The gateway calls it; the profile service calls `GetMemberFacts` only (whole-year ages and verified badges of active members, never a date of birth).
+Accounts, phone OTP and sessions (TASKS M1.1, [ADR-0018](../../docs/adr/0018-identity-accounts-otp-sessions.md)). gRPC API: `chronos.identity.v1.IdentityService` in `@chronos/contracts`. The gateway calls it; the profile service calls `GetMemberFacts` only (whole-year ages and verified badges of active members, never a date of birth). With `include_activity`, which only discovery ranking uses, it adds a coarse activity bucket from sessions (today, this week, this month, longer; [ADR-0027](../../docs/adr/0027-ranking-v1.md)), never shown to anyone.
 
 ## Rules it enforces
 

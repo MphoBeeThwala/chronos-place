@@ -3,7 +3,9 @@ import type { Logger } from '@chronos/logger';
 import { DomainError } from '@chronos/service-kit';
 import { z } from 'zod';
 import type { CachedFeed, FeedCache } from './feed-cache.js';
+import { rank } from './ranking.js';
 import {
+  type Candidate,
   type CandidateFilter,
   type CandidateSource,
   DependencyUnavailable,
@@ -14,6 +16,12 @@ import {
 export const FEED_SIZE = 200;
 /** Candidate pages read while building, so a member who has seen everyone nearby still gets some. */
 export const MAX_CANDIDATE_PAGES = 4;
+/**
+ * Ranking (M3.3) chooses among everyone on the candidate pages read, up to 500 a page, which is
+ * wider than the feed. Another page is read only while fewer than FEED_SIZE remain: a page costs
+ * the most of any step, and a second one would break the 300 ms target (speed test).
+ */
+export const RANKING_POOL_MAX = MAX_CANDIDATE_PAGES * 500;
 export const DEFAULT_PAGE = 20;
 export const MAX_PAGE = 50;
 
@@ -95,23 +103,29 @@ export class FeedService {
   async #build(
     viewerId: string,
   ): Promise<{ outcome: 'ok'; feed: CachedFeed } | { outcome: Exclude<Outcome, 'ok'> }> {
-    const items: CachedFeed['items'] = [];
+    const pool: Candidate[] = [];
     let token = '';
     let pages = 0;
     do {
       const page = await this.#d.source.page(viewerId, token);
       if (page.outcome !== 'ok') return { outcome: page.outcome };
-      const ids = page.candidates.map((c) => c.accountId);
-      const privates = new Set(
+      const byId = new Map(page.candidates.map((c) => [c.accountId, c]));
+      const kept = await this.#d.filter.filter(
+        viewerId,
+        page.candidates.map((c) => c.accountId),
         page.candidates.filter((c) => c.privateMode).map((c) => c.accountId),
       );
-      const kept = await this.#d.filter.filter(viewerId, ids, [...privates]);
       for (const id of kept) {
-        if (items.length < FEED_SIZE) items.push({ id, private: privates.has(id) });
+        const candidate = byId.get(id);
+        if (candidate && pool.length < RANKING_POOL_MAX) pool.push(candidate);
       }
       token = page.nextPageToken;
       pages += 1;
-    } while (token !== '' && items.length < FEED_SIZE && pages < MAX_CANDIDATE_PAGES);
+    } while (token !== '' && pool.length < FEED_SIZE && pages < MAX_CANDIDATE_PAGES);
+    // Only the order is kept: the signals are not stored (ADR-0027).
+    const items: CachedFeed['items'] = rank(pool)
+      .slice(0, FEED_SIZE)
+      .map((c) => ({ id: c.accountId, private: c.privateMode }));
     this.#d.logger.info({ accountId: viewerId, size: items.length, pages }, 'feed built');
     return { outcome: 'ok', feed: { generation: randomUUID(), items } };
   }

@@ -29,13 +29,21 @@ export class FakeMemberFacts implements MemberFacts {
   readonly facts = new Map<string, MemberFact>();
   readonly requested: string[][] = [];
 
-  get(ids: readonly string[]): Promise<Map<string, MemberFact>> {
+  get(
+    ids: readonly string[],
+    options: { activity?: boolean } = {},
+  ): Promise<Map<string, MemberFact>> {
     this.requested.push([...ids]);
     return Promise.resolve(
       new Map(
         ids.flatMap((id) => {
           const fact = this.facts.get(id);
-          return fact ? [[id, fact] as const] : [];
+          if (!fact) return [];
+          const { activity, ...rest } = fact;
+          // Like identity: activity only when asked for.
+          return [
+            [id, options.activity === true && activity ? { ...rest, activity } : rest] as const,
+          ];
         }),
       ),
     );
@@ -49,6 +57,8 @@ export class FakeMemberFacts implements MemberFacts {
 /** Same rules as DrizzleProfileStore, in memory. */
 export class InMemoryProfileStore implements ProfileStore {
   readonly rows = new Map<string, OwnProfileRecord>();
+  /** When each profile was created, for newness; defaults to now. */
+  readonly createdAt = new Map<string, Date>();
   /** Stored (already snapped) points, as the database would hold them. */
   readonly locations = new Map<string, Point>();
 
@@ -139,6 +149,7 @@ export class InMemoryProfileStore implements ProfileStore {
     viewerAge: number,
     limit: number,
     after?: { distanceMeters: number; accountId: string },
+    now: Date = new Date(),
   ): Promise<CandidateRow[]> {
     const viewer = this.rows.get(viewerId);
     const from = this.locations.get(viewerId);
@@ -156,9 +167,27 @@ export class InMemoryProfileStore implements ProfileStore {
           (viewer.profile.gender !== null && cp.genders.includes(viewer.profile.gender))) &&
         cp.ageMin <= viewerAge &&
         cp.ageMax >= viewerAge;
-      return fits
-        ? [{ accountId: c.accountId, privateMode: c.privateMode, distanceMeters: d }]
-        : [];
+      if (!fits) return [];
+      const createdAt = this.createdAt.get(c.accountId) ?? now;
+      const signals = {
+        closeness: Math.max(0, Math.min(100, Math.round(100 * (1 - d / (v.maxDistanceKm * 1000))))),
+        mutualFit:
+          (cp.intents.length === 0 || cp.intents.includes(viewer.profile.intent) ? 50 : 0) +
+          (d <= cp.maxDistanceKm * 1000 ? 50 : 0),
+        // Photos live in another store in these tests: the photo part is the SQL store's.
+        completenessWithoutBadge:
+          (c.bio ? 20 : 0) +
+          Math.round((25 * Math.min(3, c.prompts.length)) / 3) +
+          Math.round((10 * Math.min(3, c.interests.length)) / 3),
+        newness: Math.max(
+          0,
+          Math.min(
+            100,
+            Math.round(100 * (1 - (now.getTime() - createdAt.getTime()) / (14 * 86_400_000))),
+          ),
+        ),
+      };
+      return [{ accountId: c.accountId, privateMode: c.privateMode, distanceMeters: d, signals }];
     });
     const key = (r: { distanceMeters: number; accountId: string }) =>
       [r.distanceMeters, r.accountId] as const;

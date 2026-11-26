@@ -1,6 +1,6 @@
 import { and, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { accounts, type AccountStatus, outbox } from '../db/schema.js';
+import { accounts, type AccountStatus, outbox, sessions } from '../db/schema.js';
 import { type OutboxEvent, outboxValues } from '../events/outbox.js';
 
 export interface AccountRecord {
@@ -31,7 +31,8 @@ export interface AccountStore {
   /** Marks a pending account ineligible for good. The date of birth is not stored. */
   markIneligible(id: string): Promise<boolean>;
   /** Date of birth and verified flag of the active accounts among `ids`; others are left out. */
-  activeFacts(ids: readonly string[]): Promise<ActiveFacts[]>;
+  /** With `withActivity`, also when each was last active (ranking only, ADR-0027). */
+  activeFacts(ids: readonly string[], withActivity?: boolean): Promise<ActiveFacts[]>;
 }
 
 export interface ActiveFacts {
@@ -39,6 +40,8 @@ export interface ActiveFacts {
   /** YYYY-MM-DD. Used to work out an age, never returned. */
   dateOfBirth: string;
   verified: boolean;
+  /** The latest use of any of their sessions; only when asked for, and null if none. */
+  lastActiveAt?: Date | null;
 }
 
 const record = (row: {
@@ -117,13 +120,16 @@ export class DrizzleAccountStore implements AccountStore {
     return rows.length === 1;
   }
 
-  async activeFacts(ids: readonly string[]): Promise<ActiveFacts[]> {
+  async activeFacts(ids: readonly string[], withActivity = false): Promise<ActiveFacts[]> {
     if (ids.length === 0) return [];
     const rows = await this.#db
       .select({
         id: accounts.id,
         dateOfBirth: accounts.dateOfBirth,
         verifiedAt: accounts.verifiedAt,
+        lastActiveAt: withActivity
+          ? sql<Date | null>`(select max(s.last_used_at) from ${sessions} s where s.account_id = "accounts"."id")`
+          : sql<null>`null`,
       })
       .from(accounts)
       .where(
@@ -136,7 +142,16 @@ export class DrizzleAccountStore implements AccountStore {
     return rows.flatMap((r) =>
       r.dateOfBirth === null
         ? []
-        : [{ id: r.id, dateOfBirth: r.dateOfBirth, verified: r.verifiedAt !== null }],
+        : [
+            {
+              id: r.id,
+              dateOfBirth: r.dateOfBirth,
+              verified: r.verifiedAt !== null,
+              ...(withActivity
+                ? { lastActiveAt: r.lastActiveAt === null ? null : new Date(r.lastActiveAt) }
+                : {}),
+            },
+          ],
     );
   }
 }
