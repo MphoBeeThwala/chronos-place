@@ -36,6 +36,12 @@ const schemas = {
   refresh: z.object({ refreshToken: z.string().max(128), client: clientContext }),
   revoke: z.object({ sessionId: uuid, accountId: uuid }),
   account: z.object({ accountId: uuid }),
+  deletionCode: z.object({ accountId: uuid, client: clientContext }),
+  deleteAccount: z.object({
+    accountId: uuid,
+    challengeId: z.string().max(64),
+    code: z.string().max(16),
+  }),
   memberFacts: z.object({ accountIds: z.array(uuid).max(100).default([]) }),
   consent: z.object({
     accountId: uuid,
@@ -72,6 +78,7 @@ const STATUS: Record<StoredStatus, AccountStatus> = {
   ineligible: AccountStatus.ACCOUNT_STATUS_INELIGIBLE,
   suspended: AccountStatus.ACCOUNT_STATUS_SUSPENDED,
   pending_erasure: AccountStatus.ACCOUNT_STATUS_PENDING_ERASURE,
+  erased: AccountStatus.ACCOUNT_STATUS_ERASED,
 };
 
 const CONSENT: Record<StoredConsent, ConsentType> = {
@@ -266,5 +273,24 @@ export class IdentityController {
   async getMemberFacts(request: unknown) {
     const { accountIds } = parse(schemas.memberFacts, request);
     return { members: await this.#runtime.accounts.memberFacts(accountIds) };
+  }
+
+  // Account deletion (TASKS M1.8, ADR-0025).
+  @GrpcMethod(SERVICE, 'RequestDeletionCode')
+  async requestDeletionCode(request: unknown) {
+    const { accountId, client } = parse(schemas.deletionCode, request);
+    const challenge = await this.#runtime.deletion.requestCode(accountId, client);
+    return {
+      challengeId: challenge.challengeId,
+      expiresAt: timestamp(challenge.expiresAt),
+      retryAfterSeconds: challenge.retryAfterSeconds,
+    };
+  }
+
+  @GrpcMethod(SERVICE, 'DeleteAccount')
+  async deleteAccount(request: unknown) {
+    const { accountId, challengeId, code } = parse(schemas.deleteAccount, request);
+    await this.#runtime.deletion.deleteAccount(accountId, challengeId, code);
+    return { account: account(await this.#runtime.accounts.get(accountId)) };
   }
 }
