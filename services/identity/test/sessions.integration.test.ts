@@ -13,7 +13,11 @@ import { KeyedHasher } from '../src/otp/keyed-hash.js';
 import { IDENTITY_KEY_PURPOSE, PHONE_FIELD, type VerifiedPhone } from '../src/otp/otp.service.js';
 import { LocalAccessTokenSigner } from '../src/sessions/access-token.js';
 import { DrizzleSessionStore } from '../src/sessions/session-store.js';
-import { REFRESH_TOKEN_TTL_SECONDS, SessionService } from '../src/sessions/session.service.js';
+import {
+  SESSION_IDLE_SECONDS,
+  SESSION_MAX_AGE_SECONDS,
+  SessionService,
+} from '../src/sessions/session.service.js';
 import { startTestDatabase, type TestDatabase } from './support/database.js';
 
 let db: TestDatabase;
@@ -130,11 +134,62 @@ describe('refresh-token rotation (M1.1: token rotation and revocation tested)', 
     expect(await revokeReason(accountId)).toEqual(['device_mismatch']);
   });
 
-  it('refuses a refresh token after 30 days', async () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const later = (clock: { now: Date }, ms: number) => {
+    clock.now = new Date(clock.now.getTime() + ms);
+  };
+
+  it('ends a session after 7 days without activity, even with every tab closed', async () => {
     const clock = { now: new Date() };
     const s = setup(clock);
     const { tokens } = await signedIn(s);
-    clock.now = new Date(clock.now.getTime() + REFRESH_TOKEN_TTL_SECONDS * 1000);
+    expect(tokens.refreshExpiresAt.getTime() - clock.now.getTime()).toBe(
+      SESSION_IDLE_SECONDS * 1000,
+    );
+    later(clock, SESSION_IDLE_SECONDS * 1000);
+    await rejectedWith(s.sessions.refresh(tokens.refreshToken, DEVICE), 'unauthenticated');
+  });
+
+  it('rolls the idle window forward on each refresh', async () => {
+    const clock = { now: new Date() };
+    const s = setup(clock);
+    let { tokens } = await signedIn(s);
+    // Six days apart, four times: 24 days of real use, never 7 idle.
+    for (let i = 0; i < 4; i += 1) {
+      later(clock, 6 * DAY);
+      tokens = (await s.sessions.refresh(tokens.refreshToken, DEVICE)).tokens;
+    }
+    expect(tokens.refreshExpiresAt.getTime()).toBeGreaterThan(clock.now.getTime());
+  });
+
+  it('ends every session 30 days after it opened, however active', async () => {
+    const clock = { now: new Date() };
+    const s = setup(clock);
+    const opened = clock.now.getTime();
+    let { tokens } = await signedIn(s);
+    // Refreshing daily: the refresh token never outlives the session's absolute end.
+    for (let day = 1; day < 30; day += 1) {
+      later(clock, DAY);
+      tokens = (await s.sessions.refresh(tokens.refreshToken, DEVICE)).tokens;
+      expect(tokens.refreshExpiresAt.getTime()).toBeLessThanOrEqual(
+        opened + SESSION_MAX_AGE_SECONDS * 1000,
+      );
+    }
+    later(clock, DAY);
+    await rejectedWith(s.sessions.refresh(tokens.refreshToken, DEVICE), 'unauthenticated');
+  });
+
+  it('caps sessions opened before the absolute limit existed', async () => {
+    const clock = { now: new Date() };
+    const s = setup(clock);
+    const { accountId, tokens } = await signedIn(s);
+    // As the old rolling expiry left it: far beyond 30 days after it opened.
+    await db.pool.query(
+      `update identity.sessions set expires_at = now() + interval '300 days',
+         created_at = now() - interval '29 days' where account_id = $1`,
+      [accountId],
+    );
+    later(clock, 2 * DAY);
     await rejectedWith(s.sessions.refresh(tokens.refreshToken, DEVICE), 'unauthenticated');
   });
 

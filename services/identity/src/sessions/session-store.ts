@@ -26,12 +26,22 @@ export interface FoundToken {
   accountId: string;
   deviceHash: Buffer;
   sessionExpiresAt: Date;
+  sessionCreatedAt: Date;
+  /** The last refresh: the activity signal for the idle limit. */
+  lastUsedAt: Date;
   revokedAt: Date | null;
 }
 
 export interface SessionStore {
   create(
-    session: { id: string; accountId: string; deviceHash: Buffer; expiresAt: Date },
+    session: {
+      id: string;
+      accountId: string;
+      deviceHash: Buffer;
+      expiresAt: Date;
+      /** The service's clock, so both limits are measured on one clock. */
+      openedAt: Date;
+    },
     token: NewRefreshToken,
   ): Promise<void>;
   findToken(tokenHash: Buffer): Promise<FoundToken | undefined>;
@@ -51,11 +61,19 @@ export class DrizzleSessionStore implements SessionStore {
   }
 
   async create(
-    session: { id: string; accountId: string; deviceHash: Buffer; expiresAt: Date },
+    session: {
+      id: string;
+      accountId: string;
+      deviceHash: Buffer;
+      expiresAt: Date;
+      /** The service's clock, so both limits are measured on one clock. */
+      openedAt: Date;
+    },
     token: NewRefreshToken,
   ): Promise<void> {
     await this.#db.transaction(async (tx) => {
-      await tx.insert(sessions).values(session);
+      const { openedAt, ...rest } = session;
+      await tx.insert(sessions).values({ ...rest, createdAt: openedAt, lastUsedAt: openedAt });
       await tx.insert(refreshTokens).values({ ...token, sessionId: session.id });
     });
   }
@@ -70,6 +88,8 @@ export class DrizzleSessionStore implements SessionStore {
         accountId: sessions.accountId,
         deviceHash: sessions.deviceHash,
         sessionExpiresAt: sessions.expiresAt,
+        sessionCreatedAt: sessions.createdAt,
+        lastUsedAt: sessions.lastUsedAt,
         revokedAt: sessions.revokedAt,
       })
       .from(refreshTokens)
@@ -92,7 +112,8 @@ export class DrizzleSessionStore implements SessionStore {
       await tx.insert(refreshTokens).values({ ...token, sessionId });
       await tx
         .update(sessions)
-        .set({ expiresAt: token.expiresAt, lastUsedAt: now })
+        // Activity rolls forward; the session's absolute end does not move.
+        .set({ lastUsedAt: now })
         .where(eq(sessions.id, sessionId));
     });
   }
