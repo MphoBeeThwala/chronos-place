@@ -132,6 +132,42 @@ describe('inside restricted/', () => {
   });
 });
 
+describe('development-only packages inside restricted/', () => {
+  const dev =
+    "import { PostgreSqlContainer } from '@testcontainers/postgresql';\nexport { PostgreSqlContainer };\n";
+
+  it.each([
+    'restricted/vault-db/test/support/database.ts',
+    'restricted/vault-db/test/a.integration.test.ts',
+    'restricted/vault-db/drizzle.config.ts',
+    'restricted/vault-db/vitest.config.ts',
+  ])('are allowed in tests and config files: %s', async (file) => {
+    expect(await lint(file, dev)).toEqual([]);
+  });
+
+  it.each([
+    ['restricted/vault-db/src/a.ts', dev],
+    ['restricted/vault-db/src/test/a.ts', dev],
+    [
+      'restricted/disclosure-service/src/a.ts',
+      "import { describe } from 'vitest';\nexport { describe };\n",
+    ],
+    [
+      'restricted/vault-db/src/a.ts',
+      "import { defineConfig } from 'drizzle-kit';\nexport { defineConfig };\n",
+    ],
+  ])('are rejected in source: %s', async (file, code) => {
+    expect(await lint(file, code)).toContain(`${BOUNDARY}:notAllowedInRestricted`);
+  });
+
+  it('still rejects unapproved packages in tests', async () => {
+    const code = "import { Kafka } from 'kafkajs';\nexport { Kafka };\n";
+    expect(await lint('restricted/vault-db/test/a.test.ts', code)).toContain(
+      `${BOUNDARY}:notAllowedInRestricted`,
+    );
+  });
+});
+
 describe('the rule cannot be disabled', () => {
   const violation = "import { x } from '@chronos/vault-db';\nexport { x };\n";
 

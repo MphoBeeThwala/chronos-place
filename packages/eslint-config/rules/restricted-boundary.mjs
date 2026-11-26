@@ -34,9 +34,22 @@ export const RESTRICTED_ALLOWED_THIRD_PARTY = [
   'pg',
   'reflect-metadata',
   'rxjs',
-  'vitest',
   'zod',
 ];
+
+/**
+ * Development-only packages restricted code may use, and only in tests and tool config files
+ * (see RESTRICTED_DEV_FILE). They never reach a built service: none of these are runtime dependencies.
+ */
+export const RESTRICTED_ALLOWED_DEV_ONLY = [
+  '@testcontainers/postgresql',
+  'testcontainers',
+  'drizzle-kit',
+  'vitest',
+];
+
+/** Repo-relative restricted files where RESTRICTED_ALLOWED_DEV_ONLY applies: `test/` folders and `*.config.ts`. */
+export const RESTRICTED_DEV_FILE = /^restricted\/[^/]+\/(test\/.+|[^/]+\.config\.[cm]?[jt]s)$/;
 
 /** Import path of the generated Disclosure client inside `@chronos/contracts`. */
 export const DISCLOSURE_CLIENT_SPECIFIER = '@chronos/contracts/disclosure';
@@ -125,6 +138,7 @@ export const restrictedBoundary = {
     const fileRel = toPosix(path.relative(root, filename));
     if (fileRel.startsWith('..')) return {};
     const inRestricted = fileRel.startsWith('restricted/');
+    const isDevFile = RESTRICTED_DEV_FILE.test(fileRel);
     const restrictedNames = restrictedPackageNames(root);
     const fileDir = path.dirname(filename);
 
@@ -152,7 +166,8 @@ export const restrictedBoundary = {
         const allowed =
           restrictedNames.has(name) ||
           RESTRICTED_ALLOWED_INTERNAL.includes(name) ||
-          RESTRICTED_ALLOWED_THIRD_PARTY.includes(name);
+          RESTRICTED_ALLOWED_THIRD_PARTY.includes(name) ||
+          (isDevFile && RESTRICTED_ALLOWED_DEV_ONLY.includes(name));
         if (!allowed) report('notAllowedInRestricted');
         return;
       }

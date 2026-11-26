@@ -1,0 +1,528 @@
+{
+  "id": "310f523a-b2a5-4cc1-bb5b-fc03522aa305",
+  "prevId": "d333ba62-0246-4bf4-b04d-1da09d69f532",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "vault.condition_taxonomy": {
+      "name": "condition_taxonomy",
+      "schema": "vault",
+      "columns": {
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "label_en": {
+          "name": "label_en",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "condition_taxonomy_code_check": {
+          "name": "condition_taxonomy_code_check",
+          "value": "\"vault\".\"condition_taxonomy\".\"code\" ~ '^[a-z][a-z0-9_]{0,39}$'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "vault.disclosure_grants": {
+      "name": "disclosure_grants",
+      "schema": "vault",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "vault_id": {
+          "name": "vault_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "viewer_account_id": {
+          "name": "viewer_account_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "scope": {
+          "name": "scope",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "granted_at": {
+          "name": "granted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "revoked_at": {
+          "name": "revoked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "disclosure_grants_active_unique": {
+          "name": "disclosure_grants_active_unique",
+          "columns": [
+            {
+              "expression": "vault_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "viewer_account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "with": {},
+          "method": "btree",
+          "where": "\"vault\".\"disclosure_grants\".\"revoked_at\" is null",
+          "concurrently": false
+        },
+        "disclosure_grants_viewer_idx": {
+          "name": "disclosure_grants_viewer_idx",
+          "columns": [
+            {
+              "expression": "viewer_account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "disclosure_grants_vault_id_subject_map_vault_id_fk": {
+          "name": "disclosure_grants_vault_id_subject_map_vault_id_fk",
+          "tableFrom": "disclosure_grants",
+          "columnsFrom": [
+            "vault_id"
+          ],
+          "tableTo": "subject_map",
+          "schemaTo": "vault",
+          "columnsTo": [
+            "vault_id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "disclosure_grants_scope_check": {
+          "name": "disclosure_grants_scope_check",
+          "value": "\"vault\".\"disclosure_grants\".\"scope\" in ('full','conditions_only')"
+        },
+        "disclosure_grants_revoked_after_granted": {
+          "name": "disclosure_grants_revoked_after_granted",
+          "value": "\"vault\".\"disclosure_grants\".\"revoked_at\" is null or \"vault\".\"disclosure_grants\".\"revoked_at\" >= \"vault\".\"disclosure_grants\".\"granted_at\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "vault.filter_preferences": {
+      "name": "filter_preferences",
+      "schema": "vault",
+      "columns": {
+        "vault_id": {
+          "name": "vault_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "payload_ct": {
+          "name": "payload_ct",
+          "type": "bytea",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "payload_nonce": {
+          "name": "payload_nonce",
+          "type": "bytea",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "filter_preferences_vault_id_subject_map_vault_id_fk": {
+          "name": "filter_preferences_vault_id_subject_map_vault_id_fk",
+          "tableFrom": "filter_preferences",
+          "columnsFrom": [
+            "vault_id"
+          ],
+          "tableTo": "subject_map",
+          "schemaTo": "vault",
+          "columnsTo": [
+            "vault_id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "filter_preferences_version_check": {
+          "name": "filter_preferences_version_check",
+          "value": "\"vault\".\"filter_preferences\".\"version\" >= 1"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "vault.health_access_log": {
+      "name": "health_access_log",
+      "schema": "vault",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "bigserial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "vault_id": {
+          "name": "vault_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "accessor": {
+          "name": "accessor",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "purpose": {
+          "name": "purpose",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "decision": {
+          "name": "decision",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "at": {
+          "name": "at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "health_access_log_vault_at_idx": {
+          "name": "health_access_log_vault_at_idx",
+          "columns": [
+            {
+              "expression": "vault_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "health_access_log_accessor_check": {
+          "name": "health_access_log_accessor_check",
+          "value": "\"vault\".\"health_access_log\".\"accessor\" ~ '^((account|staff):[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|service:[a-z][a-z0-9-]{0,39})$'"
+        },
+        "health_access_log_purpose_check": {
+          "name": "health_access_log_purpose_check",
+          "value": "\"vault\".\"health_access_log\".\"purpose\" in ('profile_view','chat_card','moderation','export','erasure')"
+        },
+        "health_access_log_decision_check": {
+          "name": "health_access_log_decision_check",
+          "value": "\"vault\".\"health_access_log\".\"decision\" in ('allow','deny')"
+        },
+        "health_access_log_reason_check": {
+          "name": "health_access_log_reason_check",
+          "value": "\"vault\".\"health_access_log\".\"reason\" ~ '^[a-z][a-z0-9_]{0,39}$'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "vault.health_profiles": {
+      "name": "health_profiles",
+      "schema": "vault",
+      "columns": {
+        "vault_id": {
+          "name": "vault_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "payload_ct": {
+          "name": "payload_ct",
+          "type": "bytea",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "payload_nonce": {
+          "name": "payload_nonce",
+          "type": "bytea",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "visibility": {
+          "name": "visibility",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'hidden'"
+        },
+        "filter_opt_in": {
+          "name": "filter_opt_in",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "health_profiles_vault_id_subject_map_vault_id_fk": {
+          "name": "health_profiles_vault_id_subject_map_vault_id_fk",
+          "tableFrom": "health_profiles",
+          "columnsFrom": [
+            "vault_id"
+          ],
+          "tableTo": "subject_map",
+          "schemaTo": "vault",
+          "columnsTo": [
+            "vault_id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "health_profiles_visibility_check": {
+          "name": "health_profiles_visibility_check",
+          "value": "\"vault\".\"health_profiles\".\"visibility\" in ('hidden','match_only','chat_grant','profile')"
+        },
+        "health_profiles_version_check": {
+          "name": "health_profiles_version_check",
+          "value": "\"vault\".\"health_profiles\".\"version\" >= 1"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "vault.subject_keys": {
+      "name": "subject_keys",
+      "schema": "vault",
+      "columns": {
+        "vault_id": {
+          "name": "vault_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "wrapped_dek": {
+          "name": "wrapped_dek",
+          "type": "bytea",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kms_key_arn": {
+          "name": "kms_key_arn",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "rotated_at": {
+          "name": "rotated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "subject_keys_vault_id_subject_map_vault_id_fk": {
+          "name": "subject_keys_vault_id_subject_map_vault_id_fk",
+          "tableFrom": "subject_keys",
+          "columnsFrom": [
+            "vault_id"
+          ],
+          "tableTo": "subject_map",
+          "schemaTo": "vault",
+          "columnsTo": [
+            "vault_id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "vault.subject_map": {
+      "name": "subject_map",
+      "schema": "vault",
+      "columns": {
+        "account_id": {
+          "name": "account_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "vault_id": {
+          "name": "vault_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "subject_map_vault_id_unique": {
+          "name": "subject_map_vault_id_unique",
+          "columns": [
+            "vault_id"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {
+    "vault": "vault"
+  },
+  "views": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
