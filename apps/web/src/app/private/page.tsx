@@ -12,7 +12,8 @@ import { ScreenProtect } from '@/components/health/ScreenProtect';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'Health profile',
+  // Neutral: tab titles and history must not imply health (ADR-0017, TASKS M1.9).
+  title: 'Private',
   // Instruct crawlers/caches not to index health-related pages.
   robots: { index: false, follow: false },
 };

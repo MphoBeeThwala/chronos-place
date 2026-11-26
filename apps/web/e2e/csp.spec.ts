@@ -128,7 +128,10 @@ test('the selfie check loads its camera component with no CSP violations', async
   });
   const violations = await watchViolations(page);
   await page.goto('/verify');
-  await page.getByRole('button', { name: /start|take|selfie/i }).first().click();
+  await page
+    .getByRole('button', { name: /start|take|selfie/i })
+    .first()
+    .click();
   // The vendor's component, loaded by a trusted chunk ('strict-dynamic'), defines itself.
   await expect
     .poll(() => page.evaluate(() => customElements.get('smart-camera-web') !== undefined))

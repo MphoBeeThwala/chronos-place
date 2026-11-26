@@ -34,6 +34,19 @@ These rules apply to every screen and API call in `apps/web`.
 - **Also set:** `object-src 'none'`, `base-uri 'none'` and `form-action 'self'`.
 - **Tests:** Playwright proves an inline script without the nonce is blocked under the policy the app serves.
 
+**Quick exit, neutral titles and idle sign-out (done in M1.9, choices approved 2026-11-26).**
+- **Quick exit:** a "Quick exit" button on every screen (bottom right, above everything, including the idle warning), or Escape pressed twice within 0.8 s.
+  - It replaces the current history entry with `https://www.google.com/`, so Back does not return to the page.
+  - It signs this device out with a `keepalive` request, so the exit never waits for the reply.
+  - Every other open tab of the app leaves too.
+- **Titles:** every page title reads "page name — Chronos Place", and no title, description or address may imply health. A source scan and a Playwright test enforce it.
+  - The placeholder `/health` route became `/private`.
+  - The site description is now "Dating and connection, on your terms.", as in the app manifest.
+- **Idle sign-out:** after 15 minutes with no activity in any open tab of the app, this device is signed out, with a warning and "Stay signed in" one minute before (WCAG 2.2.1).
+  - Tabs share activity through `BroadcastChannel`, in memory only.
+  - Public pages are skipped.
+  - **Limitation:** the timer runs only while a tab is open. A session left with every tab closed lasts until its refresh token expires. A server-side idle limit in identity would close that gap; it is an auth change and needs its own decision.
+
 **Camera.** `Permissions-Policy` blocks the camera everywhere except `/verify`, the selfie check (M1.4, ADR-0022). Photo upload (M1.6) will open it for its own route only.
 
 ## Consequences and open questions
