@@ -112,6 +112,7 @@ describe('inside restricted/', () => {
     "import { logger } from '@chronos/logger';",
     "import { seal } from '@chronos/crypto';",
     "import { bootstrapService } from '@chronos/service-kit';",
+    "import { S3Client } from '@aws-sdk/client-s3';",
     "import { client } from '@chronos/contracts/disclosure';",
     "import { schema } from '@chronos/vault-db';",
     "import { Injectable } from '@nestjs/common';",

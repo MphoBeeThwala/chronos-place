@@ -14,10 +14,12 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --coverage --passWithNoTests",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "test:privacy": "vitest run --config vitest.privacy.config.ts"
+    "test:privacy": "vitest run --config vitest.privacy.config.ts",
+    "vault:replay-ledger": "node dist/replay-ledger.js"
   },
   "dependencies": {
     "@aws-sdk/client-kms": "^3.1145.0",
+    "@aws-sdk/client-s3": "^3.1177.0",
     "@chronos/config": "workspace:*",
     "@chronos/contracts": "workspace:*",
     "@chronos/crypto": "workspace:*",
@@ -40,6 +42,7 @@
     "@chronos/tsconfig": "workspace:*",
     "@testcontainers/postgresql": "^12.2.2",
     "@types/pg": "^8.23.1",
-    "@vitest/coverage-v8": "5.0.3"
+    "@vitest/coverage-v8": "5.0.3",
+    "testcontainers": "^12.2.2"
   }
 }

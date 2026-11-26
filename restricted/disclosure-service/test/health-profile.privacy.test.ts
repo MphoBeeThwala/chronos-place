@@ -123,6 +123,10 @@ describe('health profile privacy', () => {
       await call(client.getOwnHealthProfile({ accountId })).catch((error: unknown) => {
         privacy.grpc.recordError(error);
       });
+      // Erasure: nothing about the member in its logs or answer.
+      expect(
+        await call(client.eraseSubject({ subjectAccountId: accountId, requestId: randomUUID() })),
+      ).toEqual({ completed: true });
     } finally {
       await stop();
     }

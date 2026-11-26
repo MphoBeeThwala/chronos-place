@@ -91,6 +91,7 @@ const schemas = {
     viewerAccountId: z.uuid(),
     candidateAccountIds: z.array(z.uuid()).max(MAX_CANDIDATES).default([]),
   }),
+  erase: z.object({ subjectAccountId: z.uuid(), requestId: z.string().max(100).default('') }),
   view: z.object({
     viewerAccountId: z.uuid(),
     subjectAccountId: z.uuid(),
@@ -262,6 +263,13 @@ export class DisclosureController {
     const { viewerAccountId, candidateAccountIds } = parse(schemas.filterEligible, request);
     const result = await this.#runtime.filters.filterEligible(viewerAccountId, candidateAccountIds);
     return { outcome: OUTCOME[result.outcome], eligibleAccountIds: result.eligible };
+  }
+
+  @GrpcMethod(SERVICE, 'EraseSubject')
+  async eraseSubject(request: unknown): Promise<object> {
+    const { subjectAccountId } = parse(schemas.erase, request);
+    await this.#runtime.erasure.erase(subjectAccountId);
+    return { completed: true };
   }
 
   @GrpcMethod(SERVICE, 'ListConditionTaxonomy')
