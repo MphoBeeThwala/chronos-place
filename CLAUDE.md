@@ -99,6 +99,7 @@ pnpm lint                    # ESLint incl. boundary rules
 pnpm typecheck
 pnpm test                    # unit tests
 pnpm test:integration        # Testcontainers-backed tests (needs Docker)
+pnpm test:acceptance         # cross-service acceptance tests in tools/acceptance (real runtimes; needs Docker or TEST_* services)
 pnpm test:privacy            # leakage tests (logs, events, notifications)
 pnpm test:e2e                # Playwright tests for apps/web (starts the app itself; PLAYWRIGHT_CHROME_PATH=/path/to/chrome uses an installed Chrome)
 pnpm test:e2e:stack          # onboarding end to end against the real identity, profile and gateway, with axe checks (needs the stack up)

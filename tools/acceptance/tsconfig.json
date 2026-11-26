@@ -1,0 +1,5 @@
+{
+  "extends": "@chronos/tsconfig/node.json",
+  "compilerOptions": { "noEmit": true, "experimentalDecorators": true },
+  "include": ["test/**/*.ts", "*.config.ts"]
+}
