@@ -51,6 +51,9 @@ const SCOPE: Record<Scope, WireScope> = {
   full: WireScope.GRANT_SCOPE_FULL,
   conditions_only: WireScope.GRANT_SCOPE_CONDITIONS_ONLY,
 };
+const SCOPE_FROM_WIRE = new Map<number, Scope>(
+  (Object.entries(SCOPE) as [Scope, WireScope][]).map(([k, v]) => [v, k]),
+);
 
 // Validated at the edge. Field names are the proto-loader camelCase. Caps here only stop oversized
 // input early; the service applies the real rules. Failures never echo what was sent.
@@ -61,6 +64,17 @@ const schemas = {
     accountId: z.uuid(),
     visibility: z.number().int().default(0),
     filterOptIn: z.boolean().default(false),
+  }),
+  pair: z.object({ subjectAccountId: z.uuid(), viewerAccountId: z.uuid() }),
+  grant: z.object({
+    subjectAccountId: z.uuid(),
+    viewerAccountId: z.uuid(),
+    scope: z.number().int().default(0),
+  }),
+  viewers: z.object({
+    subjectAccountId: z.uuid(),
+    pageSize: z.number().int().min(0).default(0),
+    pageToken: z.string().max(200).default(''),
   }),
   view: z.object({
     viewerAccountId: z.uuid(),
@@ -190,6 +204,29 @@ export class DisclosureController {
         leaseExpiresAt: view.leaseExpiresAt,
       },
     };
+  }
+
+  @GrpcMethod(SERVICE, 'GrantDisclosure')
+  async grantDisclosure(request: unknown): Promise<object> {
+    const { subjectAccountId, viewerAccountId, scope } = parse(schemas.grant, request);
+    const grant = await this.#runtime.sharing.grant(
+      subjectAccountId,
+      viewerAccountId,
+      known(SCOPE_FROM_WIRE, scope),
+    );
+    return { grantId: grant.id, grantedAt: grant.grantedAt };
+  }
+
+  @GrpcMethod(SERVICE, 'RevokeDisclosure')
+  async revokeDisclosure(request: unknown): Promise<object> {
+    const { subjectAccountId, viewerAccountId } = parse(schemas.pair, request);
+    return { revoked: await this.#runtime.sharing.revoke(subjectAccountId, viewerAccountId) };
+  }
+
+  @GrpcMethod(SERVICE, 'ListHealthViewers')
+  async listHealthViewers(request: unknown): Promise<object> {
+    const { subjectAccountId, pageSize, pageToken } = parse(schemas.viewers, request);
+    return this.#runtime.viewers.list(subjectAccountId, pageSize, pageToken);
   }
 
   @GrpcMethod(SERVICE, 'ListConditionTaxonomy')

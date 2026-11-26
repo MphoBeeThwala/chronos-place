@@ -5,7 +5,9 @@ import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 import { IdentityMemberFacts, type MemberFacts } from './access/member-facts.js';
 import { MatchingNotYetAvailable, type Relationships } from './access/relationships.js';
+import { SharingService } from './access/sharing.service.js';
 import { ViewService } from './access/view.service.js';
+import { ViewersService } from './access/viewers.service.js';
 import { HealthProfileService } from './health/health-profile.service.js';
 import { ConditionTaxonomy } from './health/taxonomy.js';
 import { AccessLog } from './vault/access-log.js';
@@ -36,6 +38,8 @@ export interface DisclosureRuntime {
   taxonomy: ConditionTaxonomy;
   profiles: HealthProfileService;
   views: ViewService;
+  sharing: SharingService;
+  viewers: ViewersService;
   close: () => Promise<void>;
 }
 
@@ -68,11 +72,13 @@ export function createDisclosureRuntime(
   const accessLog = new AccessLog(db);
   const profiles = new HealthProfileService({ db, subjects, keyring, taxonomy, accessLog });
   const members = overrides.members ?? new IdentityMemberFacts(config.IDENTITY_GRPC_ADDRESS);
+  const grants = new Grants(db);
+  const relationships = overrides.relationships ?? new MatchingNotYetAvailable();
   const views = new ViewService({
     db,
     subjects,
-    grants: new Grants(db),
-    relationships: overrides.relationships ?? new MatchingNotYetAvailable(),
+    grants,
+    relationships,
     members,
     profiles,
     accessLog,
@@ -85,6 +91,8 @@ export function createDisclosureRuntime(
     taxonomy,
     profiles,
     views,
+    sharing: new SharingService({ db, subjects, grants, relationships, members }),
+    viewers: new ViewersService(db, subjects, accessLog),
     close: async () => {
       members.close();
       await pool.end();

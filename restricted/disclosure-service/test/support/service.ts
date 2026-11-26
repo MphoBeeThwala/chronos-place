@@ -56,7 +56,27 @@ export interface DisclosureClient {
       };
     }
   >;
-  grantDisclosure: Call<Record<string, unknown>, unknown>;
+  grantDisclosure: Call<
+    { subjectAccountId: string; viewerAccountId: string; scope?: number },
+    { grantId: string; grantedAt: unknown }
+  >;
+  revokeDisclosure: Call<
+    { subjectAccountId: string; viewerAccountId: string },
+    { revoked: boolean }
+  >;
+  listHealthViewers: Call<
+    { subjectAccountId: string; pageSize?: number; pageToken?: string },
+    {
+      viewers?: {
+        viewerAccountId: string;
+        lastViewedAt: unknown;
+        viewCount: number;
+        hasActiveGrant: boolean;
+      }[];
+      nextPageToken: string;
+    }
+  >;
+  exportSubject: Call<Record<string, unknown>, unknown>;
   setVisibility: Call<
     { accountId: string; visibility?: number; filterOptIn?: boolean },
     { visibility: number; filterOptIn: boolean }

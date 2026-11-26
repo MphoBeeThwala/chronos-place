@@ -11,7 +11,7 @@ back only what the viewer may see.
 - **Keys:** each member's data key is wrapped by KMS and stored in `vault.subject_keys`. Deleting
   that row is the crypto-shred.
 
-## What it does so far (M2.2, M2.3)
+## What it does so far (M2.2 to M2.4)
 
 - `UpsertHealthProfile` saves a member's whole profile, sealed with their data key and bound to
   their vault id. `expected_version` (0 to create) stops two devices overwriting each other:
@@ -28,7 +28,16 @@ back only what the viewer may see.
   4.2), records it, and only then opens the profile. Allowed views carry a 5-minute lease.
   Until matching exists (M3.1) every view by another member is denied; moderation is denied
   until M5.
-- Every other call answers `UNIMPLEMENTED` until its task (M2.4 to M2.7).
+- `GrantDisclosure` (M2.4) shares with one viewer: full or conditions only. It needs a saved
+  profile and an active, unblocked match with an active viewer; the refusal is the same in every
+  case. A scope change ends the old grant and creates a new one. Until matching exists (M3.1)
+  every share is refused.
+- `RevokeDisclosure` (M2.4) ends the share; the viewer's next request is refused. A view already
+  on their screen lasts at most until its 5-minute lease.
+- `ListHealthViewers` (M2.4): successful views by other members, newest first, with a count and
+  whether the share is still live. Own and moderator views are not listed. Reading it is recorded
+  (`self_viewers`).
+- Every other call answers `UNIMPLEMENTED` until its task (M2.5 to M2.7).
 
 **Retired conditions:** entries are retired, never deleted. A member who already has a retired
 condition keeps it and can still save other changes (that check reads their stored profile, audited

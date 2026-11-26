@@ -1,11 +1,16 @@
 import { randomUUID } from 'node:crypto';
-import { ConditionStatus, Purpose, Visibility } from '@chronos/contracts/disclosure';
+import { ConditionStatus, GrantScope, Purpose, Visibility } from '@chronos/contracts/disclosure';
 import { usePrivacyHarness } from '@chronos/privacy-harness/vitest';
 import { runMigrations } from '@chronos/vault-db';
 import { firstValueFrom as call } from 'rxjs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { startTestDatabase, type TestDatabase } from './support/database.js';
-import { startService, type WireProfile } from './support/service.js';
+import {
+  FakeMembers,
+  FakeRelationships,
+  startService,
+  type WireProfile,
+} from './support/service.js';
 
 /**
  * Health data must never reach a log line or a gRPC error, on success or failure (CLAUDE.md
@@ -29,8 +34,14 @@ describe('health profile privacy', () => {
   const privacy = usePrivacyHarness();
 
   it('never logs or echoes what members save, on success or failure', async () => {
-    const { client, stop } = await startService(db.url, privacy.logs.destination);
+    const members = new FakeMembers();
+    const relationships = new FakeRelationships();
+    const { client, stop } = await startService(db.url, privacy.logs.destination, {
+      members,
+      relationships,
+    });
     const accountId = randomUUID();
+    members.verified.set(accountId, true);
     const words = privacy.markers.healthText();
     const note = privacy.markers.healthText();
     const unknownCode = privacy.markers.conditionCode();
@@ -68,6 +79,29 @@ describe('health profile privacy', () => {
       );
       // A denial says nothing at all: not why, not the setting, nothing from the profile.
       expect(denied).toEqual({ allowed: false });
+      // Sharing: a refused share (no match), a share, a view by the match, revoke, the list.
+      const match = randomUUID();
+      members.verified.set(match, true);
+      const pair = { subjectAccountId: accountId, viewerAccountId: match };
+      await call(client.grantDisclosure({ ...pair, scope: GrantScope.GRANT_SCOPE_FULL })).catch(
+        (error: unknown) => {
+          privacy.grpc.recordError(error);
+        },
+      );
+      relationships.matches.add(FakeRelationships.key(accountId, match));
+      await call(client.grantDisclosure({ ...pair, scope: GrantScope.GRANT_SCOPE_FULL }));
+      await call(
+        client.viewHealthProfile({ viewerAccountId: match, subjectAccountId: accountId, purpose }),
+      );
+      await call(client.revokeDisclosure(pair));
+      const listed = await call(client.listHealthViewers({ subjectAccountId: accountId }));
+      // Who, when, how often, and whether still shared: nothing from the profile.
+      expect(Object.keys(listed.viewers?.[0] ?? {}).sort()).toEqual([
+        'hasActiveGrant',
+        'lastViewedAt',
+        'viewCount',
+        'viewerAccountId',
+      ]);
       // Failures: unknown code, over-long text, a stale version, and an undecryptable row.
       await attempt({ conditions: [{ code: unknownCode, status: LIVING_WITH }], freeText: words });
       await attempt({ conditions: [], freeText: `${words} ${'x'.repeat(600)}` });
@@ -85,7 +119,7 @@ describe('health profile privacy', () => {
     }
 
     expect(privacy.logs.texts().length).toBeGreaterThan(0);
-    expect(privacy.grpc.texts()).toHaveLength(4);
+    expect(privacy.grpc.texts()).toHaveLength(5);
     // The harness checks the markers; these are what a reader could link to a person.
     for (const line of [...privacy.logs.texts(), ...privacy.grpc.texts()]) {
       expect(line).not.toContain(accountId);
