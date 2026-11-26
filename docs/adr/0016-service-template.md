@@ -10,6 +10,7 @@
 - **mTLS:** gRPC TLS certificate, key and client CA are required outside local and test. The per-method allow-list is M2.5.
 
 **Telemetry** (OpenTelemetry, OTLP over HTTP)
+- **Restricted services send no traces** (M2.2 decision). `--restricted` generates them with `telemetry: false` and without the `--import` preload; `bootstrapService` refuses to start a `telemetry: false` service if tracing was preloaded. Turning tracing on there needs its own security review.
 - Only HTTP and gRPC are instrumented. Database, Redis and Kafka instrumentation arrives with those clients and must not capture statements.
 - A scrubbing exporter wraps the OTLP exporter: span and event attributes go through the logger's redaction, query strings and statements are dropped, `exception.message`, `exception.stacktrace` and span status messages are removed (error text can echo input).
 - Resource detection is limited to `OTEL_RESOURCE_ATTRIBUTES`. The default process detector exports command-line arguments, which can carry secrets.

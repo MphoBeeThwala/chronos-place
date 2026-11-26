@@ -19,5 +19,6 @@ COPY --from=build --chown=65532:65532 /out /app
 ENV NODE_ENV=production
 USER 65532:65532
 EXPOSE 8080 50051
-# The image entrypoint is node; --import starts telemetry before any module is loaded.
-CMD ["--import", "@chronos/service-kit/instrument", "dist/main.js"]
+# The image entrypoint is node. Core services preload telemetry with --import; restricted services
+# run without it (no tracing from the restricted zone).
+CMD [__CMD_ARGS__]

@@ -64,7 +64,7 @@ describe('generateService', () => {
     expect(finalStage).not.toMatch(/^RUN /m);
   });
 
-  it('uses the allow-list logger for restricted services', () => {
+  it('uses the allow-list logger and no telemetry for restricted services', () => {
     const restricted = generateService({
       name: 'vault-api',
       root,
@@ -75,8 +75,22 @@ describe('generateService', () => {
     expect(readFileSync(path.join(restricted, 'src/main.ts'), 'utf8')).toContain(
       "loggerMode: 'allowlist'",
     );
+    expect(readFileSync(path.join(restricted, 'src/main.ts'), 'utf8')).toContain(
+      'telemetry: false',
+    );
+    for (const file of ['package.json', 'Dockerfile']) {
+      expect(readFileSync(path.join(restricted, file), 'utf8'), file).not.toContain('instrument');
+    }
     const normal = generateService({ name: 'matching', root, distrolessDigest: DIGEST });
     expect(readFileSync(path.join(normal, 'src/main.ts'), 'utf8')).not.toContain('allowlist');
+    expect(readFileSync(path.join(normal, 'src/main.ts'), 'utf8')).not.toContain(
+      'telemetry: false',
+    );
+    for (const file of ['package.json', 'Dockerfile']) {
+      expect(readFileSync(path.join(normal, file), 'utf8'), file).toContain(
+        '@chronos/service-kit/instrument',
+      );
+    }
   });
 
   it.each(['Profile', 'a', '1service', 'bad_name', 'has space', '../escape', 'x'.repeat(40), ''])(

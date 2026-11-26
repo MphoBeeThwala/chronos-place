@@ -16,7 +16,7 @@ export interface GenerateOptions {
   name: string;
   /** Repository root. */
   root: string;
-  /** Generate under restricted/ with the allow-list logger (ADR-0002). */
+  /** Generate under restricted/ with the allow-list logger and no telemetry (ADR-0002). */
   restricted?: boolean;
   /** Pinned digest of the distroless base image. */
   distrolessDigest: string;
@@ -38,7 +38,16 @@ export function generateService(options: GenerateOptions): string {
     __NAME__: name,
     __SCOPE_DIR__: scopeDir,
     __DISTROLESS_DIGEST__: options.distrolessDigest.replace(/^sha256:/, ''),
-    __LOGGER_OPTION__: options.restricted === true ? ", loggerMode: 'allowlist'" : '',
+    __LOGGER_OPTION__:
+      options.restricted === true ? ", loggerMode: 'allowlist', telemetry: false" : '',
+    __START_ARGS__:
+      options.restricted === true
+        ? 'dist/main.js'
+        : '--import @chronos/service-kit/instrument dist/main.js',
+    __CMD_ARGS__:
+      options.restricted === true
+        ? '"dist/main.js"'
+        : '"--import", "@chronos/service-kit/instrument", "dist/main.js"',
   };
   const fill = (text: string): string =>
     Object.entries(replacements).reduce(

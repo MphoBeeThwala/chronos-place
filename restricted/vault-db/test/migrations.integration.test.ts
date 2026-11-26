@@ -119,6 +119,19 @@ describe('vault migrations', () => {
   });
 });
 
+describe('condition list', () => {
+  it('seeds the approved provisional list, all active, with "other"', async () => {
+    const { rows } = await db.pool.query<{ code: string; active: boolean }>(
+      `select code, active from vault.condition_taxonomy order by code`,
+    );
+    expect(rows).toHaveLength(24);
+    expect(rows.every((r) => r.active)).toBe(true);
+    expect(rows.map((r) => r.code)).toEqual(
+      expect.arrayContaining(['hiv', 't1d', 'cancer', 'other']),
+    );
+  });
+});
+
 describe('roles and grants', () => {
   it('creates both roles without login', async () => {
     const { rows } = await db.pool.query<{ rolname: string; rolcanlogin: boolean }>(
