@@ -6,7 +6,19 @@ import type { KeyedHasher } from '../otp/keyed-hash.js';
 import { type AccessTokenSigner, issueAccessToken } from './access-token.js';
 import type { RevokeReason, SessionStore } from './session-store.js';
 
-export const REFRESH_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60;
+/**
+ * Absolute limit (approved 2026-11-26): a session ends 30 days after it opened, however active,
+ * and the member signs in again. Refreshing never extends it.
+ */
+export const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
+/**
+ * Idle limit (approved 2026-11-26): a session ends after 7 days with no activity, even with every
+ * tab closed. Each refresh token lasts this long, and an active app refreshes every 10 minutes
+ * (the access-token lifetime), so a refresh is the activity signal: `last_used_at` rolls forward
+ * at most that often, with no write on ordinary requests.
+ */
+export const SESSION_IDLE_SECONDS = 7 * 24 * 60 * 60;
+
 const REFRESH_TOKEN_BYTES = 32;
 const REFRESH_FORMAT = /^[A-Za-z0-9_-]{43}$/;
 
@@ -56,13 +68,15 @@ export class SessionService {
   async open(accountId: string, deviceId: string): Promise<SessionTokens> {
     const now = this.#d.now();
     const sessionId = randomUUID();
-    const refresh = this.#newRefreshToken(now);
+    const sessionEnds = new Date(now.getTime() + SESSION_MAX_AGE_SECONDS * 1000);
+    const refresh = this.#newRefreshToken(now, sessionEnds);
     await this.#d.sessions.create(
       {
         id: sessionId,
         accountId,
         deviceHash: this.#d.deviceHasher.hash('device', deviceId),
-        expiresAt: refresh.expiresAt,
+        expiresAt: sessionEnds,
+        openedAt: now,
       },
       refresh.record,
     );
@@ -77,7 +91,20 @@ export class SessionService {
     if (!found) throw this.#rejected();
 
     const { sessionId, accountId } = found;
-    if (found.revokedAt !== null || found.sessionExpiresAt <= now || found.tokenExpiresAt <= now) {
+    // Sessions opened before the absolute limit existed have a rolling expiry: cap it too.
+    const sessionEnds = new Date(
+      Math.min(
+        found.sessionExpiresAt.getTime(),
+        found.sessionCreatedAt.getTime() + SESSION_MAX_AGE_SECONDS * 1000,
+      ),
+    );
+    const idleSince = now.getTime() - found.lastUsedAt.getTime();
+    if (
+      found.revokedAt !== null ||
+      sessionEnds <= now ||
+      found.tokenExpiresAt <= now ||
+      idleSince >= SESSION_IDLE_SECONDS * 1000
+    ) {
       throw this.#rejected();
     }
     if (!this.#d.deviceHasher.hash('device', deviceId).equals(found.deviceHash)) {
@@ -94,7 +121,7 @@ export class SessionService {
       throw this.#rejected();
     }
 
-    const refresh = this.#newRefreshToken(now);
+    const refresh = this.#newRefreshToken(now, sessionEnds);
     await this.#d.sessions.rotate(sessionId, refresh.record, now);
     return { accountId, tokens: await this.#tokens(accountId, sessionId, refresh, now) };
   }
@@ -119,9 +146,12 @@ export class SessionService {
     return new DomainError('unauthenticated', SESSION_NOT_ACCEPTED);
   }
 
-  #newRefreshToken(now: Date) {
+  /** Lasts the idle limit, but never past the session's absolute end. */
+  #newRefreshToken(now: Date, sessionEnds: Date) {
     const token = randomBytes(REFRESH_TOKEN_BYTES).toString('base64url');
-    const expiresAt = new Date(now.getTime() + REFRESH_TOKEN_TTL_SECONDS * 1000);
+    const expiresAt = new Date(
+      Math.min(now.getTime() + SESSION_IDLE_SECONDS * 1000, sessionEnds.getTime()),
+    );
     return {
       token,
       expiresAt,
