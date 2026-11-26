@@ -20,6 +20,7 @@
     "dev:infra:status": "bash tools/scripts/dev-infra.sh status",
     "test:infra": "bash tools/scripts/check-vault-isolation.sh",
     "db:migrate": "bash tools/scripts/db-migrate.sh",
+    "db:migrate:vault": "bash tools/scripts/db-migrate-vault.sh",
     "test:integration": "turbo run test:integration",
     "test:acceptance": "pnpm --filter @chronos/acceptance test:integration",
     "contracts:gen": "pnpm --filter @chronos/contracts contracts:gen",

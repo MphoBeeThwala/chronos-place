@@ -1,0 +1,36 @@
+{
+  "name": "@chronos/vault-db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Health Vault schema, forward-only migrations and database roles. Restricted zone (ADR-0002).",
+  "files": [
+    "dist",
+    "migrations"
+  ],
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "node dist/migrate.js",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
+  },
+  "dependencies": {
+    "@chronos/config": "workspace:*",
+    "@chronos/logger": "workspace:*",
+    "drizzle-orm": "^0.45.4",
+    "pg": "^8.23.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@chronos/tsconfig": "workspace:*",
+    "@testcontainers/postgresql": "^12.2.2",
+    "@types/pg": "^8.23.1",
+    "drizzle-kit": "^0.31.11"
+  }
+}

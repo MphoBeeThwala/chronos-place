@@ -153,58 +153,81 @@ CREATE TABLE reports (
 
 ### 3.3 Health Vault database (separate cluster, restricted account)
 
+All tables live in the `vault` schema. The source of truth is `restricted/vault-db/src/schema.ts` and its migrations; this section summarises them.
+
 ```sql
 -- Links the core account to a pseudonymous vault subject. Lives ONLY here.
 CREATE TABLE subject_map (
   account_id      uuid PRIMARY KEY,
-  vault_id        uuid UNIQUE NOT NULL
+  vault_id        uuid UNIQUE NOT NULL DEFAULT gen_random_uuid(),
+  created_at      timestamptz NOT NULL
 );
 
 -- Per-member data key, wrapped by the KMS CMK. Deleting this row = crypto-shred.
+-- Backs @chronos/crypto's WrappedKeyStore (subject id = vault_id).
 CREATE TABLE subject_keys (
-  vault_id        uuid PRIMARY KEY REFERENCES subject_map(vault_id),
+  vault_id        uuid PRIMARY KEY REFERENCES subject_map(vault_id) ON DELETE CASCADE,
   wrapped_dek     bytea NOT NULL,
   kms_key_arn     text NOT NULL,
-  rotated_at      timestamptz NOT NULL
+  created_at      timestamptz NOT NULL,
+  rotated_at      timestamptz                -- null until the first rotation
 );
 
-CREATE TABLE condition_taxonomy (            -- non-sensitive reference data
-  code            text PRIMARY KEY,          -- e.g. hiv, t1d, t2d, cancer_survivor
+CREATE TABLE condition_taxonomy (            -- non-sensitive reference data, changed only by migrations
+  code            text PRIMARY KEY,          -- e.g. hiv, t1d, t2d, cancer_survivor; ^[a-z][a-z0-9_]{0,39}$
   label_en        text NOT NULL,
   active          boolean NOT NULL DEFAULT true
 );
 
 CREATE TABLE health_profiles (
-  vault_id        uuid PRIMARY KEY REFERENCES subject_map(vault_id),
+  vault_id        uuid PRIMARY KEY REFERENCES subject_map(vault_id) ON DELETE CASCADE,
   payload_ct      bytea NOT NULL,            -- AES-256-GCM ciphertext of JSON below
   payload_nonce   bytea NOT NULL,
-  visibility      text NOT NULL DEFAULT 'hidden', -- hidden | match_only | chat_grant | profile
+  visibility      text NOT NULL DEFAULT 'hidden', -- CHECK: hidden | match_only | chat_grant | profile
   filter_opt_in   boolean NOT NULL DEFAULT false,
-  version         integer NOT NULL
+  version         integer NOT NULL DEFAULT 1, -- bumped on every write (optimistic concurrency)
+  created_at, updated_at timestamptz NOT NULL
 );
 -- payload JSON: { conditions: [{code, status: living_with|in_remission|survivor}], freeText?: string, note?: string }
 
-CREATE TABLE disclosure_grants (
-  id              uuid PRIMARY KEY,
-  vault_id        uuid NOT NULL REFERENCES subject_map(vault_id),
-  viewer_account_id uuid NOT NULL,
-  scope           text NOT NULL,             -- full | conditions_only
-  granted_at      timestamptz NOT NULL,
-  revoked_at      timestamptz
+-- Conditions a member filters by (ADR-0015), sealed like the profile.
+CREATE TABLE filter_preferences (
+  vault_id        uuid PRIMARY KEY REFERENCES subject_map(vault_id) ON DELETE CASCADE,
+  payload_ct      bytea NOT NULL,
+  payload_nonce   bytea NOT NULL,
+  version         integer NOT NULL DEFAULT 1,
+  created_at, updated_at timestamptz NOT NULL
 );
+
+CREATE TABLE disclosure_grants (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  vault_id        uuid NOT NULL REFERENCES subject_map(vault_id) ON DELETE CASCADE,
+  viewer_account_id uuid NOT NULL,
+  scope           text NOT NULL,             -- CHECK: full | conditions_only
+  granted_at      timestamptz NOT NULL DEFAULT now(),
+  revoked_at      timestamptz                -- CHECK: null or >= granted_at
+);
+-- At most one live grant per (vault_id, viewer_account_id): unique index WHERE revoked_at IS NULL.
 
 CREATE TABLE health_access_log (             -- append-only; also streamed to immutable storage
   id              bigserial PRIMARY KEY,
-  vault_id        uuid NOT NULL,
-  accessor        text NOT NULL,             -- account:<id> | service:<name> | staff:<id>
-  purpose         text NOT NULL,             -- profile_view | chat_card | moderation | export | erasure
-  decision        text NOT NULL,             -- allow | deny
-  reason          text NOT NULL,
-  at              timestamptz NOT NULL
+  vault_id        uuid NOT NULL,             -- no FK: rows outlive erasure, pseudonymous only
+  accessor        text NOT NULL,             -- CHECK: account:<uuid> | service:<name> | staff:<uuid>
+  purpose         text NOT NULL,             -- CHECK: profile_view | chat_card | moderation | export | erasure
+  decision        text NOT NULL,             -- CHECK: allow | deny
+  reason          text NOT NULL,             -- CHECK: short code ^[a-z][a-z0-9_]{0,39}$ (e.g. no_grant), never free text
+  at              timestamptz NOT NULL DEFAULT now()
 );
 ```
 
-Database roles: the disclosure-service role has `SELECT/INSERT/UPDATE` on vault tables and `INSERT` only on `health_access_log`. No human role has standing access.
+Database roles (migration `0001_roles.sql`), both created without login; infrastructure supplies authentication (a password from the environment locally, IAM auth when deployed), so no secret is in a migration:
+
+- `vault_owner` owns the schema and tables and is used only to run migrations.
+- `disclosure_service` is the runtime role: `SELECT/INSERT/UPDATE/DELETE` on `subject_map`, `subject_keys`, `health_profiles`, `filter_preferences` and `disclosure_grants` (DELETE serves erasure, M2.7); `SELECT` only on `condition_taxonomy`; `SELECT/INSERT` only on `health_access_log` (SELECT serves "who has seen my health information", M2.8). Nothing on any other schema.
+- `health_access_log` is append-only twice over: no UPDATE, DELETE or TRUNCATE grant, and a trigger that refuses all three for every role, the owner included.
+- Nothing is granted to `PUBLIC`. No human role has standing access.
+
+Audit rows are kept after a member is erased: they hold only the pseudonymous vault id, which nothing links back to an account once `subject_map` is deleted. The retention period is for counsel to set; until then rows are kept.
 
 ---
 
