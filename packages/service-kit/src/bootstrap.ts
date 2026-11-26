@@ -151,13 +151,25 @@ export async function bootstrapService<Extra extends z.ZodRawShape = z.ZodRawSha
   ) {
     throw new Error('A gRPC service needs a caller allow-list outside local and test (M2.5)');
   }
+  const tls = config.GRPC_TLS_CERT_PATH !== undefined && config.GRPC_TLS_KEY_PATH !== undefined;
+  if (options.allowList !== undefined && !tls && config.NODE_ENV === 'local') {
+    throw new Error(
+      'This service checks gRPC callers by certificate: run pnpm dev:certs and set GRPC_TLS_* (M2.5)',
+    );
+  }
+  // Without TLS there is no caller identity. Only unit and integration tests run like that; the
+  // allow-list itself is tested over real mTLS.
+  const enforce = options.allowList !== undefined && tls;
+  if (options.allowList !== undefined && !enforce) {
+    logger.warn('grpc caller allow-list off: no TLS (test only)');
+  }
   @Module({
     imports: [
       kitModule({
         config,
         logger,
         readiness,
-        allowList: options.allowList,
+        allowList: enforce ? options.allowList : undefined,
         trustDomain: config.GRPC_TRUST_DOMAIN,
       }),
       options.module,

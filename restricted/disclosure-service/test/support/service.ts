@@ -2,9 +2,11 @@ import { createServer } from 'node:net';
 import { SubjectKeyring } from '@chronos/crypto';
 import { InMemoryKeyWrapper } from '@chronos/crypto/testing';
 import { createLogger, type LoggerOptions } from '@chronos/logger';
-import { bootstrapService, type RunningService } from '@chronos/service-kit';
+import { bootstrapService, grpcClientCredentials, type RunningService } from '@chronos/service-kit';
+import type { Pki } from '@chronos/service-kit/pki';
 import { ClientProxyFactory, Transport, type ClientGrpc } from '@nestjs/microservices';
 import type { Observable } from 'rxjs';
+import { DISCLOSURE_ALLOW_LIST } from '../../src/allow-list.js';
 import { createAppModule } from '../../src/app.module.js';
 import type { RuntimeOverrides } from '../../src/runtime.js';
 import { disclosureConfig } from '../../src/config.js';
@@ -106,6 +108,8 @@ export const asServiceRole = (url: string): string => {
 
 export interface StartedService {
   client: DisclosureClient;
+  /** With `mtls`: a client presenting the named service's certificate. */
+  clientAs: (caller: string) => DisclosureClient;
   stop: () => Promise<void>;
 }
 
@@ -114,7 +118,9 @@ export async function startService(
   databaseUrl: string,
   logs?: LoggerOptions['destination'],
   overrides: Omit<RuntimeOverrides, 'keyring'> = {},
+  mtls?: Pki,
 ): Promise<StartedService> {
+  const server = mtls?.services['disclosure-service'];
   const grpcPort = await freePort();
   // One wrapper for every test service, like one KMS key for every instance in production.
   const wrapper = SHARED_WRAPPER;
@@ -125,6 +131,8 @@ export async function startService(
     }),
     extraConfig: disclosureConfig,
     grpc: { packageName: DISCLOSURE_PACKAGE, protoPath: DISCLOSURE_PROTO },
+    // As in production. Without TLS (most tests) the kit leaves it off in NODE_ENV=test.
+    allowList: DISCLOSURE_ALLOW_LIST,
     loggerMode: 'allowlist',
     telemetry: false,
     ...(logs
@@ -145,23 +153,49 @@ export async function startService(
       SHUTDOWN_DRAIN_MS: '0',
       VAULT_DATABASE_URL: asServiceRole(databaseUrl),
       VAULT_DATA_KEY_ID: 'alias/test-vault',
+      ...(mtls && server
+        ? {
+            GRPC_TLS_CERT_PATH: server.cert,
+            GRPC_TLS_KEY_PATH: server.key,
+            GRPC_TLS_CA_PATH: mtls.ca,
+          }
+        : {}),
     },
     onInvalidConfig: 'throw',
     installSignalHandlers: false,
     exit: () => undefined,
   });
-  const proxy = ClientProxyFactory.create({
-    transport: Transport.GRPC,
-    options: {
-      package: DISCLOSURE_PACKAGE,
-      protoPath: DISCLOSURE_PROTO,
-      url: `127.0.0.1:${String(grpcPort)}`,
-    },
-  }) as unknown as ClientGrpc & { close: () => void };
+  const proxies: { close: () => void }[] = [];
+  const connect = (caller?: string): DisclosureClient => {
+    const cert = caller === undefined ? undefined : mtls?.services[caller];
+    const proxy = ClientProxyFactory.create({
+      transport: Transport.GRPC,
+      options: {
+        package: DISCLOSURE_PACKAGE,
+        protoPath: DISCLOSURE_PROTO,
+        url: `localhost:${String(grpcPort)}`,
+        ...(mtls
+          ? {
+              credentials: grpcClientCredentials(
+                {
+                  GRPC_TLS_CERT_PATH: cert?.cert,
+                  GRPC_TLS_KEY_PATH: cert?.key,
+                  GRPC_TLS_CA_PATH: mtls.ca,
+                },
+                'disclosure-service',
+              ),
+            }
+          : {}),
+      },
+    }) as unknown as ClientGrpc & { close: () => void };
+    proxies.push(proxy);
+    return proxy.getService<DisclosureClient>('DisclosureService');
+  };
   return {
-    client: proxy.getService<DisclosureClient>('DisclosureService'),
+    client: connect(mtls ? 'gateway' : undefined),
+    clientAs: connect,
     stop: async () => {
-      proxy.close();
+      for (const proxy of proxies) proxy.close();
       await service.shutdown('test');
     },
   };

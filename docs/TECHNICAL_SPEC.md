@@ -266,7 +266,7 @@ enum Purpose { PURPOSE_UNSPECIFIED = 0; PROFILE_VIEW = 1; CHAT_CARD = 2; MODERAT
 // (e.g. ViewHealthProfileRequest). This excerpt is illustrative. See ADR-0015.
 ```
 
-Callers are authenticated by mTLS identity. Allow-list:
+Callers are authenticated by mTLS identity (`spiffe://chronos-place.internal/<service>`, ADR-0004). The allow-list is enforced in `restricted/disclosure-service/src/allow-list.ts` (M2.5), default deny, and a test keeps it equal to the `Caller` comments in the proto. Identity and profile have their own allow-lists. The gateway may call ViewHealthProfile only with a non-moderation purpose. ExportSubject has no caller until ADR-0025 decision g. Allow-list:
 
 | Caller | Allowed RPCs |
 | --- | --- |

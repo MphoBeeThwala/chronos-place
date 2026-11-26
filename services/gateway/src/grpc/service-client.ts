@@ -1,4 +1,10 @@
-import { credentials, loadPackageDefinition, Metadata, type ServiceError } from '@grpc/grpc-js';
+import {
+  type ChannelCredentials,
+  credentials,
+  loadPackageDefinition,
+  Metadata,
+  type ServiceError,
+} from '@grpc/grpc-js';
 import { loadSync } from '@grpc/proto-loader';
 
 type Unary = (
@@ -12,8 +18,8 @@ type ServiceConstructor = new (address: string, creds: unknown) => unknown;
 
 /**
  * A gRPC client for one service of the contracts, e.g. "chronos.identity.v1.IdentityService".
- * Plain grpc-js: the gateway is an HTTP service, not a Nest microservice. mTLS and the per-method
- * allow-list arrive with M2.5.
+ * Plain grpc-js: the gateway is an HTTP service, not a Nest microservice. Over mTLS, presenting the
+ * gateway's certificate, when `credentials` are given (M2.5).
  */
 export class GrpcServiceClient {
   readonly #client: Record<string, Unary> & { close: () => void };
@@ -25,6 +31,7 @@ export class GrpcServiceClient {
     protoPath: string;
     service: string;
     timeoutMs?: number;
+    credentials?: ChannelCredentials;
   }) {
     const definition = loadSync(options.protoPath, {
       keepCase: false,
@@ -36,10 +43,10 @@ export class GrpcServiceClient {
     let node: unknown = loadPackageDefinition(definition);
     for (const part of options.service.split('.')) node = (node as Record<string, unknown>)[part];
     const Service = node as ServiceConstructor;
-    this.#client = new Service(options.address, credentials.createInsecure()) as Record<
-      string,
-      Unary
-    > & { close: () => void };
+    this.#client = new Service(
+      options.address,
+      options.credentials ?? credentials.createInsecure(),
+    ) as Record<string, Unary> & { close: () => void };
     this.#timeoutMs = options.timeoutMs ?? 3000;
     this.#name = options.service;
   }

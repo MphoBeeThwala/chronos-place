@@ -1,3 +1,4 @@
+import type { ChannelCredentials } from '@grpc/grpc-js';
 import { GrpcServiceClient } from '../grpc/service-client.js';
 
 /** google.protobuf.Timestamp as proto-loader returns it (longs as strings). */
@@ -17,7 +18,12 @@ export const toDate = (t: Date | WireTimestamp | null | undefined): Date => {
 
 /** gRPC client for chronos.identity.v1.IdentityService. */
 export class IdentityClient extends GrpcServiceClient {
-  constructor(options: { address: string; protoPath: string; timeoutMs?: number }) {
+  constructor(options: {
+    address: string;
+    protoPath: string;
+    timeoutMs?: number;
+    credentials?: ChannelCredentials;
+  }) {
     super({ ...options, service: 'chronos.identity.v1.IdentityService' });
   }
 }

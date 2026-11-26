@@ -38,7 +38,8 @@ service DisclosureService {
   rpc GetFilterPreferences(GetFilterPreferencesRequest) returns (GetFilterPreferencesResponse);
   // Condition-aware discovery: narrows candidates using the viewer's stored preferences (TECHNICAL_SPEC 4.3). Caller: discovery.
   rpc FilterEligibleSubjects(FilterEligibleSubjectsRequest) returns (FilterEligibleSubjectsResponse);
-  // Returns everything held about the member, for data export. Caller: identity.
+  // Returns everything held about the member, for data export. Caller: none until ADR-0025
+  // decision g is made (identity is the proposed caller).
   rpc ExportSubject(ExportSubjectRequest) returns (ExportSubjectResponse);
   // Crypto-shreds and deletes everything held about the member. Idempotent. Caller: identity.
   rpc EraseSubject(EraseSubjectRequest) returns (EraseSubjectResponse);

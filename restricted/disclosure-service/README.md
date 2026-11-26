@@ -44,6 +44,14 @@ condition keeps it and can still save other changes (that check reads their stor
 as `self_update`); nobody can newly add it. `ListConditionTaxonomy` returns retired entries only
 with `include_retired`, so a member's own profile can still show their label.
 
+## Who may call it
+
+`src/allow-list.ts` (M2.5): callers are identified by mTLS certificate and everything not listed is
+refused. The gateway gets the member-facing calls and never the moderation purpose. Moderation
+gets ViewHealthProfile with purpose moderation and a report id only. Discovery gets
+FilterEligibleSubjects, and identity gets EraseSubject. ExportSubject has no caller until ADR-0025
+decision g.
+
 ## Configuration
 
 `VAULT_DATABASE_URL`, `VAULT_DATA_KEY_ID` (the KMS key that wraps members' data keys),

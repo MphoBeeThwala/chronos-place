@@ -246,3 +246,40 @@ describe('startup', () => {
     ).rejects.toThrow(/caller allow-list/);
   });
 });
+
+describe('TLS off', () => {
+  const run = async (nodeEnv: string) => {
+    const log = captureLogger();
+    const started = bootstrapService({
+      module: EchoModule,
+      grpc: { packageName: 'chronos.test.v1', protoPath: ECHO_PROTO },
+      allowList: ALLOW,
+      logger: log.logger,
+      env: {
+        NODE_ENV: nodeEnv,
+        SERVICE_NAME: 'echo-service',
+        HTTP_PORT: String(await freePort()),
+        GRPC_PORT: String(await freePort()),
+        SHUTDOWN_DRAIN_MS: '0',
+      },
+      onInvalidConfig: 'throw',
+      installSignalHandlers: false,
+      exit: () => undefined,
+    });
+    return { started, log };
+  };
+
+  it('refuses to start in local development without certificates', async () => {
+    const { started } = await run('local');
+    await expect(started).rejects.toThrow(/pnpm dev:certs/);
+  });
+
+  it('runs tests without the guard, and says so', async () => {
+    const { started, log } = await run('test');
+    const service = await started;
+    await service.shutdown('test');
+    expect(
+      log.lines().some((l) => l['msg'] === 'grpc caller allow-list off: no TLS (test only)'),
+    ).toBe(true);
+  });
+});
