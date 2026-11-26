@@ -13,6 +13,8 @@ export const CLIENT_CODES = new Set([
   'NOT_FOUND',
   'UNAVAILABLE',
   'REFRESH_IN_PROGRESS',
+  // A newer save from another device (M2.8): reload and try again.
+  'CONFLICT',
   'PERSISTED_QUERY_NOT_FOUND',
 ]);
 

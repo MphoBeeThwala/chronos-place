@@ -18,7 +18,8 @@ const member = (state = AccountStatus.ACCOUNT_STATUS_ACTIVE) => {
 };
 const session = async (id: string) => ({ cookie: `chronos_access=${await identity.token(id)}` });
 
-const REQUEST = 'mutation { requestAccountDeletionCode { challengeId expiresAt retryAfterSeconds } }';
+const REQUEST =
+  'mutation { requestAccountDeletionCode { challengeId expiresAt retryAfterSeconds } }';
 const DELETE = `mutation D($challengeId: ID!, $code: String!) {
   deleteAccount(challengeId: $challengeId, code: $code) { id status }
 }`;
@@ -43,7 +44,10 @@ beforeAll(async () => {
     };
   });
   identity.handlers.set('exportAccount', (req) => ({
-    account: { accountId: req['accountId'], status: AccountStatus.ACCOUNT_STATUS_PENDING_ONBOARDING },
+    account: {
+      accountId: req['accountId'],
+      status: AccountStatus.ACCOUNT_STATUS_PENDING_ONBOARDING,
+    },
     phoneE164: '+27820001111',
     createdAt: new Date('2026-11-26T08:00:00Z'),
   }));

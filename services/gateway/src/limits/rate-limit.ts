@@ -14,6 +14,10 @@ export const RATE_LIMITS = {
   photoUploadsPerAccount: { limit: 20, windowSeconds: 60 * 60 },
   /** "Download my data", per member (approved 2026-11-26, ADR-0025 c). */
   dataExportsPerAccount: { limit: 5, windowSeconds: 60 * 60 },
+  /** Health reads by a member, own and others' (M2.8): slows scraping of other members' health. */
+  healthReadsPerAccount: { limit: 120, windowSeconds: 10 * 60 },
+  /** Health changes by a member: profile, visibility, filters, shares (M2.8). */
+  healthWritesPerAccount: { limit: 60, windowSeconds: 60 * 60 },
 } as const;
 
 export interface RateLimitStore {
@@ -91,6 +95,30 @@ export class RateLimiter {
     );
     if (count > limit) {
       throw new GraphQLError('You have added a lot of photos recently. Try again later.', {
+        extensions: { code: 'RATE_LIMITED', retryAfterSeconds: resetSeconds },
+      });
+    }
+  }
+
+  /** Counts one health read (own or another member's); refuses past the limit. */
+  async checkHealthRead(accountId: string): Promise<void> {
+    await this.#healthLimit('health-read', accountId, RATE_LIMITS.healthReadsPerAccount);
+  }
+
+  /** Counts one health change; refuses past the hourly limit. */
+  async checkHealthWrite(accountId: string): Promise<void> {
+    await this.#healthLimit('health-write', accountId, RATE_LIMITS.healthWritesPerAccount);
+  }
+
+  async #healthLimit(
+    kind: string,
+    accountId: string,
+    { limit, windowSeconds }: { limit: number; windowSeconds: number },
+  ): Promise<void> {
+    const { count, resetSeconds } = await this.#store.hit(`${kind}:${accountId}`, windowSeconds);
+    if (count > limit) {
+      // Generic on purpose: the message must not imply health (CLAUDE.md rule 3).
+      throw new GraphQLError('Too many requests. Try again later.', {
         extensions: { code: 'RATE_LIMITED', retryAfterSeconds: resetSeconds },
       });
     }

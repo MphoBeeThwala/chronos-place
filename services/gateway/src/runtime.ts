@@ -10,6 +10,7 @@ import { type RateLimitStore, RateLimiter, RedisRateLimitStore } from './limits/
 import { DEVELOPMENT_ENVIRONMENTS, type gatewayConfig } from './config.js';
 import { IdentityClient } from './identity/identity-client.js';
 import { IDENTITY_PROTO } from './identity/proto.js';
+import { DisclosureClient } from './disclosure/disclosure-client.js';
 import { ProfileClient } from './profile/profile-client.js';
 
 export type GatewayConfig = ServiceConfig<typeof gatewayConfig>;
@@ -23,6 +24,7 @@ export const ACCOUNT_STATE_TTL_MS = 15_000;
 export interface GatewayRuntime {
   identity: IdentityClient;
   profile: ProfileClient;
+  disclosure: DisclosureClient;
   keys: SigningKeyCache;
   /** State and verified flag of an account, cached briefly for the guard. */
   accountInfo: (accountId: string) => Promise<AccountInfo>;
@@ -49,6 +51,7 @@ export function createGatewayRuntime(
   overrides: {
     identity?: IdentityClient;
     profile?: ProfileClient;
+    disclosure?: DisclosureClient;
     refreshLock?: RefreshLock;
     rateLimitStore?: RateLimitStore;
     persistedOperations?: PersistedOperations;
@@ -68,6 +71,12 @@ export function createGatewayRuntime(
     new ProfileClient({
       address: config.PROFILE_GRPC_ADDRESS,
       credentials: grpcClientCredentials(config, 'profile'),
+    });
+  const disclosure =
+    overrides.disclosure ??
+    new DisclosureClient({
+      address: config.DISCLOSURE_GRPC_ADDRESS,
+      credentials: grpcClientCredentials(config, 'disclosure-service'),
     });
   const keys = new SigningKeyCache({
     fetch: async () =>
@@ -116,6 +125,7 @@ export function createGatewayRuntime(
   return {
     identity,
     profile,
+    disclosure,
     keys,
     accountInfo,
     forgetAccountState: (accountId) => states.delete(accountId),
@@ -126,6 +136,7 @@ export function createGatewayRuntime(
     close: () => {
       identity.close();
       profile.close();
+      disclosure.close();
       redis?.disconnect();
     },
   };

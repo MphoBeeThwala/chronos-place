@@ -45,3 +45,10 @@ Status: Accepted (2026-11-21, product owner approved the M1.3 plan and decisions
 ## Consequences
 - Access-token issuing and verifying moved to `@chronos/session-tokens`, shared by identity and the gateway, because services must not import each other.
 - The gateway calls identity and profile over mTLS, presenting its own certificate and checking each server's identity; both services enforce a per-method caller allow-list (M2.5).
+
+## Health fields (M2.8)
+- **Where they're resolved:** health fields are resolved in `services/gateway/src/graphql/health-resolvers.ts`, only through the Disclosure Service (mTLS, as `gateway`).
+- **Caching:** every health response is served with `Cache-Control: no-store`. The gateway logs and caches none of it; the condition list, which holds no member data, is cached for 10 minutes.
+- **Error messages:** only the Disclosure Service's fixed messages reach the member; any other text is replaced. A newer save from another device is `CONFLICT`.
+- **Rate limits:** health reads are limited to 120 per 10 minutes per member and health changes to 60 per hour. The refusal message is generic.
+- **Waiting for M3:** `shareHealthCard` needs matches and answers `NOT_AVAILABLE`. `healthViewers.viewer` is null whenever the profile service won't show that member (left, paused or in private mode).

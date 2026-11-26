@@ -22,6 +22,11 @@ export const gatewayConfig = {
     .string()
     .regex(/^[A-Za-z0-9.-]+:\d{1,5}$/)
     .default('127.0.0.1:50053'),
+  /** host:port of the Disclosure Service's gRPC API, the only door to health data (M2.8). */
+  DISCLOSURE_GRPC_ADDRESS: z
+    .string()
+    .regex(/^[A-Za-z0-9.-]+:\d{1,5}$/)
+    .default('127.0.0.1:50055'),
   /**
    * Path the browser uses for GraphQL, behind the web app's same-origin rewrite (ADR-0017).
    * The refresh cookie is scoped to it, so it is not sent with page requests.
