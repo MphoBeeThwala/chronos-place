@@ -25,9 +25,10 @@ back only what the viewer may see.
 - `ListConditionTaxonomy` lists active entries in label order, "other" last.
 - Every other call answers `UNIMPLEMENTED` until its task (M2.3 to M2.7).
 
-**Known limit:** a save must use active codes only. When an entry is first switched off, a member
-who still has it will need to remove it before saving again. That needs a decision before any
-entry is deactivated.
+**Retired conditions:** entries are retired, never deleted. A member who already has a retired
+condition keeps it and can still save other changes (that check reads their stored profile, audited
+as `self_update`); nobody can newly add it. `ListConditionTaxonomy` returns retired entries only
+with `include_retired`, so a member's own profile can still show their label.
 
 ## Configuration
 

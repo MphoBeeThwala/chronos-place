@@ -49,8 +49,12 @@ describe('ListConditionTaxonomy', () => {
   it('lists the active conditions in label order with "other" last', async () => {
     const { entries = [] } = await call(client.listConditionTaxonomy({}));
     expect(entries).toHaveLength(24);
-    expect(entries[0]).toEqual({ code: 'asthma', labelEn: 'Asthma' });
-    expect(entries.at(-1)).toEqual({ code: 'other', labelEn: 'Other (in my own words)' });
+    expect(entries[0]).toEqual({ code: 'asthma', labelEn: 'Asthma', active: true });
+    expect(entries.at(-1)).toEqual({
+      code: 'other',
+      labelEn: 'Other (in my own words)',
+      active: true,
+    });
   });
 });
 
@@ -167,6 +171,50 @@ describe('own health profile', () => {
       note: 'y'.repeat(500),
     };
     expect(await save(randomUUID(), profile)).toEqual({ version: 1 });
+  });
+});
+
+describe('retired conditions (M2.2 decision)', () => {
+  const RETIRED = 'cystic_fibrosis';
+  const retire = (active: boolean) =>
+    db.pool.query('update vault.condition_taxonomy set active = $1 where code = $2', [
+      active,
+      RETIRED,
+    ]);
+
+  it('lets members keep a retired condition, but nobody can newly add it', async () => {
+    const keeper = randomUUID();
+    await save(keeper, { conditions: [{ code: RETIRED, status: LIVING_WITH }] });
+    await retire(false);
+    try {
+      const listed = await call(client.listConditionTaxonomy({}));
+      expect(listed.entries?.map((e) => e.code)).not.toContain(RETIRED);
+      const all = await call(client.listConditionTaxonomy({ includeRetired: true }));
+      expect(all.entries?.find((e) => e.code === RETIRED)).toMatchObject({ active: false });
+
+      // Keeping it while changing the rest of the profile works, and the check is audited.
+      const kept = {
+        conditions: [
+          { code: RETIRED, status: SURVIVOR },
+          { code: 'asthma', status: LIVING_WITH },
+        ],
+      };
+      expect(await save(keeper, kept, 1)).toEqual({ version: 2 });
+      expect((await auditRows(keeper)).map((r) => r.reason)).toEqual(['self_update']);
+
+      const rejected = { code: status.INVALID_ARGUMENT, details: INVALID_PROFILE };
+      // A new member cannot add it...
+      expect(
+        await grpcError(
+          save(randomUUID(), { conditions: [{ code: RETIRED, status: LIVING_WITH }] }),
+        ),
+      ).toEqual(rejected);
+      // ...nor can the keeper once they have removed it.
+      await save(keeper, { conditions: [{ code: 'asthma', status: LIVING_WITH }] }, 2);
+      expect(await grpcError(save(keeper, kept, 3))).toEqual(rejected);
+    } finally {
+      await retire(true);
+    }
   });
 });
 

@@ -41,7 +41,7 @@ export class HealthProfileService {
    * a mismatch means another device saved first. Returns the new version.
    */
   async upsert(accountId: string, input: unknown, expectedVersion: number): Promise<number> {
-    const profile = await this.#validate(input);
+    const profile = await this.#validate(accountId, input);
     const { db, subjects, keyring } = this.#deps;
     const vaultId = await subjects.findOrCreate(accountId);
     const sealed = await keyring.encrypt(vaultId, PROFILE_FIELD, profile);
@@ -74,7 +74,7 @@ export class HealthProfileService {
    * access log before anything is returned; if recording fails, nothing is returned.
    */
   async getOwn(accountId: string): Promise<OwnHealthProfile | undefined> {
-    const { db, subjects, keyring, accessLog } = this.#deps;
+    const { subjects, accessLog } = this.#deps;
     const vaultId = await subjects.find(accountId);
     // No vault id: nothing about this member is in the vault, so nothing is read.
     if (vaultId === undefined) return undefined;
@@ -86,22 +86,49 @@ export class HealthProfileService {
       decision: 'allow',
       reason: 'self',
     });
-    const [row] = await db.select().from(healthProfiles).where(eq(healthProfiles.vaultId, vaultId));
+    const row = await this.#open(vaultId);
     if (row === undefined) return undefined;
-
-    const opened = await keyring.decrypt(vaultId, PROFILE_FIELD, {
-      ciphertext: new Uint8Array(row.payloadCt),
-      nonce: new Uint8Array(row.payloadNonce),
-    });
     return {
-      profile: healthProfileSchema.parse(opened),
+      profile: row.profile,
       visibility: row.visibility,
       filterOptIn: row.filterOptIn,
       version: row.version,
     };
   }
 
-  async #validate(input: unknown): Promise<HealthProfile> {
+  /** Reads and decrypts a stored profile. Callers record the read in the access log first. */
+  async #open(vaultId: string) {
+    const { db, keyring } = this.#deps;
+    const [row] = await db.select().from(healthProfiles).where(eq(healthProfiles.vaultId, vaultId));
+    if (row === undefined) return undefined;
+    const opened = await keyring.decrypt(vaultId, PROFILE_FIELD, {
+      ciphertext: new Uint8Array(row.payloadCt),
+      nonce: new Uint8Array(row.payloadNonce),
+    });
+    return { ...row, profile: healthProfileSchema.parse(opened) };
+  }
+
+  /**
+   * Retired conditions (M2.2 decision): a member keeps one already on their profile and can save
+   * other changes, but nobody can newly add it. Only then is the stored profile read, audited as
+   * `self_update`.
+   */
+  async #keepsRetired(accountId: string, retired: string[]): Promise<boolean> {
+    const vaultId = await this.#deps.subjects.find(accountId);
+    if (vaultId === undefined) return false;
+    await this.#deps.accessLog.record({
+      vaultId,
+      accessor: `account:${accountId}`,
+      purpose: 'profile_view',
+      decision: 'allow',
+      reason: 'self_update',
+    });
+    const stored = await this.#open(vaultId);
+    const held = new Set(stored?.profile.conditions.map((c) => c.code));
+    return retired.every((code) => held.has(code));
+  }
+
+  async #validate(accountId: string, input: unknown): Promise<HealthProfile> {
     const parsed = healthProfileSchema.safeParse(input);
     if (!parsed.success) throw new DomainError('invalid_argument', INVALID_PROFILE);
     const profile: HealthProfile = {
@@ -110,12 +137,16 @@ export class HealthProfileService {
       ...(parsed.data.note ? { note: parsed.data.note } : {}),
     };
     const codes = profile.conditions.map((c) => c.code);
-    const active = await this.#deps.taxonomy.activeCodes();
+    const known = await this.#deps.taxonomy.codes();
     const valid =
       new Set(codes).size === codes.length &&
-      codes.every((code) => active.has(code)) &&
+      codes.every((code) => known.has(code)) &&
       (!codes.includes(OTHER_CODE) || profile.freeText !== undefined);
     if (!valid) throw new DomainError('invalid_argument', INVALID_PROFILE);
+    const retired = codes.filter((code) => known.get(code) === false);
+    if (retired.length > 0 && !(await this.#keepsRetired(accountId, retired))) {
+      throw new DomainError('invalid_argument', INVALID_PROFILE);
+    }
     return profile;
   }
 }

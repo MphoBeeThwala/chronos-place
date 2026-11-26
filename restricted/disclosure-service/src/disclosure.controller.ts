@@ -39,6 +39,7 @@ const VISIBILITY: Record<OwnHealthProfile['visibility'], WireVisibility> = {
 // input early; the service applies the real rules. Failures never echo what was sent.
 const schemas = {
   account: z.object({ accountId: z.uuid() }),
+  taxonomy: z.object({ includeRetired: z.boolean().default(false) }),
   upsert: z.object({
     accountId: z.uuid(),
     expectedVersion: z.number().int().min(0).default(0),
@@ -125,7 +126,8 @@ export class DisclosureController {
   }
 
   @GrpcMethod(SERVICE, 'ListConditionTaxonomy')
-  async listConditionTaxonomy(): Promise<object> {
-    return { entries: await this.#runtime.taxonomy.listActive() };
+  async listConditionTaxonomy(request: unknown): Promise<object> {
+    const { includeRetired } = parse(schemas.taxonomy, request);
+    return { entries: await this.#runtime.taxonomy.list({ includeRetired }) };
   }
 }
