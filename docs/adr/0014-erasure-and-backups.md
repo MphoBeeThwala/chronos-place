@@ -14,3 +14,11 @@ Technical spec 4.4 said crypto-shredding makes backups unreadable "because the D
 - M0.6 ships the ledger interface and the keyring check, with tests proving both a restored backup stays unreadable and (without a ledger) why it would not.
 - M2.7 implements the ledger store, the restore replay script and the drill.
 - The ledger is the one place a pseudonymous ID outlives the member. It cannot be linked to an account without the vault's `subject_map`, which is deleted at erasure.
+
+## Status (M2.7)
+- **Implemented:**
+  - the S3 ledger (`restricted/disclosure-service/src/vault/s3-ledger.ts`);
+  - `EraseSubject`;
+  - the replay command (`vault:replay-ledger`);
+  - identity's mTLS client (`DisclosureEraser`), which drains `identity.vault_erasure_requests` when `DISCLOSURE_GRPC_ADDRESS` is set.
+- **Procedure:** the restore steps and the quarterly drill are in `docs/runbooks/vault-restore.md`.
