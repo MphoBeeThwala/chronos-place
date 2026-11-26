@@ -16,6 +16,11 @@ export default function ProfilePage() {
         </Link>
       </p>
       <p className="mt-2">
+        <Link href="/private" className="underline touch-target inline-flex items-center">
+          Your health profile
+        </Link>
+      </p>
+      <p className="mt-2">
         <Link href="/account" className="underline touch-target inline-flex items-center">
           Your data and account
         </Link>

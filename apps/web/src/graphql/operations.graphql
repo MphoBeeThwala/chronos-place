@@ -210,3 +210,54 @@ mutation DeleteAccount($challengeId: ID!, $code: String!) {
     status
   }
 }
+
+# Health profile (TASKS M2.8). Never cached in the browser: every health operation runs with
+# fetchPolicy no-cache, and the gateway answers with Cache-Control: no-store.
+query HealthPage {
+  myHealthProfile {
+    conditions {
+      code
+      status
+    }
+    freeText
+    note
+    visibility
+    filterOptIn
+    version
+  }
+  conditionTaxonomy {
+    code
+    label
+  }
+  myHealthFilters
+}
+
+query HealthViewers {
+  healthViewers {
+    viewer {
+      id
+      displayName
+    }
+    lastViewedAt
+    viewCount
+    hasActiveGrant
+  }
+}
+
+mutation UpsertHealthProfile($input: HealthProfileInput!) {
+  upsertHealthProfile(input: $input) {
+    version
+  }
+}
+
+mutation SetHealthVisibility($visibility: HealthVisibility!, $filterOptIn: Boolean) {
+  setHealthVisibility(visibility: $visibility, filterOptIn: $filterOptIn) {
+    visibility
+    filterOptIn
+    version
+  }
+}
+
+mutation SetHealthFilters($conditionCodes: [String!]!) {
+  setHealthFilters(conditionCodes: $conditionCodes)
+}

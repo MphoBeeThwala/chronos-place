@@ -17,6 +17,7 @@ import {
   depthLimit,
   QUERY_LIMITS,
 } from './limits/query-limits.js';
+import { healthResolvers } from './graphql/health-resolvers.js';
 import { exportResolvers } from './graphql/export-resolvers.js';
 import { identityResolvers } from './graphql/identity-resolvers.js';
 import { profileResolvers } from './graphql/profile-resolvers.js';
@@ -37,7 +38,12 @@ export const mergeResolvers = (...maps: ResolverMap[]): ResolverMap => {
 };
 
 const defaultResolvers = (runtime: GatewayRuntime): ResolverMap =>
-  mergeResolvers(identityResolvers(runtime), profileResolvers(runtime), exportResolvers(runtime));
+  mergeResolvers(
+    identityResolvers(runtime),
+    profileResolvers(runtime),
+    exportResolvers(runtime),
+    healthResolvers(runtime),
+  );
 
 const SDL = readFileSync(schemaPath, 'utf8');
 

@@ -1,108 +1,48 @@
 'use client';
 
 /**
- * ScreenProtect — web equivalent of Android FLAG_SECURE.
- *
- * On mobile browsers we cannot prevent screenshots, but we can:
- *   1. Apply CSS user-select: none to prevent text selection/copy.
- *   2. Listen for the visibilitychange event and blur content when the tab
- *      becomes hidden (reduces screenshot leakage on tab-switcher).
- *   3. Add a print stylesheet that replaces content with a warning.
- *   4. Set a data attribute so CSS can apply additional protections.
- *
- * This is a defence-in-depth measure, not a hard guarantee.
- * M2.8 will add server-side controls (no-cache headers, lease enforcement).
+ * Screen protection for health screens (ADR-0017, TASKS M2.8): the web stand-in for Android
+ * FLAG_SECURE and the iOS app-switcher blur. Browsers cannot block screenshots, so the page says
+ * so plainly. It blurs while the tab is hidden, and printing shows a placeholder, never the content
+ * (styles in globals.css). Text selection is off to discourage copying.
  */
 import { useEffect, useRef } from 'react';
 
-interface ScreenProtectProps {
-  children: React.ReactNode;
-}
+export const SCREENSHOT_NOTICE =
+  "Your browser can't stop screenshots, so anyone who can see this page could capture it. We blur it when you switch tabs, and printing shows a blank placeholder.";
 
-export function ScreenProtect({ children }: ScreenProtectProps) {
+export function ScreenProtect({ children }: { children: React.ReactNode }) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    function handleVisibilityChange() {
-      if (document.hidden && el) {
-        el.setAttribute('data-screen-hidden', 'true');
-      } else if (el) {
-        el.removeAttribute('data-screen-hidden');
-      }
-    }
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    const update = () => {
+      const el = containerRef.current;
+      if (!el) return;
+      if (document.hidden) el.setAttribute('data-screen-hidden', 'true');
+      else el.removeAttribute('data-screen-hidden');
+    };
+    update();
+    document.addEventListener('visibilitychange', update);
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('visibilitychange', update);
     };
   }, []);
 
   return (
     <>
-      {/* Print-only overlay that replaces health content on print/screenshot. */}
-      <div
-        aria-hidden="true"
-        style={{
-          display: 'none',
-        }}
-        className="health-print-warning"
-      >
-        This content is protected and cannot be printed.
+      {/* Printed instead of the page. */}
+      <div aria-hidden="true" className="screen-protect-print">
+        Chronos Place
       </div>
-
-      <div
-        ref={containerRef}
-        data-screen-protect="true"
-        style={{
-          // Prevent text selection (reduces copy-paste leakage).
-          userSelect: 'none',
-          WebkitUserSelect: 'none',
-        }}
-      >
-        {/* Visible notice so the user knows the screen is protected. */}
-        <div
-          className="mb-4 rounded-lg px-4 py-2 text-sm flex items-center gap-2"
-          role="status"
-          aria-live="polite"
-          style={{
-            backgroundColor: 'var(--color-indicator-bg)',
-            color: 'var(--color-indicator)',
-          }}
+      <div ref={containerRef} data-screen-protect="true">
+        <p
+          className="mb-4 rounded-lg px-4 py-2 text-sm"
+          style={{ backgroundColor: 'var(--color-indicator-bg)', color: 'var(--color-indicator)' }}
         >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-          </svg>
-          <span>This screen is protected. Screenshots are not recommended.</span>
-        </div>
-
+          {SCREENSHOT_NOTICE}
+        </p>
         {children}
       </div>
-
-      {/* Print stylesheet override. */}
-      <style>{`
-        @media print {
-          [data-screen-protect="true"] { display: none !important; }
-          .health-print-warning { display: block !important; font-size: 1rem; padding: 2rem; }
-        }
-        [data-screen-hidden="true"] [data-screen-protect="true"] > *:not([role="status"]) {
-          filter: blur(8px);
-          pointer-events: none;
-        }
-      `}</style>
     </>
   );
 }
