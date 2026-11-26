@@ -6,7 +6,8 @@
  * - No health data (CLAUDE.md rule 1). Condition-aware filter settings live in the Health Vault.
  * - No links to other services' tables (decision e): rows are keyed by account id, and account
  *   erasure removes them through the erasure flow (M1.8).
- * - `location` is stored already snapped to a grid of about 1 km and is never returned (rule 8).
+ * - `location` is stored already snapped to a grid of about 1 km and is never returned (rule 8),
+ *   except to the member themselves in their data export (ADR-0025 i).
  */
 import { sql } from 'drizzle-orm';
 import {
@@ -50,7 +51,7 @@ export const profiles = profile.table(
     gender: text('gender'),
     pronouns: text('pronouns'),
     areaLabel: text('area_label'),
-    /** Snapped to about 1 km before it is written. Never returned, not even to its owner. */
+    /** Snapped to about 1 km before it is written. Returned only in the owner's export (ADR-0025 i). */
     location: geographyPoint('location'),
     locationUpdatedAt: timestamp('location_updated_at', { withTimezone: true }),
     /** Data flag until discovery enforces it (ADR-0010). Free, never paywalled (ADR-0023). */

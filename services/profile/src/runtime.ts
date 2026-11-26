@@ -6,6 +6,7 @@ import pg from 'pg';
 import { DEVELOPMENT_ENVIRONMENTS, type profileConfig } from './config.js';
 import { IdentityMemberFacts, type MemberFacts } from './identity/member-facts.js';
 import { ProfileEraser } from './erasure/profile-eraser.js';
+import { ProfileExporter } from './export/profile-export.js';
 import { every } from './maintenance/scheduler.js';
 import {
   AutoApproveModerator,
@@ -34,6 +35,7 @@ export interface ProfileRuntime {
   profiles: ProfileService;
   photos: PhotoService;
   eraser: ProfileEraser;
+  exporter: ProfileExporter;
   close: () => Promise<void>;
 }
 
@@ -179,6 +181,7 @@ export function createProfileRuntime(
     profiles,
     photos,
     eraser,
+    exporter: new ProfileExporter({ db, profiles, photos, logger }),
     close: async () => {
       await stopSweep();
       await kafka?.subscriber.close();

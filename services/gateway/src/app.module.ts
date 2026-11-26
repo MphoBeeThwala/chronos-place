@@ -17,6 +17,7 @@ import {
   depthLimit,
   QUERY_LIMITS,
 } from './limits/query-limits.js';
+import { exportResolvers } from './graphql/export-resolvers.js';
 import { identityResolvers } from './graphql/identity-resolvers.js';
 import { profileResolvers } from './graphql/profile-resolvers.js';
 import { type ResolverMap, rootResolvers } from './graphql/not-available.js';
@@ -36,7 +37,7 @@ export const mergeResolvers = (...maps: ResolverMap[]): ResolverMap => {
 };
 
 const defaultResolvers = (runtime: GatewayRuntime): ResolverMap =>
-  mergeResolvers(identityResolvers(runtime), profileResolvers(runtime));
+  mergeResolvers(identityResolvers(runtime), profileResolvers(runtime), exportResolvers(runtime));
 
 const SDL = readFileSync(schemaPath, 'utf8');
 
@@ -121,6 +122,8 @@ export function createAppModule(options: AppModuleOptions = {}): Type {
                     willSendResponse: ({ contextValue }: { contextValue: GatewayContext }) => {
                       if (contextValue.setCookies.length > 0)
                         contextValue.reply?.header('set-cookie', contextValue.setCookies);
+                      if (contextValue.noStore === true)
+                        contextValue.reply?.header('cache-control', ['no-store']);
                       return Promise.resolve();
                     },
                   }),

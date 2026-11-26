@@ -252,4 +252,17 @@ export class ProfileController {
     const { accountId, photoId } = parse(schemas.photoDelete, request);
     return photoList(await this.#runtime.photos.remove(accountId, photoId));
   }
+
+  @GrpcMethod(SERVICE, 'ExportProfile')
+  async exportProfile(request: unknown) {
+    const { accountId } = parse(schemas.account, request);
+    const data = await this.#runtime.exporter.export(accountId);
+    return {
+      ...(data.own ? own(data.own) : {}),
+      ...(data.location ? { location: data.location } : {}),
+      photos: data.photos.map(photo),
+      ...(data.createdAt ? { createdAt: data.createdAt } : {}),
+      ...(data.updatedAt ? { updatedAt: data.updatedAt } : {}),
+    };
+  }
 }

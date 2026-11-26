@@ -87,6 +87,7 @@ export interface GraphQLResponse {
     errors?: { message: string; extensions?: { code?: string } }[];
   };
   setCookies: string[];
+  headers: Headers;
 }
 
 export async function gql(
@@ -107,6 +108,7 @@ export async function gql(
     status: response.status,
     body: (await response.json()) as GraphQLResponse['body'],
     setCookies: response.headers.getSetCookie(),
+    headers: response.headers,
   };
 }
 

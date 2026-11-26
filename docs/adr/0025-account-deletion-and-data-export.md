@@ -1,6 +1,6 @@
 # ADR-0025: Account deletion and data export
 
-Status: Accepted (2026-11-26, product owner approved decisions a–c, h and the M1.8 plan). Decision g is a proposal for M2.
+Status: Accepted (2026-11-26, product owner approved decisions a–c, h, i and the M1.8 plan). Decision g is a proposal for M2.
 
 ## Context
 - **TASKS M1.8:** an export bundle and erasure orchestrated through events. AC: erasure completes across services within the SLA in an integration test.
@@ -56,6 +56,12 @@ Status: Accepted (2026-11-26, product owner approved decisions a–c, h and the 
   - **The exception:** `ExportAccountResponse` carries the member's own number and date of birth, because the right of access (POPIA s23) covers them. Approved by the product owner on 2026-11-26.
   - **Guarded by tests:** a contract test still fails if any other message carries them, and sessions are exported as dates only, never device ids.
   - **On the way through:** the gateway passes the export straight to the member. It never logs, caches or stores it (`@chronos/logger` redacts `phone` and `dateOfBirth` keys regardless).
+
+- **i. The export includes the member's stored location.**
+  - **The rule it changes:** profile (ADR-0023) never returns a stored location, not even to its owner, as its README and schema say.
+  - **The exception:** "Download my data" includes it, because the right of access (POPIA s23) covers it. Approved by the product owner on 2026-11-26.
+  - **What is exported:** the point as stored, already snapped to about 1 km, with when it was set.
+  - **Still never:** shown in the app or returned to anyone else (CLAUDE.md rule 8).
 
 ## Consequences
 - **GraphQL:** `requestAccountDeletionCode` and `deleteAccount(challengeId, code)` replace `deleteAccount(confirm)`, and the `myDataExport` query replaces `requestDataExport`. No client used either old field.
