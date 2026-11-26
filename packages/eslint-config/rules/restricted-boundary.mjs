@@ -28,6 +28,8 @@ export const RESTRICTED_ALLOWED_INTERNAL = [
 /** Third-party packages restricted code may use. */
 export const RESTRICTED_ALLOWED_THIRD_PARTY = [
   '@aws-sdk/client-kms',
+  // Erasure ledger in an S3-compatible bucket outside the vault and its backups (ADR-0014, M2.7).
+  '@aws-sdk/client-s3',
   '@grpc/grpc-js',
   '@grpc/proto-loader',
   '@nestjs/common',

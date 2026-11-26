@@ -423,6 +423,9 @@ importers:
       '@aws-sdk/client-kms':
         specifier: ^3.1145.0
         version: 3.1145.0
+      '@aws-sdk/client-s3':
+        specifier: ^3.1177.0
+        version: 3.1177.0
       '@chronos/config':
         specifier: workspace:*
         version: link:../../packages/config
@@ -487,6 +490,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: 5.0.3
         version: 5.0.3(vitest@5.0.3)
+      testcontainers:
+        specifier: ^12.2.2
+        version: 12.2.2
 
   restricted/vault-db:
     dependencies:
@@ -8727,7 +8733,7 @@ snapshots:
 
   '@testcontainers/localstack@12.2.0':
     dependencies:
-      testcontainers: 12.2.0
+      testcontainers: 12.2.2
     transitivePeerDependencies:
       - bare-abort-controller
       - bare-buffer

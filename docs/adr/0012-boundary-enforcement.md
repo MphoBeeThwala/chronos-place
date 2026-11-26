@@ -14,7 +14,7 @@ A custom ESLint rule, `chronos/restricted-boundary` (`packages/eslint-config/rul
 - A test fails if any ESLint config other than the root `eslint.config.mjs` exists, so a workspace cannot drop the rule.
 
 ## Changing the allow-lists
-Allow-list additions so far: `@chronos/service-kit` (M2.2, approved; restricted services start it with the allow-list logger and `telemetry: false`, and the kit refuses to start such a service if tracing was preloaded) and a development-only list for `test/` and `*.config.ts` files (M2.1: Testcontainers, drizzle-kit, vitest; M2.2: `@chronos/privacy-harness`).
+Allow-list additions so far: `@aws-sdk/client-s3` (M2.7, approved: the erasure ledger, ADR-0014); `@chronos/service-kit` (M2.2, approved; restricted services start it with the allow-list logger and `telemetry: false`, and the kit refuses to start such a service if tracing was preloaded) and a development-only list for `test/` and `*.config.ts` files (M2.1: Testcontainers, drizzle-kit, vitest; M2.2: `@chronos/privacy-harness`).
 
 Adding a package to a restricted allow-list or an importer to the Disclosure client list needs security-owner review, like a schema change.
 

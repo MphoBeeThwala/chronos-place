@@ -3,7 +3,11 @@ import { S3Client } from '@aws-sdk/client-s3';
 import { KmsKeyWrapper, SubjectKeyring } from '@chronos/crypto';
 import { KafkaEventPublisher, KafkaEventSubscriber } from '@chronos/events';
 import type { Logger } from '@chronos/logger';
-import type { ReadinessRegistry, ServiceConfig } from '@chronos/service-kit';
+import {
+  grpcClientCredentials,
+  type ReadinessRegistry,
+  type ServiceConfig,
+} from '@chronos/service-kit';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Redis } from 'ioredis';
 import pg from 'pg';
@@ -12,6 +16,7 @@ import { AccountService, SIGN_IN_STATUSES } from './accounts/account.service.js'
 import { DEVELOPMENT_ENVIRONMENTS, type identityConfig } from './config.js';
 import { ConsentService } from './consent/consent.service.js';
 import { DrizzleConsentStore } from './consent/consent-store.js';
+import { DisclosureEraser } from './consent/disclosure-eraser.js';
 import { type VaultEraser, VaultErasureRelay } from './consent/vault-erasure-relay.js';
 import { DrizzleAccountKeyStore } from './crypto/account-key-store.js';
 import { DrizzleDeletionStore } from './deletion/deletion-store.js';
@@ -330,8 +335,16 @@ export function createIdentityRuntime(
   }
 
   let stopVaultErasure: () => Promise<void> = () => Promise.resolve();
-  if (overrides.vaultEraser) {
-    const relay = new VaultErasureRelay({ db, eraser: overrides.vaultEraser, logger });
+  const disclosureEraser =
+    overrides.vaultEraser === undefined && config.DISCLOSURE_GRPC_ADDRESS !== undefined
+      ? new DisclosureEraser(
+          config.DISCLOSURE_GRPC_ADDRESS,
+          grpcClientCredentials(config, 'disclosure-service'),
+        )
+      : undefined;
+  const vaultEraser = overrides.vaultEraser ?? disclosureEraser;
+  if (vaultEraser) {
+    const relay = new VaultErasureRelay({ db, eraser: vaultEraser, logger });
     stopVaultErasure = every(
       'vault-erasure',
       VAULT_ERASURE_INTERVAL_MS,
@@ -339,8 +352,8 @@ export function createIdentityRuntime(
       logger,
     );
   } else {
-    // Requests are kept in identity.vault_erasure_requests until the Disclosure Service exists.
-    logger.warn('vault erasure relay disabled: no Disclosure Service yet (M2)');
+    // Requests wait in identity.vault_erasure_requests until DISCLOSURE_GRPC_ADDRESS is set.
+    logger.warn('vault erasure relay disabled: DISCLOSURE_GRPC_ADDRESS is not set');
   }
 
   return {
@@ -357,7 +370,7 @@ export function createIdentityRuntime(
       await Promise.all([
         stopCleanup(),
         stopRelay(),
-        stopVaultErasure(),
+        stopVaultErasure().then(() => disclosureEraser?.close()),
         stopVerification(),
         stopErasure(),
         confirmations?.close(),

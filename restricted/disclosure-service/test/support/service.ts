@@ -9,6 +9,7 @@ import type { Observable } from 'rxjs';
 import { DISCLOSURE_ALLOW_LIST } from '../../src/allow-list.js';
 import { createAppModule } from '../../src/app.module.js';
 import type { RuntimeOverrides } from '../../src/runtime.js';
+import type { ErasureLedger } from '../../src/vault/s3-ledger.js';
 import { disclosureConfig } from '../../src/config.js';
 import { DISCLOSURE_PACKAGE, DISCLOSURE_PROTO } from '../../src/proto.js';
 
@@ -79,6 +80,7 @@ export interface DisclosureClient {
     }
   >;
   exportSubject: Call<Record<string, unknown>, unknown>;
+  eraseSubject: Call<{ subjectAccountId: string; requestId?: string }, { completed: boolean }>;
   setFilterPreferences: Call<{ accountId: string; wantedConditionCodes?: string[] }, object>;
   getFilterPreferences: Call<{ accountId: string }, { wantedConditionCodes?: string[] }>;
   filterEligibleSubjects: Call<
@@ -103,7 +105,27 @@ const freePort = (): Promise<number> =>
     });
   });
 
-const SHARED_WRAPPER = new InMemoryKeyWrapper();
+export const SHARED_WRAPPER = new InMemoryKeyWrapper();
+
+/** The erasure ledger stand-in (a real S3 ledger is tested separately). */
+export class MemoryLedger implements ErasureLedger {
+  readonly entries = new Set<string>();
+  isShredded(id: string): Promise<boolean> {
+    return Promise.resolve(this.entries.has(id));
+  }
+  record(id: string): Promise<void> {
+    this.entries.add(id);
+    return Promise.resolve();
+  }
+  async *list(): AsyncIterable<string> {
+    await Promise.resolve();
+    yield* this.entries;
+  }
+  ready(): Promise<void> {
+    return Promise.resolve();
+  }
+}
+export const SHARED_LEDGER = new MemoryLedger();
 
 /** The database URL, connecting with the runtime role's real privileges. */
 export const asServiceRole = (url: string): string => {
@@ -132,7 +154,8 @@ export async function startService(
   const wrapper = SHARED_WRAPPER;
   const service: RunningService = await bootstrapService({
     module: createAppModule({
-      keyring: (store) => new SubjectKeyring({ wrapper, store, cacheTtlMs: 0 }),
+      keyring: (store, ledger) => new SubjectKeyring({ wrapper, store, ledger, cacheTtlMs: 0 }),
+      ledger: overrides.ledger ?? SHARED_LEDGER,
       ...overrides,
     }),
     extraConfig: disclosureConfig,
@@ -159,6 +182,7 @@ export async function startService(
       SHUTDOWN_DRAIN_MS: '0',
       VAULT_DATABASE_URL: asServiceRole(databaseUrl),
       VAULT_DATA_KEY_ID: 'alias/test-vault',
+      VAULT_LEDGER_BUCKET: 'test-erasure-ledger',
       ...(mtls && server
         ? {
             GRPC_TLS_CERT_PATH: server.cert,

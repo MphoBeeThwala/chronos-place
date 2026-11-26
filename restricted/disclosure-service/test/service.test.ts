@@ -32,6 +32,8 @@ describe('disclosure-service service', () => {
         // Nothing listens here: the service must start, but report the vault as not ready.
         VAULT_DATABASE_URL: 'postgres://disclosure:unused-password@127.0.0.1:1/chronos_vault',
         VAULT_DATA_KEY_ID: 'alias/test-vault',
+        VAULT_LEDGER_BUCKET: 'test-erasure-ledger',
+        S3_ENDPOINT: 'http://127.0.0.1:1',
         NODE_ENV: 'test',
         SERVICE_NAME: 'disclosure-service',
         HTTP_PORT: String(httpPort),

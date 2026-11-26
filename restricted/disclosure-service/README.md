@@ -11,7 +11,7 @@ back only what the viewer may see.
 - **Keys:** each member's data key is wrapped by KMS and stored in `vault.subject_keys`. Deleting
   that row is the crypto-shred.
 
-## What it does so far (M2.2 to M2.6)
+## What it does so far (M2.2 to M2.7)
 
 - `UpsertHealthProfile` saves a member's whole profile, sealed with their data key and bound to
   their vault id. `expected_version` (0 to create) stops two devices overwriting each other:
@@ -44,7 +44,10 @@ back only what the viewer may see.
   "Everyone", opted in, and have any wanted condition. The viewer must share the same way
   (`viewer_not_sharing` otherwise), and fewer than 20 matches return nothing (`below_threshold`).
   Each candidate profile opened is recorded with purpose `filter`.
-- Every other call answers `UNIMPLEMENTED` until M2.7.
+- `EraseSubject` (M2.7, identity only) records the member in the erasure ledger, shreds their key,
+  then deletes their rows and the shares others gave them. It is idempotent, and a retry finishes
+  an interrupted erasure. See TECHNICAL_SPEC 4.4 and ADR-0014.
+- `ExportSubject` answers `UNIMPLEMENTED`, and nobody may call it until ADR-0025 decision g.
 
 **Retired conditions:** entries are retired, never deleted. A member who already has a retired
 condition keeps it and can still save other changes (that check reads their stored profile, audited
@@ -62,7 +65,8 @@ decision g.
 ## Configuration
 
 `VAULT_DATABASE_URL`, `VAULT_DATA_KEY_ID` (the KMS key that wraps members' data keys),
-`IDENTITY_GRPC_ADDRESS` (default `127.0.0.1:50052`) and, locally, `KMS_ENDPOINT` for the KMS
+`IDENTITY_GRPC_ADDRESS` (default `127.0.0.1:50052`), `VAULT_LEDGER_BUCKET` and, locally, `S3_ENDPOINT`
+(the erasure ledger) and, locally, `KMS_ENDPOINT` for the KMS
 stand-in.
 
 ## Tests

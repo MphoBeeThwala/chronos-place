@@ -14,7 +14,7 @@ const MAX_BACKOFF_SECONDS = 3600;
 /**
  * Delivers queued health-data erasure requests to the vault until each is confirmed (M1.2 AC:
  * health consent withdrawal triggers vault erasure). Rows are claimed with SKIP LOCKED, so several
- * replicas can run it. The Disclosure Service arrives with M2; until then requests wait here.
+ * replicas can run it. Delivered over mTLS by DisclosureEraser (M2.7).
  */
 export class VaultErasureRelay {
   readonly #db: NodePgDatabase;

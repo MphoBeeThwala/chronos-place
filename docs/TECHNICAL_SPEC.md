@@ -326,6 +326,12 @@ Implementation notes (M2.6, approved):
 - Wrapped DEK stored in `subject_keys`; plaintext DEK held in memory only for the request (optional short in-process cache, max 60 s).
 - CMK in KMS backed by CloudHSM custom key store, rotation yearly, key policy limited to the disclosure-service IAM role.
 - **Erasure:** record the subject in the erasure ledger, delete the `subject_keys` row (crypto-shred), then delete vault rows. Deleting the key alone does not protect backups taken earlier, because they still hold the wrapped key and KMS can unwrap it. The ledger (outside database backups) makes the keyring refuse to unwrap an erased subject, and restore procedures must replay it before going live. Backup retention is capped at 30 days. See ADR-0014.
+- **Implementation (M2.7):**
+  - **The ledger:** one write-once object `erased/<vault_id>` per subject in an S3-compatible bucket (`VAULT_LEDGER_BUCKET`), with Object Lock where the host supports it.
+  - **The keyring check:** it consults the ledger on every key use. "Erased" is remembered for good; "not erased" for at most 30 s, which is within the 60 s key cache. If the ledger can't be reached, the keyring fails closed.
+  - **What `EraseSubject` deletes:** shares other members gave to the erased account, then (via the ledger and shred) the key, then `subject_map`, which cascades to the profile, filter preferences and the member's own grants.
+  - **What it keeps:** a `service:identity` / `erasure` row in the access log; the member's earlier audit rows stay (pseudonymous).
+  - **After a restore:** `pnpm --filter @chronos/disclosure-service vault:replay-ledger` deletes the key and rows of every listed subject.
 
 ---
 

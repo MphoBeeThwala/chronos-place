@@ -113,6 +113,7 @@ pnpm test:service-template   # build, run, harden-check and scan a generated ser
 pnpm contracts:gen           # generate TypeScript from the protobuf contracts (also runs in build/test)
 pnpm --filter @chronos/web operations:gen   # rebuild the approved-operations manifest after editing apps/web/src/graphql/operations.graphql
 pnpm --filter @chronos/web legal:gen        # rebuild the /terms and /privacy texts after an approved change to docs/legal/<version>.md
+pnpm --filter @chronos/disclosure-service vault:replay-ledger   # after ANY vault restore, before traffic: re-erase every subject in the erasure ledger (ADR-0014)
 ```
 
 Keep this section accurate. If you add or change a command, update it here.

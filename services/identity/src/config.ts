@@ -27,6 +27,14 @@ export const identityConfig = {
    */
   KAFKA_BROKERS: hostList.optional(),
   /**
+   * host:port of the Disclosure Service, for EraseSubject (M2.7). Unset: health-data erasure
+   * requests wait safely in identity.vault_erasure_requests until it is set.
+   */
+  DISCLOSURE_GRPC_ADDRESS: z
+    .string()
+    .regex(/^[A-Za-z0-9.-]+:\d{1,5}$/)
+    .optional(),
+  /**
    * Services that must confirm before an account is erased (ADR-0025 d), comma-separated. Each
    * new service that stores member data joins this list when it is built.
    */

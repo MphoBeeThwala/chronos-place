@@ -13,12 +13,14 @@ import { MatchingNotYetAvailable, type Relationships } from './access/relationsh
 import { SharingService } from './access/sharing.service.js';
 import { ViewService } from './access/view.service.js';
 import { ViewersService } from './access/viewers.service.js';
+import { EraseService } from './health/erase.service.js';
 import { FilterService } from './health/filter.service.js';
 import { HealthProfileService } from './health/health-profile.service.js';
 import { ConditionTaxonomy } from './health/taxonomy.js';
 import { AccessLog } from './vault/access-log.js';
 import { Grants } from './vault/grants.js';
 import { VaultKeyStore } from './vault/key-store.js';
+import { createLedgerClient, S3ErasureLedger, type ErasureLedger } from './vault/s3-ledger.js';
 import { SubjectDirectory } from './vault/subjects.js';
 
 export interface DisclosureConfig extends ClientTlsConfig {
@@ -27,11 +29,14 @@ export interface DisclosureConfig extends ClientTlsConfig {
   KMS_ENDPOINT?: string | undefined;
   AWS_REGION: string;
   IDENTITY_GRPC_ADDRESS: string;
+  VAULT_LEDGER_BUCKET: string;
+  S3_ENDPOINT?: string | undefined;
 }
 
 /** Test seams: an in-memory KMS wrapper, fake identity and matching. */
 export interface RuntimeOverrides {
-  keyring?: (keys: VaultKeyStore) => SubjectKeyring;
+  keyring?: (keys: VaultKeyStore, ledger: ErasureLedger) => SubjectKeyring;
+  ledger?: ErasureLedger;
   members?: MemberFacts;
   relationships?: Relationships;
   now?: () => number;
@@ -47,6 +52,8 @@ export interface DisclosureRuntime {
   sharing: SharingService;
   viewers: ViewersService;
   filters: FilterService;
+  erasure: EraseService;
+  ledger: ErasureLedger;
   close: () => Promise<void>;
 }
 
@@ -64,9 +71,17 @@ export function createDisclosureRuntime(
   const db = drizzle(pool);
   const subjects = new SubjectDirectory(db);
   const keys = new VaultKeyStore(db);
+  const ledger =
+    overrides.ledger ??
+    new S3ErasureLedger({
+      client: createLedgerClient({ region: config.AWS_REGION, endpoint: config.S3_ENDPOINT }),
+      bucket: config.VAULT_LEDGER_BUCKET,
+    });
+  readiness.register('erasure-ledger', () => ledger.ready());
   const keyring =
-    overrides.keyring?.(keys) ??
+    overrides.keyring?.(keys, ledger) ??
     new SubjectKeyring({
+      ledger,
       wrapper: new KmsKeyWrapper({
         keyId: config.VAULT_DATA_KEY_ID,
         client: new KMSClient({
@@ -106,6 +121,8 @@ export function createDisclosureRuntime(
     views,
     sharing: new SharingService({ db, subjects, grants, relationships, members }),
     viewers: new ViewersService(db, subjects, accessLog),
+    erasure: new EraseService({ db, subjects, keyring, accessLog }),
+    ledger,
     filters: new FilterService({
       db,
       subjects,
