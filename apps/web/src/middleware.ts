@@ -7,6 +7,8 @@
  * can say something about the member (CLAUDE.md rule 3: nothing implying health in URLs).
  */
 import { type NextRequest, NextResponse } from 'next/server';
+import { DEVELOPMENT, STORAGE_ORIGIN } from '@/lib/build-constants';
+import { buildCsp, NONCE_HEADER, newNonce } from '@/lib/csp';
 
 const SESSION_COOKIE = 'chronos_session';
 
@@ -24,7 +26,21 @@ export function middleware(request: NextRequest): NextResponse {
     signInUrl.search = '';
     return NextResponse.redirect(signInUrl);
   }
-  return NextResponse.next();
+
+  // A fresh nonce per request (ADR-0017, TASKS M1.9). Next.js reads the policy from the request
+  // headers and stamps the nonce on its own scripts; the root layout stamps the theme script.
+  const nonce = newNonce();
+  const csp = buildCsp({
+    nonce,
+    storage: STORAGE_ORIGIN,
+    development: DEVELOPMENT,
+  });
+  const headers = new Headers(request.headers);
+  headers.set(NONCE_HEADER, nonce);
+  headers.set('content-security-policy', csp);
+  const response = NextResponse.next({ request: { headers } });
+  response.headers.set('content-security-policy', csp);
+  return response;
 }
 
 export const config = {

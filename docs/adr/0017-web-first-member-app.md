@@ -25,7 +25,14 @@ These rules apply to every screen and API call in `apps/web`.
 | Gateway access | The browser calls only the same-origin `/api/graphql` path, rewritten to the gateway. No gateway URL in the browser bundle, so cookies stay first-party and the CSP keeps `connect-src 'self'`. |
 | URLs | No health data or anything implying it in paths or query strings (CLAUDE.md rule 3). Redirects do not carry a return path in the query string. |
 
-**Content Security Policy.** The shell currently allows `'unsafe-inline'` scripts for the theme bootstrap and Next.js hydration. Before any screen shows health data (M2.8), the CSP must move to per-request nonces with `'strict-dynamic'`, and `img-src` must narrow to the app and the media CDN. This is tracked as task M1.9.
+**Content Security Policy (done in M1.9).**
+- **Scripts:** the middleware (`src/middleware.ts`, policy in `src/lib/csp.ts`) builds the policy per request with a fresh 128-bit nonce: `script-src 'self' 'nonce-…' 'strict-dynamic'`, with no `'unsafe-inline'`.
+- **What carries the nonce:** Next.js stamps it on its own scripts. The root layout stamps the theme bootstrap and Apollo's server-rendered data scripts. Code those scripts load (such as the selfie camera component) is trusted through `'strict-dynamic'`.
+- **Development:** it also allows `'unsafe-eval'`, for hot reload. Production never does.
+- **Images:** `img-src` is the app plus the photo storage origin (`data:` and `blob:` for local previews), and no longer any https site.
+- **Styles:** `style-src` keeps `'unsafe-inline'`. The design tokens are applied through inline `style` attributes, which nonces cannot cover, and styles cannot run code.
+- **Also set:** `object-src 'none'`, `base-uri 'none'` and `form-action 'self'`.
+- **Tests:** Playwright proves an inline script without the nonce is blocked under the policy the app serves.
 
 **Camera.** `Permissions-Policy` blocks the camera everywhere except `/verify`, the selfie check (M1.4, ADR-0022). Photo upload (M1.6) will open it for its own route only.
 

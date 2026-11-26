@@ -36,6 +36,20 @@ function makeClient(): ApolloClient<unknown> {
   });
 }
 
-export function ApolloWrapper({ children }: { children: React.ReactNode }) {
-  return <ApolloNextAppProvider makeClient={makeClient}>{children}</ApolloNextAppProvider>;
+/**
+ * `nonce` is this request's CSP nonce (ADR-0017): the scripts that carry server-rendered query
+ * state to the browser are inline, so they need it to run.
+ */
+export function ApolloWrapper({
+  children,
+  nonce,
+}: {
+  children: React.ReactNode;
+  nonce?: string | undefined;
+}) {
+  return (
+    <ApolloNextAppProvider makeClient={makeClient} extraScriptProps={nonce ? { nonce } : {}}>
+      {children}
+    </ApolloNextAppProvider>
+  );
 }
