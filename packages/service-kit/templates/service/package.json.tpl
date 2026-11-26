@@ -7,7 +7,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "dev": "pnpm build && pnpm start",
-    "start": "node --import @chronos/service-kit/instrument dist/main.js",
+    "start": "node __START_ARGS__",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"

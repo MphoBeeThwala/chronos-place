@@ -20,6 +20,9 @@ export const RESTRICTED_ALLOWED_INTERNAL = [
   '@chronos/crypto',
   '@chronos/logger',
   '@chronos/config',
+  // Service startup (ADR-0016). Restricted services run it with the allow-list logger and
+  // `telemetry: false`, so nothing is traced from the restricted zone.
+  '@chronos/service-kit',
 ];
 
 /** Third-party packages restricted code may use. */

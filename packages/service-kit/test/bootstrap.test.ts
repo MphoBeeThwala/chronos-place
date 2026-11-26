@@ -2,6 +2,7 @@ import path from 'node:path';
 import { Metadata, status } from '@grpc/grpc-js';
 import { afterEach, describe, expect, it } from 'vitest';
 import { bootstrapService, type RunningService } from '../src/index.js';
+import { TELEMETRY_KEY } from '../src/telemetry.js';
 import {
   call,
   captureLogger,
@@ -239,5 +240,53 @@ describe('graceful shutdown', () => {
     await service.shutdown('SIGTERM');
     expect(closed).toEqual(['good']);
     expect(exits).toEqual([1]);
+  });
+});
+
+describe('telemetry: false (restricted services)', () => {
+  const key = TELEMETRY_KEY as unknown as string;
+  const globals = globalThis as unknown as Record<string, unknown>;
+
+  afterEach(() => {
+    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete -- test-only cleanup of the preload marker
+    delete globals[key];
+  });
+
+  it('refuses to start when telemetry was preloaded', async () => {
+    let shutdowns = 0;
+    globals[key] = {
+      shutdown: () => {
+        shutdowns += 1;
+        return Promise.resolve();
+      },
+    };
+    await expect(
+      bootstrapService({
+        module: EchoModule,
+        env: baseEnv(await freePort(), await freePort()),
+        logger: captureLogger().logger,
+        onInvalidConfig: 'throw',
+        installSignalHandlers: false,
+        telemetry: false,
+      }),
+    ).rejects.toThrow(/without the instrument preload/);
+    expect(shutdowns).toBe(0);
+  });
+
+  it('starts without tracing even when an OTLP endpoint is configured', async () => {
+    const service = await bootstrapService({
+      module: EchoModule,
+      env: {
+        ...baseEnv(await freePort(), await freePort()),
+        OTEL_EXPORTER_OTLP_ENDPOINT: 'http://127.0.0.1:1',
+      },
+      logger: captureLogger().logger,
+      onInvalidConfig: 'throw',
+      installSignalHandlers: false,
+      exit: () => undefined,
+      telemetry: false,
+    });
+    running.push(service);
+    expect(globals[key]).toBeUndefined();
   });
 });

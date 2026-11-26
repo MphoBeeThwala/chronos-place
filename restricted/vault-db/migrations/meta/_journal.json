@@ -15,6 +15,13 @@
       "when": 1795690705851,
       "tag": "0001_roles",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795691342234,
+      "tag": "0002_condition_taxonomy",
+      "breakpoints": true
     }
   ]
 }

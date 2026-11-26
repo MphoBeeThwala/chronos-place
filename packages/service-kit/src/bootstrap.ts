@@ -29,6 +29,11 @@ export interface ServiceOptions<Extra extends z.ZodRawShape> {
   grpc?: { packageName: string; protoPath: string | string[] };
   /** `allowlist` for services under restricted/ (ADR-0002). */
   loggerMode?: LogMode;
+  /**
+   * `false` for services under restricted/: no traces are produced or exported. Starting such a
+   * service with the instrument preload is refused, so tracing cannot be switched on by accident.
+   */
+  telemetry?: boolean;
   // The options below exist for tests.
   env?: Env;
   logger?: Logger;
@@ -107,12 +112,19 @@ export async function bootstrapService<Extra extends z.ZodRawShape = z.ZodRawSha
     });
   // `node --import @chronos/service-kit/instrument` starts telemetry before any module is loaded.
   const preloaded = (globalThis as Record<symbol, unknown>)[TELEMETRY_KEY] as Telemetry | undefined;
-  const telemetry =
-    preloaded ??
-    startTelemetry({
-      serviceName: config.SERVICE_NAME,
-      endpoint: config.OTEL_EXPORTER_OTLP_ENDPOINT,
-    });
+  if (options.telemetry === false && preloaded !== undefined) {
+    throw new Error(
+      'Telemetry is disabled for this service; start it without the instrument preload',
+    );
+  }
+  const telemetry: Telemetry =
+    options.telemetry === false
+      ? { shutdown: () => Promise.resolve() }
+      : (preloaded ??
+        startTelemetry({
+          serviceName: config.SERVICE_NAME,
+          endpoint: config.OTEL_EXPORTER_OTLP_ENDPOINT,
+        }));
   const readiness = new ReadinessRegistry();
 
   @Module({ imports: [kitModule({ config, logger, readiness }), options.module] })
