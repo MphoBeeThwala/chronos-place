@@ -35,6 +35,7 @@ const schemas = {
   visible: z.object({
     viewerAccountId: z.uuid(),
     candidateAccountIds: z.array(z.uuid()).max(MAX_CANDIDATES).default([]),
+    privateAccountIds: z.array(z.uuid()).max(MAX_CANDIDATES).default([]),
   }),
 };
 
@@ -139,11 +140,24 @@ export class MatchingController {
 
   @GrpcMethod(SERVICE, 'FilterVisible')
   async filterVisible(request: unknown): Promise<object> {
-    const { viewerAccountId, candidateAccountIds } = parse(schemas.visible, request);
+    const r = parse(schemas.visible, request);
     return {
       visibleAccountIds: await this.#runtime.store.filterVisible(
-        viewerAccountId,
-        candidateAccountIds,
+        r.viewerAccountId,
+        r.candidateAccountIds,
+        r.privateAccountIds,
+      ),
+    };
+  }
+
+  @GrpcMethod(SERVICE, 'FilterCandidates')
+  async filterCandidates(request: unknown): Promise<object> {
+    const r = parse(schemas.visible, request);
+    return {
+      accountIds: await this.#runtime.store.filterCandidates(
+        r.viewerAccountId,
+        r.candidateAccountIds,
+        r.privateAccountIds,
       ),
     };
   }

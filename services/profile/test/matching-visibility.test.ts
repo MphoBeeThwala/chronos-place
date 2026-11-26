@@ -52,7 +52,11 @@ describe('MatchingVisibility', () => {
     const [viewer, a, b, c] = [randomUUID(), randomUUID(), randomUUID(), randomUUID()];
     answer = [c, a, randomUUID()];
     expect(await client.visibleTo(viewer, [a, b, c])).toEqual([a, c]);
-    expect(received.at(-1)).toEqual({ viewerAccountId: viewer, candidateAccountIds: [a, b, c] });
+    expect(received.at(-1)).toEqual({
+      viewerAccountId: viewer,
+      candidateAccountIds: [a, b, c],
+      privateAccountIds: [],
+    });
   });
 
   it('shows nobody when matching cannot answer (fail closed)', async () => {

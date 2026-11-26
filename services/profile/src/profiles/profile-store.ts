@@ -73,10 +73,17 @@ export interface ProfileStore {
   setLocation(accountId: string, point: Point | null, now: Date): Promise<boolean>;
   /**
    * Profiles `viewerId` may be shown, with the distance in metres between the two stored points
-   * (null when either has none). Leaves out the viewer, paused profiles and private mode.
-   * Never returns a coordinate.
+   * (null when either has none). Leaves out the viewer and paused profiles; private ones carry
+   * their flag for matching to decide. Never returns a coordinate.
    */
   publicProfiles(viewerId: string, ids: readonly string[]): Promise<PublicProfileRecord[]>;
+  candidateViewer(viewerId: string): Promise<CandidateViewer | undefined>;
+  candidates(
+    viewerId: string,
+    viewerAge: number,
+    limit: number,
+    after?: { distanceMeters: number; accountId: string },
+  ): Promise<CandidateRow[]>;
 }
 
 export interface PublicProfileRecord {
@@ -88,8 +95,24 @@ export interface PublicProfileRecord {
   pronouns: string | null;
   areaLabel: string | null;
   distanceMeters: number | null;
+  /** Never sent to other members: matching decides who may see a private profile. */
+  privateMode: boolean;
   prompts: PromptAnswer[];
   interests: string[];
+}
+
+/** A candidate for discovery (ADR-0026): an id, the private flag and the keyset position. */
+export interface CandidateRow {
+  accountId: string;
+  privateMode: boolean;
+  distanceMeters: number;
+}
+
+/** What candidate search needs about the viewer. Never leaves the service. */
+export interface CandidateViewer {
+  hasLocation: boolean;
+  ageMin: number;
+  ageMax: number;
 }
 
 type Tx = Parameters<Parameters<NodePgDatabase['transaction']>[0]>[0];
@@ -221,6 +244,65 @@ export class DrizzleProfileStore implements ProfileStore {
     return updated.length > 0;
   }
 
+  /** The viewer's own search settings, or undefined without a profile. */
+  async candidateViewer(viewerId: string): Promise<CandidateViewer | undefined> {
+    const [row] = await this.#db
+      .select({
+        hasLocation: sql<boolean>`${profiles.location} is not null`,
+        ageMin: preferences.ageMin,
+        ageMax: preferences.ageMax,
+      })
+      .from(profiles)
+      .innerJoin(preferences, eq(preferences.accountId, profiles.accountId))
+      .where(eq(profiles.accountId, viewerId));
+    return row;
+  }
+
+  /**
+   * Visible members within the viewer's distance, nearest first (ADR-0026), whose intent the viewer
+   * wants and whose gender fits both members' preferences, and whose own age range includes the
+   * viewer. The candidates' ages are checked against the viewer's range afterwards, with identity.
+   * Points are compared inside the database; no coordinate is selected.
+   */
+  async candidates(
+    viewerId: string,
+    viewerAge: number,
+    limit: number,
+    after?: { distanceMeters: number; accountId: string },
+  ): Promise<CandidateRow[]> {
+    const distance = sql`ST_Distance(c.location, v.location)`;
+    const { rows } = await this.#db.execute<{
+      account_id: string;
+      private_mode: boolean;
+      distance: number;
+    }>(sql`
+      with v as (
+        select p.location, p.gender, pr.max_distance_km, pr.intents, pr.genders
+          from profile.profiles p
+          join profile.preferences pr on pr.account_id = p.account_id
+         where p.account_id = ${viewerId} and p.location is not null
+      )
+      select c.account_id, c.private_mode, ${distance} as distance
+        from v, profile.profiles c
+        join profile.preferences cp on cp.account_id = c.account_id
+       where c.account_id <> ${viewerId}
+         and c.visible
+         and c.location is not null
+         and ST_DWithin(c.location, v.location, v.max_distance_km * 1000)
+         and (cardinality(v.intents) = 0 or c.intent = any(v.intents))
+         and (cardinality(v.genders) = 0 or c.gender = any(v.genders))
+         and (cardinality(cp.genders) = 0 or v.gender = any(cp.genders))
+         and cp.age_min <= ${viewerAge} and cp.age_max >= ${viewerAge}
+         ${after ? sql`and (${distance}, c.account_id) > (${after.distanceMeters}, ${after.accountId}::uuid)` : sql``}
+       order by distance, c.account_id
+       limit ${limit}`);
+    return rows.map((r) => ({
+      accountId: r.account_id,
+      privateMode: r.private_mode,
+      distanceMeters: r.distance,
+    }));
+  }
+
   async publicProfiles(viewerId: string, ids: readonly string[]): Promise<PublicProfileRecord[]> {
     if (ids.length === 0) return [];
     // The distance is worked out inside the database; no coordinate is ever selected.
@@ -235,6 +317,7 @@ export class DrizzleProfileStore implements ProfileStore {
         pronouns: profiles.pronouns,
         areaLabel: profiles.areaLabel,
         distanceMeters: sql<number | null>`ST_Distance(${profiles.location}, ${viewerLocation})`,
+        privateMode: profiles.privateMode,
       })
       .from(profiles)
       .where(
@@ -242,8 +325,6 @@ export class DrizzleProfileStore implements ProfileStore {
           inArray(profiles.accountId, [...ids]),
           ne(profiles.accountId, viewerId),
           eq(profiles.visible, true),
-          // Private mode: shown only to members they liked, which discovery decides (M3).
-          eq(profiles.privateMode, false),
         ),
       );
     if (rows.length === 0) return [];

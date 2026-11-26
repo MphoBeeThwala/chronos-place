@@ -13,6 +13,7 @@ export const PROFILE_ALLOW_LIST: AllowList = {
     GetCatalogue: ['gateway'],
     SetLocation: ['gateway'],
     GetPublicProfiles: ['gateway', 'discovery'],
+    FindCandidates: ['discovery'],
     CreatePhotoUpload: ['gateway'],
     CompletePhotoUpload: ['gateway'],
     ListOwnPhotos: ['gateway'],

@@ -36,8 +36,13 @@ service MatchingService {
   rpc ListBlocked(ListBlockedRequest) returns (ListBlockedResponse);
   // Whether two members are blocked either way, and their active match. Callers: disclosure-service, messaging (M4).
   rpc GetRelationship(GetRelationshipRequest) returns (GetRelationshipResponse);
-  // The candidates the viewer may be shown: drops anyone blocked either way. Callers: profile, discovery (M3.2).
+  // The candidates the viewer may be shown: drops anyone blocked either way, and anyone in private
+  // mode who has not liked the viewer (ADR-0023). Callers: profile, discovery (M3.2).
   rpc FilterVisible(FilterVisibleRequest) returns (FilterVisibleResponse);
+  // The candidates discovery may offer the viewer (M3.2, ADR-0026): FilterVisible's rules, and also
+  // nobody the viewer already liked or passed, and nobody they have ever matched with. Keeps the
+  // order given. Caller: discovery.
+  rpc FilterCandidates(FilterCandidatesRequest) returns (FilterCandidatesResponse);
 }
 
 message LikeRequest {
@@ -126,8 +131,22 @@ message FilterVisibleRequest {
   string viewer_account_id = 1;
   // At most 500.
   repeated string candidate_account_ids = 2;
+  // Those of the candidates in private mode: kept only if they liked the viewer.
+  repeated string private_account_ids = 3;
 }
 message FilterVisibleResponse {
   // The visible candidates, in the order given.
   repeated string visible_account_ids = 1;
+}
+
+message FilterCandidatesRequest {
+  string viewer_account_id = 1;
+  // At most 500.
+  repeated string candidate_account_ids = 2;
+  // Those of the candidates in private mode: kept only if they liked the viewer.
+  repeated string private_account_ids = 3;
+}
+message FilterCandidatesResponse {
+  // The candidates discovery may offer, in the order given.
+  repeated string account_ids = 1;
 }

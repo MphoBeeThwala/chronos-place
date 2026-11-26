@@ -163,13 +163,14 @@ describe('location on PostGIS (M1.5 AC)', () => {
       'gender',
       'intent',
       'interests',
+      'privateMode',
       'prompts',
       'pronouns',
     ]);
     expect((await store.get(viewer))?.profile.hasLocation).toBe(true);
   });
 
-  it('leaves out the viewer, paused and private profiles, and has no distance without both points', async () => {
+  it('leaves out the viewer and paused profiles, flags private ones, and has no distance without both points', async () => {
     const store = new DrizzleProfileStore(drizzle(db.pool));
     const viewer = account();
     const [plain, paused, hidden] = [account(), account(), account()];
@@ -180,10 +181,121 @@ describe('location on PostGIS (M1.5 AC)', () => {
     await store.update(hidden, { fields: { privateMode: true } }, new Date());
     await store.setLocation(plain, { latitude: -26.2, longitude: 28.05 }, new Date());
     const views = await store.publicProfiles(viewer, [viewer, plain, paused, hidden]);
-    expect(views.map((v) => v.accountId)).toEqual([plain]);
-    expect(views[0]?.distanceMeters).toBeNull();
+    expect(views.map((v) => [v.accountId, v.privateMode]).sort()).toEqual(
+      [
+        [plain, false],
+        [hidden, true],
+      ].sort(),
+    );
+    expect(views.find((v) => v.accountId === plain)?.distanceMeters).toBeNull();
 
     await store.setLocation(plain, null, new Date());
     expect((await store.get(plain))?.profile.hasLocation).toBe(false);
+  });
+});
+
+describe('discovery candidates (M3.2, ADR-0026)', () => {
+  // Johannesburg, Pretoria (about 54 km) and Cape Town (about 1260 km).
+  const JHB = { latitude: -26.2, longitude: 28.05 };
+  const NEAR = { latitude: -26.21, longitude: 28.06 };
+  const PTA = { latitude: -25.75, longitude: 28.19 };
+  const CPT = { latitude: -33.92, longitude: 18.42 };
+
+  async function member(
+    store: DrizzleProfileStore,
+    point: typeof JHB | null,
+    options: {
+      gender?: string;
+      intent?: 'dating' | 'friendship';
+      prefs?: Partial<typeof DEFAULT_PREFERENCES>;
+      visible?: boolean;
+      privateMode?: boolean;
+    } = {},
+  ): Promise<string> {
+    const id = account();
+    await store.create(
+      id,
+      { ...fields, intent: options.intent ?? 'dating', gender: options.gender ?? null },
+      { prompts: [], interests: [] },
+      { ...DEFAULT_PREFERENCES, ...options.prefs },
+    );
+    if (point) await store.setLocation(id, point, new Date());
+    if (options.visible === false || options.privateMode === true) {
+      await store.update(
+        id,
+        {
+          fields: {
+            ...(options.visible === false ? { visible: false } : {}),
+            ...(options.privateMode === true ? { privateMode: true } : {}),
+          },
+        },
+        new Date(),
+      );
+    }
+    return id;
+  }
+
+  it("finds visible members in range, nearest first, fitting both members' preferences", async () => {
+    const store = new DrizzleProfileStore(drizzle(db.pool));
+    const viewer = await member(store, JHB, {
+      gender: 'woman',
+      prefs: { maxDistanceKm: 60, genders: ['man'], intents: ['dating'] },
+    });
+    const near = await member(store, NEAR, { gender: 'man' });
+    const pta = await member(store, PTA, { gender: 'man', privateMode: true });
+    const far = await member(store, CPT, { gender: 'man' });
+    const wrongGender = await member(store, NEAR, { gender: 'woman' });
+    const noGender = await member(store, NEAR);
+    const wantsMen = await member(store, NEAR, { gender: 'man', prefs: { genders: ['man'] } });
+    const tooOldForThem = await member(store, NEAR, {
+      gender: 'man',
+      prefs: { ageMin: 40, ageMax: 50 },
+    });
+    const friendsOnly = await member(store, NEAR, { gender: 'man', intent: 'friendship' });
+    const paused = await member(store, NEAR, { gender: 'man', visible: false });
+    const noLocation = await member(store, null, { gender: 'man' });
+
+    const rows = await store.candidates(viewer, 30, 100);
+    const ids = rows.map((r) => r.accountId);
+    expect(ids).toEqual([near, pta]);
+    expect(rows.map((r) => r.privateMode)).toEqual([false, true]);
+    for (const left of [
+      far,
+      wrongGender,
+      noGender,
+      wantsMen,
+      tooOldForThem,
+      friendsOnly,
+      paused,
+      noLocation,
+      viewer,
+    ]) {
+      expect(ids).not.toContain(left);
+    }
+    expect(Object.keys(rows[0] ?? {}).sort()).toEqual([
+      'accountId',
+      'distanceMeters',
+      'privateMode',
+    ]);
+  });
+
+  it('pages by distance and id without repeating or skipping anyone', async () => {
+    const store = new DrizzleProfileStore(drizzle(db.pool));
+    // Far from the other tests' members, so nobody else is in range.
+    const spot = { latitude: -29.0, longitude: 24.0 };
+    const viewer = await member(store, spot, { prefs: { maxDistanceKm: 5 } });
+    const same = [];
+    // Everyone in one grid cell is the same distance away: the id breaks the tie.
+    for (let i = 0; i < 5; i += 1) same.push(await member(store, spot));
+    const first = await store.candidates(viewer, 30, 2);
+    const second = await store.candidates(viewer, 30, 2, first.at(-1));
+    const third = await store.candidates(viewer, 30, 2, second.at(-1));
+    const all = [...first, ...second, ...third].map((r) => r.accountId);
+    expect(all).toEqual([...same].sort());
+    expect(await store.candidateViewer(viewer)).toEqual({
+      hasLocation: true,
+      ageMin: 18,
+      ageMax: 99,
+    });
   });
 });

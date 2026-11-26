@@ -37,8 +37,12 @@ export interface MatchingClient {
     { blocked: boolean; activeMatchId: string }
   >;
   filterVisible: Call<
-    { viewerAccountId: string; candidateAccountIds: string[] },
+    { viewerAccountId: string; candidateAccountIds: string[]; privateAccountIds?: string[] },
     { visibleAccountIds?: string[] }
+  >;
+  filterCandidates: Call<
+    { viewerAccountId: string; candidateAccountIds: string[]; privateAccountIds?: string[] },
+    { accountIds?: string[] }
   >;
 }
 

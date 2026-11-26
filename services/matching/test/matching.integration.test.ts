@@ -299,3 +299,51 @@ describe('account erasure (ADR-0025 d)', () => {
     );
   });
 });
+
+describe('private mode and discovery candidates (M3.2, ADR-0026)', () => {
+  const candidates = async (viewerAccountId: string, ids: string[], privateIds: string[] = []) =>
+    (
+      await call(
+        client.filterCandidates({
+          viewerAccountId,
+          candidateAccountIds: ids,
+          privateAccountIds: privateIds,
+        }),
+      )
+    ).accountIds ?? [];
+
+  it('shows a private member only to members they liked', async () => {
+    const [viewer, liker, other] = [randomUUID(), randomUUID(), randomUUID()];
+    await like(liker, viewer);
+    const shown = await call(
+      client.filterVisible({
+        viewerAccountId: viewer,
+        candidateAccountIds: [other, liker],
+        privateAccountIds: [other, liker],
+      }),
+    );
+    expect(shown.visibleAccountIds).toEqual([liker]);
+    expect(await candidates(viewer, [other, liker], [other, liker])).toEqual([liker]);
+  });
+
+  it('leaves out members already liked, passed, matched or unmatched, and blocks', async () => {
+    const [viewer, liked, passed, matched, ex, blocker, fresh, passedMe] = Array.from(
+      { length: 8 },
+      () => randomUUID(),
+    ) as [string, string, string, string, string, string, string, string];
+    await like(viewer, liked);
+    await call(client.pass({ fromAccountId: viewer, toAccountId: passed }));
+    await like(viewer, matched);
+    await like(matched, viewer);
+    await like(viewer, ex);
+    const { matchId } = await like(ex, viewer);
+    await call(client.unmatch({ accountId: ex, matchId }));
+    await block(blocker, viewer);
+    // Someone who passed on the viewer can still be offered: the viewer is not told.
+    await call(client.pass({ fromAccountId: passedMe, toAccountId: viewer }));
+    const all = [liked, passed, matched, ex, blocker, fresh, passedMe, viewer];
+    expect(await candidates(viewer, all)).toEqual([fresh, passedMe]);
+    // FilterVisible only hides blocks.
+    expect(await visible(viewer, all)).toEqual([liked, passed, matched, ex, fresh, passedMe]);
+  });
+});

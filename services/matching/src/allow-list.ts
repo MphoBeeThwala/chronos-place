@@ -17,5 +17,6 @@ export const MATCHING_ALLOW_LIST: AllowList = {
     ListBlocked: ['gateway'],
     GetRelationship: ['disclosure-service', 'messaging'],
     FilterVisible: ['profile', 'discovery'],
+    FilterCandidates: ['discovery'],
   },
 };

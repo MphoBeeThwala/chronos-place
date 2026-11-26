@@ -9,6 +9,8 @@ import type {
   ProfileStore,
   PromptAnswer,
   PublicProfileRecord,
+  CandidateRow,
+  CandidateViewer,
 } from '../../src/profiles/profile-store.js';
 
 /** Great-circle distance in metres, close to PostGIS geography distance for these tests. */
@@ -99,7 +101,7 @@ export class InMemoryProfileStore implements ProfileStore {
     return Promise.resolve(
       ids.flatMap((id) => {
         const row = this.rows.get(id);
-        if (!row || id === viewerId || !row.profile.visible || row.profile.privateMode) return [];
+        if (!row || id === viewerId || !row.profile.visible) return [];
         const to = this.locations.get(id);
         const p = row.profile;
         return [
@@ -112,11 +114,61 @@ export class InMemoryProfileStore implements ProfileStore {
             pronouns: p.pronouns,
             areaLabel: p.areaLabel,
             distanceMeters: from && to ? haversineMeters(from, to) : null,
+            privateMode: p.privateMode,
             prompts: structuredClone(p.prompts),
             interests: [...p.interests],
           },
         ];
       }),
+    );
+  }
+
+  candidateViewer(viewerId: string): Promise<CandidateViewer | undefined> {
+    const row = this.rows.get(viewerId);
+    return Promise.resolve(
+      row && {
+        hasLocation: this.locations.has(viewerId),
+        ageMin: row.preferences.ageMin,
+        ageMax: row.preferences.ageMax,
+      },
+    );
+  }
+
+  candidates(
+    viewerId: string,
+    viewerAge: number,
+    limit: number,
+    after?: { distanceMeters: number; accountId: string },
+  ): Promise<CandidateRow[]> {
+    const viewer = this.rows.get(viewerId);
+    const from = this.locations.get(viewerId);
+    if (!viewer || !from) return Promise.resolve([]);
+    const v = viewer.preferences;
+    const rows = [...this.rows.values()].flatMap(({ profile: c, preferences: cp }) => {
+      const to = this.locations.get(c.accountId);
+      if (c.accountId === viewerId || !c.visible || !to) return [];
+      const d = haversineMeters(from, to);
+      const fits =
+        d <= v.maxDistanceKm * 1000 &&
+        (v.intents.length === 0 || v.intents.includes(c.intent)) &&
+        (v.genders.length === 0 || (c.gender !== null && v.genders.includes(c.gender))) &&
+        (cp.genders.length === 0 ||
+          (viewer.profile.gender !== null && cp.genders.includes(viewer.profile.gender))) &&
+        cp.ageMin <= viewerAge &&
+        cp.ageMax >= viewerAge;
+      return fits
+        ? [{ accountId: c.accountId, privateMode: c.privateMode, distanceMeters: d }]
+        : [];
+    });
+    const key = (r: { distanceMeters: number; accountId: string }) =>
+      [r.distanceMeters, r.accountId] as const;
+    const before = (a: readonly [number, string], b: readonly [number, string]) =>
+      a[0] < b[0] || (a[0] === b[0] && a[1] < b[1]);
+    return Promise.resolve(
+      rows
+        .filter((r) => !after || before(key(after), key(r)))
+        .sort((a, b) => (before(key(a), key(b)) ? -1 : 1))
+        .slice(0, limit),
     );
   }
 }
@@ -126,7 +178,20 @@ export class FakeBlocks implements BlockVisibility {
   readonly pairs = new Set<string>();
   static key = (a: string, b: string) => [a, b].sort().join(':');
 
-  visibleTo(viewerId: string, ids: readonly string[]): Promise<string[]> {
-    return Promise.resolve(ids.filter((id) => !this.pairs.has(FakeBlocks.key(viewerId, id))));
+  /** `from:to` likes, for private mode: a private member is seen only by members they liked. */
+  readonly likes = new Set<string>();
+
+  visibleTo(
+    viewerId: string,
+    ids: readonly string[],
+    privateIds: readonly string[] = [],
+  ): Promise<string[]> {
+    return Promise.resolve(
+      ids.filter(
+        (id) =>
+          !this.pairs.has(FakeBlocks.key(viewerId, id)) &&
+          (!privateIds.includes(id) || this.likes.has(`${id}:${viewerId}`)),
+      ),
+    );
   }
 }

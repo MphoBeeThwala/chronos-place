@@ -1,5 +1,5 @@
 import { createServer } from 'node:net';
-import { Intent } from '@chronos/contracts/profile';
+import { CandidatesOutcome, Intent } from '@chronos/contracts/profile';
 import { bootstrapService, type RunningService } from '@chronos/service-kit';
 import { status } from '@grpc/grpc-js';
 import { ClientProxyFactory, Transport, type ClientGrpc } from '@nestjs/microservices';
@@ -37,6 +37,14 @@ interface ProfileClient {
   getPublicProfiles: Call<
     { viewerAccountId: string; accountIds: string[] },
     { profiles?: Record<string, unknown>[] }
+  >;
+  findCandidates: Call<
+    { viewerAccountId: string; pageSize?: number; pageToken?: string },
+    {
+      outcome: number;
+      candidates?: { accountId: string; privateMode: boolean }[];
+      nextPageToken: string;
+    }
   >;
 }
 
@@ -194,6 +202,49 @@ describe('profile gRPC API', () => {
       call(client.updateProfile({ accountId: MEMBER, intent: 42 })),
     );
     expect(unknownIntent.code).toBe(status.INVALID_ARGUMENT);
+  });
+
+  it('finds candidates over gRPC with an opaque page token (M3.2)', async () => {
+    const viewer = '77777777-7777-4777-8777-7777777777a1';
+    const near = '77777777-7777-4777-8777-7777777777a2';
+    const alsoNear = '77777777-7777-4777-8777-7777777777a3';
+    for (const id of [viewer, near, alsoNear]) {
+      facts.facts.set(id, { age: 33, verified: false });
+      await call(
+        client.updateProfile({
+          accountId: id,
+          displayName: 'Member',
+          intent: Intent.INTENT_DATING,
+        }),
+      );
+    }
+    expect((await call(client.findCandidates({ viewerAccountId: viewer }))).outcome).toBe(
+      CandidatesOutcome.CANDIDATES_OUTCOME_NO_LOCATION,
+    );
+    // Somewhere none of the other tests put anyone.
+    for (const id of [viewer, near, alsoNear]) {
+      await call(client.setLocation({ accountId: id, latitude: -30.5, longitude: 22.0 }));
+    }
+    const first = await call(client.findCandidates({ viewerAccountId: viewer, pageSize: 1 }));
+    expect(first.outcome).toBe(CandidatesOutcome.CANDIDATES_OUTCOME_OK);
+    expect(first.candidates).toHaveLength(1);
+    const second = await call(
+      client.findCandidates({
+        viewerAccountId: viewer,
+        pageSize: 1,
+        pageToken: first.nextPageToken,
+      }),
+    );
+    expect(
+      [...(first.candidates ?? []), ...(second.candidates ?? [])].map((c) => c.accountId).sort(),
+    ).toEqual([near, alsoNear].sort());
+    const bad = await call(
+      client.findCandidates({ viewerAccountId: viewer, pageToken: 'not-a-token' }),
+    ).then(
+      () => undefined,
+      (e: unknown) => (e as { code?: number }).code,
+    );
+    expect(bad).toBe(status.INVALID_ARGUMENT);
   });
 
   it('never shows members blocked either way (M3.1 AC)', async () => {
