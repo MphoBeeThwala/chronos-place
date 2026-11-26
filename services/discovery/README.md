@@ -7,7 +7,8 @@ The feed: who a member is shown, in order (TASKS M3.2, [ADR-0026](../../docs/adr
 - **Every page is checked with matching again,** so a block or a like since the feed was built applies at once. The gateway then asks profile for the cards, which applies blocks, private mode and rounding once more.
 - **Fail closed:** if profile or matching cannot answer, the feed is UNAVAILABLE rather than unfiltered.
 - **Not on the erasure list:** the cache expires within 15 minutes and holds ids only (ADR-0026). Profile stops showing an erased member at once.
-- Ranking (M3.3) and condition-aware filtering (M3.4) come next. Today the order is nearest first.
+- **Ranking v1** ([ADR-0027](../../docs/adr/0027-ranking-v1.md)): closeness 30, activity 25, mutual fit 20, completeness 15, new member 10, from signals profile and identity work out (0 to 100 each; no health data, no distance, no date). Ties keep nearest-first order. Only the order is kept.
+- Condition-aware filtering (M3.4) comes next.
 
 ## Configuration
 

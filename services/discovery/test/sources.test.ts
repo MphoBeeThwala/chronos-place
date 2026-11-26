@@ -62,20 +62,39 @@ afterAll(() => {
 });
 
 describe('profile and matching clients', () => {
-  it('asks profile for 500 at a time and reads the outcome', async () => {
-    const id = member();
+  it('asks profile for 500 at a time and reads the outcome and signals', async () => {
+    const [id, other] = [member(), member()];
     let asked: Record<string, unknown> | undefined;
     handlers.set('findCandidates', (r) => {
       asked = r;
       return {
         outcome: CandidatesOutcome.CANDIDATES_OUTCOME_OK,
-        candidates: [{ accountId: id, privateMode: true }],
+        candidates: [
+          {
+            accountId: id,
+            privateMode: true,
+            features: { closeness: 90, activity: 60, mutualFit: 50, completeness: 45, newness: 0 },
+          },
+          // A candidate with no signals: each counts as 0, never as a lift.
+          { accountId: other, privateMode: false },
+        ],
         nextPageToken: 'n',
       };
     });
     expect(await profile.page(VIEWER, 't')).toEqual({
       outcome: 'ok',
-      candidates: [{ accountId: id, privateMode: true }],
+      candidates: [
+        {
+          accountId: id,
+          privateMode: true,
+          features: { closeness: 90, activity: 60, mutualFit: 50, completeness: 45, newness: 0 },
+        },
+        {
+          accountId: other,
+          privateMode: false,
+          features: { closeness: 0, activity: 0, mutualFit: 0, completeness: 0, newness: 0 },
+        },
+      ],
       nextPageToken: 'n',
     });
     expect(asked).toEqual({ viewerAccountId: VIEWER, pageSize: 500, pageToken: 't' });

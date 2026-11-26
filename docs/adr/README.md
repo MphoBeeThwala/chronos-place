@@ -30,3 +30,4 @@ Status values: Proposed, Accepted, Superseded. Decisions below were taken by the
 | 0024 | Photo pipeline: quarantine uploads, re-encode with sharp, private storage, moderation hook | Accepted |
 | 0025 | Account deletion (fresh code, no undo, services confirm, identity tombstone) and instant JSON export | Accepted (health export, decision g, proposed for M2) |
 | 0026 | Discovery candidates: no new copy of member data, both-way age and gender fit, no location means no feed, matching enforces private mode | Accepted |
+| 0027 | Ranking v1: five signals with balanced weights, photos count lightly, activity for ordering only | Accepted |

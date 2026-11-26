@@ -1,5 +1,15 @@
 import type { CandidateFilter, CandidatePage, CandidateSource } from '../../src/feed/sources.js';
 import { DependencyUnavailable } from '../../src/feed/sources.js';
+import type { RankingFeatures } from '../../src/feed/ranking.js';
+
+/** Equal signals for everyone: the feed keeps profile's nearest-first order. */
+export const NEUTRAL: RankingFeatures = {
+  closeness: 50,
+  activity: 50,
+  mutualFit: 50,
+  completeness: 50,
+  newness: 50,
+};
 
 /** Profile's candidates, as pages tests set up. Tokens are the page index. */
 export class FakeSource implements CandidateSource {
@@ -16,12 +26,15 @@ export class FakeSource implements CandidateSource {
   }
 
   /** One OK page per list; each links to the next. */
-  set(...lists: { accountId: string; privateMode?: boolean }[][]): void {
+  set(
+    ...lists: { accountId: string; privateMode?: boolean; features?: RankingFeatures }[][]
+  ): void {
     this.pages = lists.map((list, i) => ({
       outcome: 'ok',
       candidates: list.map((c) => ({
         accountId: c.accountId,
         privateMode: c.privateMode ?? false,
+        features: c.features ?? NEUTRAL,
       })),
       nextPageToken: i + 1 < lists.length ? String(i + 1) : '',
     }));

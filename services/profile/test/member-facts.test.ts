@@ -38,7 +38,7 @@ beforeAll(async () => {
         callback({ code: status.UNAVAILABLE });
         return;
       }
-      callback(null, { members: [{ accountId: A, age: 29, verified: true }] });
+      callback(null, { members: [{ accountId: A, age: 29, verified: true, activity: 2 }] });
     },
   });
   port = await new Promise((resolve, reject) => {
@@ -57,8 +57,14 @@ describe('identity member facts client', () => {
   it('asks identity for the ids and maps the answer', async () => {
     const client = new IdentityMemberFacts(`127.0.0.1:${String(port)}`);
     const facts = await client.get([A, B]);
-    expect([...facts.entries()]).toEqual([[A, { age: 29, verified: true }]]);
-    expect(requests.at(-1)).toEqual({ accountIds: [A, B] });
+    expect(requests.at(-1)).toEqual({ accountIds: [A, B], includeActivity: false });
+    // Asked for, activity comes back as its bucket (ranking only, ADR-0027).
+    const ranked = await client.get([A, B], { activity: true });
+    expect([...ranked.entries()]).toEqual([
+      [A, { age: 29, verified: true, activity: 'this_week' }],
+    ]);
+    expect(requests.at(-1)).toEqual({ accountIds: [A, B], includeActivity: true });
+    expect(facts.get(A)).toMatchObject({ age: 29, verified: true });
     client.close();
   });
 

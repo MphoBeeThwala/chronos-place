@@ -318,6 +318,19 @@ message RequestVerificationReviewResponse {
 
 message GetMemberFactsRequest {
   repeated string account_ids = 1;
+  // Also give each member's activity bucket, for ranking only (M3.3, ADR-0027). Left false, it is
+  // ACTIVITY_UNSPECIFIED: only discovery ranking asks for it.
+  bool include_activity = 2;
+}
+
+// When the member last used the app, from their sign-in sessions, in four coarse buckets. Used only
+// to order the discovery feed (approved, ADR-0027): never shown to anyone, never stored.
+enum Activity {
+  ACTIVITY_UNSPECIFIED = 0;
+  ACTIVITY_TODAY = 1;      // within 24 hours
+  ACTIVITY_THIS_WEEK = 2;  // within 7 days
+  ACTIVITY_THIS_MONTH = 3; // within 30 days
+  ACTIVITY_LONGER = 4;     // longer ago, or never
 }
 
 message MemberFacts {
@@ -325,6 +338,7 @@ message MemberFacts {
   // Whole years, on today's date in South Africa. Always 18 or more.
   int32 age = 2;
   bool verified = 3;
+  Activity activity = 4;
 }
 
 message GetMemberFactsResponse {

@@ -83,6 +83,7 @@ export interface ProfileStore {
     viewerAge: number,
     limit: number,
     after?: { distanceMeters: number; accountId: string },
+    now?: Date,
   ): Promise<CandidateRow[]>;
 }
 
@@ -106,6 +107,14 @@ export interface CandidateRow {
   accountId: string;
   privateMode: boolean;
   distanceMeters: number;
+  /** Ranking signals worked out from profile's own data, 0 to 100 (ADR-0027). */
+  signals: {
+    closeness: number;
+    mutualFit: number;
+    /** Up to 75: identity's verified badge adds the other 25. */
+    completenessWithoutBadge: number;
+    newness: number;
+  };
 }
 
 /** What candidate search needs about the viewer. Never leaves the service. */
@@ -269,37 +278,74 @@ export class DrizzleProfileStore implements ProfileStore {
     viewerAge: number,
     limit: number,
     after?: { distanceMeters: number; accountId: string },
+    now: Date = new Date(),
   ): Promise<CandidateRow[]> {
     const distance = sql`ST_Distance(c.location, v.location)`;
+    // The page is chosen first; its ranking signals (ADR-0027) are worked out for those rows only.
     const { rows } = await this.#db.execute<{
       account_id: string;
       private_mode: boolean;
       distance: number;
+      closeness: number;
+      mutual_fit: number;
+      completeness: number;
+      newness: number;
     }>(sql`
       with v as (
-        select p.location, p.gender, pr.max_distance_km, pr.intents, pr.genders
+        select p.location, p.gender, p.intent, pr.max_distance_km, pr.intents, pr.genders
           from profile.profiles p
           join profile.preferences pr on pr.account_id = p.account_id
          where p.account_id = ${viewerId} and p.location is not null
+      ),
+      page as (
+        select c.account_id, c.private_mode, c.bio, c.created_at, ${distance} as distance,
+               v.max_distance_km as viewer_km, cp.max_distance_km as their_km,
+               (cardinality(cp.intents) = 0 or v.intent = any(cp.intents)) as wants_viewer_intent
+          from v, profile.profiles c
+          join profile.preferences cp on cp.account_id = c.account_id
+         where c.account_id <> ${viewerId}
+           and c.visible
+           and c.location is not null
+           and ST_DWithin(c.location, v.location, v.max_distance_km * 1000)
+           and (cardinality(v.intents) = 0 or c.intent = any(v.intents))
+           and (cardinality(v.genders) = 0 or c.gender = any(v.genders))
+           and (cardinality(cp.genders) = 0 or v.gender = any(cp.genders))
+           and cp.age_min <= ${viewerAge} and cp.age_max >= ${viewerAge}
+           ${after ? sql`and (${distance}, c.account_id) > (${after.distanceMeters}, ${after.accountId}::uuid)` : sql``}
+         order by distance, c.account_id
+         limit ${limit}
       )
-      select c.account_id, c.private_mode, ${distance} as distance
-        from v, profile.profiles c
-        join profile.preferences cp on cp.account_id = c.account_id
-       where c.account_id <> ${viewerId}
-         and c.visible
-         and c.location is not null
-         and ST_DWithin(c.location, v.location, v.max_distance_km * 1000)
-         and (cardinality(v.intents) = 0 or c.intent = any(v.intents))
-         and (cardinality(v.genders) = 0 or c.gender = any(v.genders))
-         and (cardinality(cp.genders) = 0 or v.gender = any(cp.genders))
-         and cp.age_min <= ${viewerAge} and cp.age_max >= ${viewerAge}
-         ${after ? sql`and (${distance}, c.account_id) > (${after.distanceMeters}, ${after.accountId}::uuid)` : sql``}
-       order by distance, c.account_id
-       limit ${limit}`);
+      select page.account_id, page.private_mode, page.distance,
+             greatest(0, least(100, round(100 * (1 - page.distance / (page.viewer_km * 1000)))))::int
+               as closeness,
+             ((case when page.wants_viewer_intent then 50 else 0 end)
+               + (case when page.distance <= page.their_km * 1000 then 50 else 0 end))::int
+               as mutual_fit,
+             -- Without the verified badge, which identity adds (25).
+             ((case when coalesce(page.bio, '') <> '' then 20 else 0 end)
+               + round(25 * least(3, (select count(*) from profile.profile_prompts q
+                                       where q.account_id = page.account_id)) / 3.0)
+               + round(10 * least(3, (select count(*) from profile.profile_interests i
+                                       where i.account_id = page.account_id)) / 3.0)
+               -- Photos count lightly (approved): one approved photo earns all 20.
+               + (case when exists (select 1 from profile.profile_photos f
+                                     where f.account_id = page.account_id
+                                       and f.moderation = 'approved') then 20 else 0 end))::int
+               as completeness,
+             greatest(0, round(100 * (1 - extract(epoch from (${now.toISOString()}::timestamptz - page.created_at))
+                                         / (14 * 86400))))::int as newness
+        from page
+       order by page.distance, page.account_id`);
     return rows.map((r) => ({
       accountId: r.account_id,
       privateMode: r.private_mode,
       distanceMeters: r.distance,
+      signals: {
+        closeness: r.closeness,
+        mutualFit: r.mutual_fit,
+        completenessWithoutBadge: r.completeness,
+        newness: Math.min(100, r.newness),
+      },
     }));
   }
 

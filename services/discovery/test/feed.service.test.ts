@@ -3,7 +3,7 @@ import { DomainError } from '@chronos/service-kit';
 import { describe, expect, it } from 'vitest';
 import { InMemoryFeedCache } from '../src/feed/feed-cache.js';
 import { FEED_SIZE, FeedService, MAX_CANDIDATE_PAGES } from '../src/feed/feed.service.js';
-import { FakeFilter, FakeSource, member, VIEWER } from './support/fakes.js';
+import { FakeFilter, FakeSource, member, NEUTRAL, VIEWER } from './support/fakes.js';
 
 function setup() {
   const source = new FakeSource();
@@ -127,5 +127,36 @@ describe('the feed (M3.2, ADR-0026)', () => {
     const log = lines.join('\n');
     expect(log).toContain('feed built');
     for (const id of all) expect(log).not.toContain(id);
+  });
+});
+
+describe('ranking the feed (M3.3)', () => {
+  it('orders the feed by score, and keeps only the order', async () => {
+    const { source, service, cache } = setup();
+    const [near, active] = [member(), member()];
+    source.set([
+      { accountId: near, features: { ...NEUTRAL, closeness: 100, activity: 0 } },
+      { accountId: active, features: { ...NEUTRAL, closeness: 60, activity: 100 } },
+    ]);
+    expect((await service.page(VIEWER, 10, '')).accountIds).toEqual([active, near]);
+    expect(Object.keys([...cache.feeds.values()][0]?.items[0] ?? {}).sort()).toEqual([
+      'id',
+      'private',
+    ]);
+  });
+
+  it('ranks everyone on the pages read, wider than the feed, and reads no page it does not need', async () => {
+    const { source, service, cache } = setup();
+    // One page of 450: the best are the furthest away, past the 200 that are kept.
+    const page = Array.from({ length: 450 }, (_, i) => ({
+      accountId: member(),
+      features: { ...NEUTRAL, activity: i >= 350 ? 100 : 0 },
+    }));
+    source.set(page, [{ accountId: member() }]);
+    await service.page(VIEWER, 1, '');
+    const kept = [...cache.feeds.values()][0]?.items.map((i) => i.id) ?? [];
+    expect(kept).toHaveLength(FEED_SIZE);
+    expect(kept.slice(0, 100)).toEqual(page.slice(350).map((c) => c.accountId));
+    expect(source.calls).toBe(1);
   });
 });

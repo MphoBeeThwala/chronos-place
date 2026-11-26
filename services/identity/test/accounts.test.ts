@@ -207,4 +207,30 @@ describe('member facts (ADR-0023 decision f)', () => {
     ]);
     expect(JSON.stringify(facts)).not.toMatch(/1996|1985|-11-/);
   });
+
+  it('adds a coarse activity bucket only when asked, for ranking (ADR-0027)', async () => {
+    const { service, accounts, verify } = setup();
+    const ids = [];
+    for (let i = 10; i < 15; i += 1) {
+      const id = (await service.signIn(await verify(i))).account.id;
+      await service.setDateOfBirth(id, { year: 1990, month: 1, day: 1 });
+      ids.push(id);
+    }
+    const [today, week, month, longer, never] = ids as [string, string, string, string, string];
+    const hoursAgo = (h: number) => new Date(NOW.getTime() - h * 60 * 60 * 1000);
+    accounts.lastActive.set(today, hoursAgo(23));
+    accounts.lastActive.set(week, hoursAgo(25));
+    accounts.lastActive.set(month, hoursAgo(24 * 29));
+    accounts.lastActive.set(longer, hoursAgo(24 * 31));
+    expect((await service.memberFacts(ids)).every((f) => !('activity' in f))).toBe(true);
+    const facts = new Map((await service.memberFacts(ids, true)).map((f) => [f.accountId, f]));
+    expect([today, week, month, longer, never].map((id) => facts.get(id)?.activity)).toEqual([
+      'today',
+      'this_week',
+      'this_month',
+      'longer',
+      'longer',
+    ]);
+    expect(JSON.stringify([...facts.values()])).not.toMatch(/T\d\d:/);
+  });
 });

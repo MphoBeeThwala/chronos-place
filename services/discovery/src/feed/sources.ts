@@ -8,12 +8,19 @@ import {
 } from '@grpc/grpc-js';
 import { loadSync } from '@grpc/proto-loader';
 import { MATCHING_PROTO, PROFILE_PROTO } from '../proto.js';
+import type { RankingFeatures } from './ranking.js';
 
 export type Outcome = 'ok' | 'no_profile' | 'no_location';
 
+export interface Candidate {
+  accountId: string;
+  privateMode: boolean;
+  features: RankingFeatures;
+}
+
 export interface CandidatePage {
   outcome: Outcome;
-  candidates: { accountId: string; privateMode: boolean }[];
+  candidates: Candidate[];
   /** Empty when there are no more. */
   nextPageToken: string;
 }
@@ -106,12 +113,31 @@ export class ProfileCandidates implements CandidateSource {
   async page(viewerId: string, pageToken: string): Promise<CandidatePage> {
     const r = await this.#client.call<{
       outcome: number;
-      candidates?: { accountId: string; privateMode: boolean }[];
+      candidates?: {
+        accountId: string;
+        privateMode: boolean;
+        features?: Partial<RankingFeatures> | null;
+      }[];
       nextPageToken: string;
     }>('findCandidates', { viewerAccountId: viewerId, pageSize: CANDIDATE_PAGE, pageToken });
     const outcome = OUTCOMES.get(r.outcome);
     if (outcome === undefined) throw new DependencyUnavailable();
-    return { outcome, candidates: r.candidates ?? [], nextPageToken: r.nextPageToken };
+    return {
+      outcome,
+      // A signal that did not come counts as 0: a missing one never lifts anyone.
+      candidates: (r.candidates ?? []).map((c) => ({
+        accountId: c.accountId,
+        privateMode: c.privateMode,
+        features: {
+          closeness: c.features?.closeness ?? 0,
+          activity: c.features?.activity ?? 0,
+          mutualFit: c.features?.mutualFit ?? 0,
+          completeness: c.features?.completeness ?? 0,
+          newness: c.features?.newness ?? 0,
+        },
+      })),
+      nextPageToken: r.nextPageToken,
+    };
   }
 
   close(): void {
