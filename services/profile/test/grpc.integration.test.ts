@@ -10,7 +10,7 @@ import { profileConfig } from '../src/config.js';
 import { runMigrations } from '../src/db/migrate.js';
 import { PROFILE_PACKAGE, PROFILE_PROTO } from '../src/proto.js';
 import { startTestDatabase, type TestDatabase } from './support/database.js';
-import { FakeMemberFacts } from './support/profile-fakes.js';
+import { FakeBlocks, FakeMemberFacts } from './support/profile-fakes.js';
 
 type Call<Req, Res> = (request: Req) => Observable<Res>;
 interface Own {
@@ -60,6 +60,7 @@ let closeClient: () => void;
 const MEMBER = '77777777-7777-4777-8777-777777777777';
 const OTHER = '77777777-7777-4777-8777-777777777778';
 const facts = new FakeMemberFacts();
+const blocks = new FakeBlocks();
 
 beforeAll(async () => {
   db = await startTestDatabase();
@@ -68,7 +69,7 @@ beforeAll(async () => {
   const httpPort = await freePort();
   http = `http://127.0.0.1:${String(httpPort)}`;
   service = await bootstrapService({
-    module: createAppModule({ facts }),
+    module: createAppModule({ facts, visibility: blocks }),
     extraConfig: profileConfig,
     grpc: { packageName: PROFILE_PACKAGE, protoPath: PROFILE_PROTO },
     env: {
@@ -193,6 +194,30 @@ describe('profile gRPC API', () => {
       call(client.updateProfile({ accountId: MEMBER, intent: 42 })),
     );
     expect(unknownIntent.code).toBe(status.INVALID_ARGUMENT);
+  });
+
+  it('never shows members blocked either way (M3.1 AC)', async () => {
+    facts.facts.set(OTHER, { age: 31, verified: true });
+    await call(
+      client.updateProfile({
+        accountId: OTHER,
+        displayName: 'Bongani',
+        intent: Intent.INTENT_DATING,
+      }),
+    );
+    const ask = () =>
+      call(client.getPublicProfiles({ viewerAccountId: MEMBER, accountIds: [OTHER] }));
+    expect((await ask()).profiles).toHaveLength(1);
+    blocks.pairs.add(FakeBlocks.key(OTHER, MEMBER));
+    try {
+      expect((await ask()).profiles ?? []).toEqual([]);
+      const reverse = await call(
+        client.getPublicProfiles({ viewerAccountId: OTHER, accountIds: [MEMBER] }),
+      );
+      expect(reverse.profiles ?? []).toEqual([]);
+    } finally {
+      blocks.pairs.clear();
+    }
   });
 
   it('serves the catalogue', async () => {

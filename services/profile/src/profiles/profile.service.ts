@@ -3,6 +3,7 @@ import { DomainError } from '@chronos/service-kit';
 import { INTERESTS, isInterestId, isPromptId, PROMPTS } from '../catalogue.js';
 import type { Intent } from '../db/schema.js';
 import type { MemberFacts } from '../identity/member-facts.js';
+import type { BlockVisibility } from '../matching/visibility.js';
 import { displayDistanceKm, type Point, snap } from './location.js';
 import type {
   OwnProfileRecord,
@@ -49,6 +50,8 @@ export interface ProfileServiceDeps {
   profiles: ProfileStore;
   /** Ages and verified badges from identity (ADR-0023 f). */
   facts: MemberFacts;
+  /** Blocks from matching: blocked pairs never see each other (M3.1). */
+  visibility: BlockVisibility;
   logger: Logger;
   now?: () => Date;
 }
@@ -181,11 +184,14 @@ export class ProfileService {
 
   /**
    * Profiles as `viewerId` may see them (M1.5 AC): a rounded distance and never a coordinate,
-   * whole-year ages from identity, and only active members. Keeps the request order.
+   * whole-year ages from identity, only active members, and never anyone blocked either way
+   * (M3.1). Keeps the request order.
    */
   async publicProfiles(viewerId: string, ids: readonly string[]): Promise<PublicProfile[]> {
-    const unique = [...new Set(ids)].filter((id) => id !== viewerId);
-    if (unique.length > MAX_PUBLIC_PROFILES) invalid(MESSAGES.tooMany);
+    const requested = [...new Set(ids)].filter((id) => id !== viewerId);
+    if (requested.length > MAX_PUBLIC_PROFILES) invalid(MESSAGES.tooMany);
+    const unique = await this.#d.visibility.visibleTo(viewerId, requested);
+    if (unique.length === 0) return [];
     const records = await this.#d.profiles.publicProfiles(viewerId, unique);
     if (records.length === 0) return [];
     const facts = await this.#d.facts.get(records.map((r) => r.accountId));

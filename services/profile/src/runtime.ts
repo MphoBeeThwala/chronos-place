@@ -8,6 +8,7 @@ import {
 import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 import { DEVELOPMENT_ENVIRONMENTS, type profileConfig } from './config.js';
+import { MatchingVisibility, type BlockVisibility } from './matching/visibility.js';
 import { IdentityMemberFacts, type MemberFacts } from './identity/member-facts.js';
 import { ProfileEraser } from './erasure/profile-eraser.js';
 import { ProfileExporter } from './export/profile-export.js';
@@ -44,8 +45,9 @@ export interface ProfileRuntime {
 }
 
 export interface RuntimeOverrides {
-  /** Tests replace identity's member facts. */
+  /** Tests replace identity's member facts and matching's blocks. */
   facts?: MemberFacts;
+  visibility?: BlockVisibility;
   /** Tests replace photo storage and the moderation hook. */
   photoStorage?: PhotoStorage;
   moderator?: PhotoModerator;
@@ -143,7 +145,15 @@ export function createProfileRuntime(
       config.IDENTITY_GRPC_ADDRESS,
       grpcClientCredentials(config, 'identity'),
     );
-  const profiles = new ProfileService({ profiles: new DrizzleProfileStore(db), facts, logger });
+  const visibility =
+    overrides.visibility ??
+    new MatchingVisibility(config.MATCHING_GRPC_ADDRESS, grpcClientCredentials(config, 'matching'));
+  const profiles = new ProfileService({
+    profiles: new DrizzleProfileStore(db),
+    facts,
+    visibility,
+    logger,
+  });
   const photos = new PhotoService({
     photos: new DrizzlePhotoStore(db),
     storage: media.storage,
@@ -196,6 +206,7 @@ export function createProfileRuntime(
       await kafka?.subscriber.close();
       await kafka?.publisher.close();
       facts.close();
+      visibility.close?.();
       media.close();
       await pool.end();
     },

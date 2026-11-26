@@ -852,6 +852,12 @@ importers:
       '@chronos/tsconfig':
         specifier: workspace:*
         version: link:../../packages/tsconfig
+      '@grpc/grpc-js':
+        specifier: ^1.14.5
+        version: 1.14.5
+      '@nestjs/microservices':
+        specifier: ^12.1.2
+        version: 12.1.2(@grpc/grpc-js@1.14.5)(@nestjs/common@12.1.2(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.1.2)(ioredis@5.11.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@types/pg':
         specifier: ^8.23.1
         version: 8.23.1
@@ -861,6 +867,9 @@ importers:
       pg:
         specifier: ^8.23.1
         version: 8.23.1
+      rxjs:
+        specifier: ^7.8.2
+        version: 7.8.2
       zod:
         specifier: ^4.6.5
         version: 4.6.5

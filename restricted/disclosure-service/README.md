@@ -26,12 +26,11 @@ back only what the viewer may see.
 - `SetVisibility` (M2.3) sets who may see the profile and the filter opt-in; it needs a profile.
 - `ViewHealthProfile` (M2.3) runs the access decision (`src/access/decide.ts`, TECHNICAL_SPEC
   4.2), records it, and only then opens the profile. Allowed views carry a 5-minute lease.
-  Until matching exists (M3.1) every view by another member is denied; moderation is denied
-  until M5.
+  Blocks and matches come from matching's `GetRelationship`; a share also needs a live match, so
+  an ex-match never keeps seeing it. Moderation is denied until M5.
 - `GrantDisclosure` (M2.4) shares with one viewer: full or conditions only. It needs a saved
   profile and an active, unblocked match with an active viewer; the refusal is the same in every
-  case. A scope change ends the old grant and creates a new one. Until matching exists (M3.1)
-  every share is refused.
+  case. A scope change ends the old grant and creates a new one.
 - `RevokeDisclosure` (M2.4) ends the share; the viewer's next request is refused. A view already
   on their screen lasts at most until its 5-minute lease.
 - `ListHealthViewers` (M2.4): successful views by other members, newest first, with a count and
@@ -65,7 +64,8 @@ decision g.
 ## Configuration
 
 `VAULT_DATABASE_URL`, `VAULT_DATA_KEY_ID` (the KMS key that wraps members' data keys),
-`IDENTITY_GRPC_ADDRESS` (default `127.0.0.1:50052`), `VAULT_LEDGER_BUCKET` and, locally, `S3_ENDPOINT`
+`IDENTITY_GRPC_ADDRESS` (default `127.0.0.1:50052`), `MATCHING_GRPC_ADDRESS` (matching; unset, every
+view and share by another member is refused), `VAULT_LEDGER_BUCKET` and, locally, `S3_ENDPOINT`
 (the erasure ledger) and, locally, `KMS_ENDPOINT` for the KMS
 stand-in.
 

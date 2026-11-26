@@ -156,6 +156,7 @@ describe('each setting', () => {
     const partial = viewer();
     await grant(subject, full, 'full');
     await grant(subject, partial, 'conditions_only');
+    for (const v of [full, partial]) relationships.matches.add(FakeRelationships.key(v, subject));
     expect((await view(full, subject)).profile).toMatchObject({
       freeText: 'Synthetic own words',
       note: 'Synthetic note',
@@ -172,11 +173,15 @@ describe('each setting', () => {
     );
     expect(await view(full, subject)).toEqual(DENIED);
     expect(await view(viewer(), subject)).toEqual(DENIED);
+    // The match ends (unmatch or block): the share stops working at once (M3.1 decision).
+    relationships.matches.delete(FakeRelationships.key(partial, subject));
+    expect(await view(partial, subject)).toEqual(DENIED);
     expect(await reasons(subject)).toEqual([
       'allow:grant',
       'allow:grant',
       'deny:no_grant',
       'deny:no_grant',
+      'deny:no_match',
     ]);
   });
 });

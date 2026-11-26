@@ -78,6 +78,15 @@ describe('decide (TECHNICAL_SPEC 4.2)', () => {
     ],
     ['one-to-one, no grant', { visibility: 'chat_grant', grant: undefined }, deny('no_grant')],
     [
+      'one-to-one, grant but the match has ended (M3.1)',
+      {
+        visibility: 'chat_grant',
+        grant: 'full',
+        relationship: { blocked: false, activeMatch: false },
+      },
+      deny('no_match'),
+    ],
+    [
       'one-to-one, matched but no grant',
       {
         visibility: 'chat_grant',

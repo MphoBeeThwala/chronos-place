@@ -12,6 +12,14 @@ export const disclosureConfig = {
   VAULT_DATA_KEY_ID: z.string().min(1),
   /** A local KMS stand-in in development; unset in AWS. */
   KMS_ENDPOINT: httpUrl.optional(),
+  /**
+   * host:port of matching, for blocks and matches (M3.1). Unset: every view or share by another
+   * member is refused (fail closed).
+   */
+  MATCHING_GRPC_ADDRESS: z
+    .string()
+    .regex(/^[A-Za-z0-9.-]+:\d{1,5}$/)
+    .optional(),
   /** Bucket of the erasure ledger, outside the vault and its backups (ADR-0014). */
   VAULT_LEDGER_BUCKET: z.string().regex(/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/),
   /** S3-compatible endpoint for the ledger; SeaweedFS locally, unset in AWS. */

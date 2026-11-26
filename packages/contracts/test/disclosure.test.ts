@@ -161,7 +161,9 @@ class FakeDisclosure implements DisclosureServiceController {
   }
 
   listConditionTaxonomy() {
-    return { entries: [{ code: 'synthetic_condition', labelEn: 'Synthetic condition' }] };
+    return {
+      entries: [{ code: 'synthetic_condition', labelEn: 'Synthetic condition', active: true }],
+    };
   }
 
   setFilterPreferences() {
@@ -281,9 +283,9 @@ describe('over real gRPC with NestJS', () => {
     expect(
       (await call(client.getFilterPreferences({ accountId: 'a' }))).wantedConditionCodes,
     ).toEqual(['synthetic_condition']);
-    expect((await call(client.listConditionTaxonomy({}))).entries[0]?.labelEn).toBe(
-      'Synthetic condition',
-    );
+    expect(
+      (await call(client.listConditionTaxonomy({ includeRetired: false }))).entries[0]?.labelEn,
+    ).toBe('Synthetic condition');
     expect(
       (
         await call(

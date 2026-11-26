@@ -18,9 +18,12 @@
     "@chronos/logger": "workspace:*",
     "@chronos/service-kit": "workspace:*",
     "@chronos/tsconfig": "workspace:*",
+    "@grpc/grpc-js": "^1.14.5",
+    "@nestjs/microservices": "^12.1.2",
     "@types/pg": "^8.23.1",
     "drizzle-orm": "^0.45.4",
     "pg": "^8.23.1",
+    "rxjs": "^7.8.2",
     "zod": "^4.6.5"
   }
 }
