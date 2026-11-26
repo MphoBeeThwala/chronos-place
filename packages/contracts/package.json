@@ -17,6 +17,10 @@
       "types": "./dist/gen/chronos/profile/v1/profile.d.ts",
       "default": "./dist/gen/chronos/profile/v1/profile.js"
     },
+    "./matching": {
+      "types": "./dist/gen/chronos/matching/v1/matching.d.ts",
+      "default": "./dist/gen/chronos/matching/v1/matching.js"
+    },
     "./events": {
       "types": "./dist/src/events/index.d.ts",
       "default": "./dist/src/events/index.js"
