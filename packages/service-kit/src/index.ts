@@ -13,6 +13,7 @@ export {
   spiffeId,
 } from './caller-identity.js';
 export { grpcClientCredentials, type ClientTlsConfig } from './client-credentials.js';
+export { callersFromProto, callersOf } from './proto-callers.js';
 export { serviceConfigSchema, type ServiceConfig } from './config.js';
 export {
   DomainError,

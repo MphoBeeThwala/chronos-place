@@ -41,6 +41,9 @@ echo "Building and migrating…"
 pnpm turbo run build --filter=@chronos/identity --filter=@chronos/profile \
   --filter=@chronos/gateway --filter='@chronos/web^...' --output-logs=errors-only
 pnpm db:migrate >/dev/null
+# Service-to-service mTLS (M2.5): each service presents its own dev certificate.
+node tools/scripts/dev-certs.mjs >/dev/null
+CERTS="$ROOT/tools/.certs"
 
 if [[ -z "${IDENTITY_DATA_KEY_ID:-}" ]]; then
   IDENTITY_DATA_KEY_ID="$(cd services/identity && KMS_ENDPOINT="$KMS_ENDPOINT" node --input-type=module -e "
@@ -58,12 +61,14 @@ stop() {
 }
 trap stop EXIT
 
-# NODE_ENV=local: one machine, so gRPC runs without mTLS and the development stand-ins
-# (Mailpit for SMS, the fake liveness check, auto-approved photos) are allowed.
+# NODE_ENV=local: the development stand-ins (Mailpit for SMS, the fake liveness check,
+# auto-approved photos) are allowed. gRPC still runs over mTLS with the dev certificates.
 start() {
   local service=$1 port=$2
   shift 2
-  (cd "services/$service" && exec env NODE_ENV=local SERVICE_NAME="$service" HTTP_PORT="$port" "$@" \
+  (cd "services/$service" && exec env NODE_ENV=local SERVICE_NAME="$service" HTTP_PORT="$port" \
+    GRPC_TLS_CERT_PATH="$CERTS/$service.pem" GRPC_TLS_KEY_PATH="$CERTS/$service.key" \
+    GRPC_TLS_CA_PATH="$CERTS/ca.pem" "$@" \
     node --import @chronos/service-kit/instrument dist/main.js) >"$LOGS/$service.log" 2>&1 &
   PIDS+=($!)
 }

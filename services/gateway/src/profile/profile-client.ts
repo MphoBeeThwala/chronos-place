@@ -1,4 +1,5 @@
 import { fileURLToPath } from 'node:url';
+import type { ChannelCredentials } from '@grpc/grpc-js';
 import { GrpcServiceClient } from '../grpc/service-client.js';
 
 export const PROFILE_PROTO = fileURLToPath(
@@ -7,7 +8,7 @@ export const PROFILE_PROTO = fileURLToPath(
 
 /** gRPC client for chronos.profile.v1.ProfileService (ADR-0023). */
 export class ProfileClient extends GrpcServiceClient {
-  constructor(options: { address: string; timeoutMs?: number }) {
+  constructor(options: { address: string; timeoutMs?: number; credentials?: ChannelCredentials }) {
     super({ ...options, protoPath: PROFILE_PROTO, service: 'chronos.profile.v1.ProfileService' });
   }
 }

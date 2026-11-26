@@ -1,6 +1,10 @@
 import { KMSClient } from '@aws-sdk/client-kms';
 import { KmsKeyWrapper, SubjectKeyring } from '@chronos/crypto';
-import type { ReadinessRegistry } from '@chronos/service-kit';
+import {
+  grpcClientCredentials,
+  type ClientTlsConfig,
+  type ReadinessRegistry,
+} from '@chronos/service-kit';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 import { IdentityMemberFacts, type MemberFacts } from './access/member-facts.js';
@@ -15,7 +19,7 @@ import { Grants } from './vault/grants.js';
 import { VaultKeyStore } from './vault/key-store.js';
 import { SubjectDirectory } from './vault/subjects.js';
 
-export interface DisclosureConfig {
+export interface DisclosureConfig extends ClientTlsConfig {
   VAULT_DATABASE_URL: { reveal(): string };
   VAULT_DATA_KEY_ID: string;
   KMS_ENDPOINT?: string | undefined;
@@ -71,7 +75,12 @@ export function createDisclosureRuntime(
   const taxonomy = new ConditionTaxonomy(db);
   const accessLog = new AccessLog(db);
   const profiles = new HealthProfileService({ db, subjects, keyring, taxonomy, accessLog });
-  const members = overrides.members ?? new IdentityMemberFacts(config.IDENTITY_GRPC_ADDRESS);
+  const members =
+    overrides.members ??
+    new IdentityMemberFacts(
+      config.IDENTITY_GRPC_ADDRESS,
+      grpcClientCredentials(config, 'identity'),
+    );
   const grants = new Grants(db);
   const relationships = overrides.relationships ?? new MatchingNotYetAvailable();
   const views = new ViewService({

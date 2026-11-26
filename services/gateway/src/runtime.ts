@@ -1,5 +1,5 @@
 import type { Logger } from '@chronos/logger';
-import type { ServiceConfig } from '@chronos/service-kit';
+import { grpcClientCredentials, type ServiceConfig } from '@chronos/service-kit';
 import { AccountStatus } from '@chronos/contracts/identity';
 import { Redis } from 'ioredis';
 import type { AccountInfo, AccountState } from './auth/guard.js';
@@ -58,8 +58,17 @@ export function createGatewayRuntime(
 ): GatewayRuntime {
   const identity =
     overrides.identity ??
-    new IdentityClient({ address: config.IDENTITY_GRPC_ADDRESS, protoPath: IDENTITY_PROTO });
-  const profile = overrides.profile ?? new ProfileClient({ address: config.PROFILE_GRPC_ADDRESS });
+    new IdentityClient({
+      address: config.IDENTITY_GRPC_ADDRESS,
+      protoPath: IDENTITY_PROTO,
+      credentials: grpcClientCredentials(config, 'identity'),
+    });
+  const profile =
+    overrides.profile ??
+    new ProfileClient({
+      address: config.PROFILE_GRPC_ADDRESS,
+      credentials: grpcClientCredentials(config, 'profile'),
+    });
   const keys = new SigningKeyCache({
     fetch: async () =>
       (await identity.call<{ keys: { kid: string; jwkJson: string }[] }>('getSigningKeys', {}))

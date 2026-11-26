@@ -44,4 +44,4 @@ Status: Accepted (2026-11-21, product owner approved the M1.3 plan and decisions
 
 ## Consequences
 - Access-token issuing and verifying moved to `@chronos/session-tokens`, shared by identity and the gateway, because services must not import each other.
-- The gateway calls identity over plain gRPC for now. mTLS and the per-method caller allow-list arrive with M2.5, and production cannot run before then.
+- The gateway calls identity and profile over mTLS, presenting its own certificate and checking each server's identity; both services enforce a per-method caller allow-list (M2.5).

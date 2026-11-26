@@ -1,5 +1,11 @@
 import { fileURLToPath } from 'node:url';
-import { credentials, loadPackageDefinition, Metadata, type ServiceError } from '@grpc/grpc-js';
+import {
+  type ChannelCredentials,
+  credentials,
+  loadPackageDefinition,
+  Metadata,
+  type ServiceError,
+} from '@grpc/grpc-js';
 import { loadSync } from '@grpc/proto-loader';
 
 /** Whether each member is active and verified. Ids that are not active accounts are missing. */
@@ -22,13 +28,15 @@ type Unary = (
 
 /**
  * Identity's GetMemberFacts (only active accounts are returned). Sends account ids only; nothing
- * about health. mTLS and the per-method allow-list arrive with M2.5, which must add the Disclosure
- * Service as an allowed caller of this method.
+ * about health. Over mTLS, presenting this service's certificate (M2.5).
  */
 export class IdentityMemberFacts implements MemberFacts {
   readonly #client: { getMemberFacts: Unary; close: () => void };
 
-  constructor(address: string) {
+  constructor(
+    address: string,
+    channelCredentials: ChannelCredentials = credentials.createInsecure(),
+  ) {
     const definition = loadSync(IDENTITY_PROTO, {
       keepCase: false,
       longs: String,
@@ -40,10 +48,10 @@ export class IdentityMemberFacts implements MemberFacts {
         identity: { v1: { IdentityService: new (address: string, creds: unknown) => unknown } };
       };
     };
-    this.#client = new pkg.chronos.identity.v1.IdentityService(
-      address,
-      credentials.createInsecure(),
-    ) as { getMemberFacts: Unary; close: () => void };
+    this.#client = new pkg.chronos.identity.v1.IdentityService(address, channelCredentials) as {
+      getMemberFacts: Unary;
+      close: () => void;
+    };
   }
 
   verifiedById(ids: readonly string[]): Promise<Map<string, boolean>> {

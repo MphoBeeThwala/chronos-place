@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { bootstrapService } from '@chronos/service-kit';
+import { PROFILE_ALLOW_LIST } from './allow-list.js';
 import { createAppModule } from './app.module.js';
 import { profileConfig } from './config.js';
 import { PROFILE_PACKAGE, PROFILE_PROTO } from './proto.js';
@@ -9,4 +10,5 @@ await bootstrapService({
   module: createAppModule(),
   extraConfig: profileConfig,
   grpc: { packageName: PROFILE_PACKAGE, protoPath: PROFILE_PROTO },
+  allowList: PROFILE_ALLOW_LIST,
 });

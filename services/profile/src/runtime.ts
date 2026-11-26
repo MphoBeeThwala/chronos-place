@@ -1,6 +1,10 @@
 import { type EventPublisher, KafkaEventPublisher, KafkaEventSubscriber } from '@chronos/events';
 import type { Logger } from '@chronos/logger';
-import type { ReadinessRegistry, ServiceConfig } from '@chronos/service-kit';
+import {
+  grpcClientCredentials,
+  type ReadinessRegistry,
+  type ServiceConfig,
+} from '@chronos/service-kit';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 import { DEVELOPMENT_ENVIRONMENTS, type profileConfig } from './config.js';
@@ -133,7 +137,12 @@ export function createProfileRuntime(
     await pool.query('select 1');
   });
   const db = drizzle(pool);
-  const facts = overrides.facts ?? new IdentityMemberFacts(config.IDENTITY_GRPC_ADDRESS);
+  const facts =
+    overrides.facts ??
+    new IdentityMemberFacts(
+      config.IDENTITY_GRPC_ADDRESS,
+      grpcClientCredentials(config, 'identity'),
+    );
   const profiles = new ProfileService({ profiles: new DrizzleProfileStore(db), facts, logger });
   const photos = new PhotoService({
     photos: new DrizzlePhotoStore(db),

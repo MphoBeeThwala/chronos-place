@@ -1,5 +1,11 @@
 import { fileURLToPath } from 'node:url';
-import { credentials, loadPackageDefinition, Metadata, type ServiceError } from '@grpc/grpc-js';
+import {
+  type ChannelCredentials,
+  credentials,
+  loadPackageDefinition,
+  Metadata,
+  type ServiceError,
+} from '@grpc/grpc-js';
 import { loadSync } from '@grpc/proto-loader';
 
 /** Age in whole years and the verified badge (ADR-0023 decision f). Never a date of birth. */
@@ -27,13 +33,15 @@ type Unary = (
 ) => void;
 
 /**
- * Identity's GetMemberFacts over gRPC. mTLS and the per-method allow-list arrive with M2.5, which
- * must add the profile service as an allowed caller of this one method.
+ * Identity's GetMemberFacts over gRPC, presenting the profile service's certificate (M2.5).
  */
 export class IdentityMemberFacts implements MemberFacts {
   readonly #client: { getMemberFacts: Unary; close: () => void };
 
-  constructor(address: string) {
+  constructor(
+    address: string,
+    channelCredentials: ChannelCredentials = credentials.createInsecure(),
+  ) {
     const definition = loadSync(IDENTITY_PROTO, {
       keepCase: false,
       longs: String,
@@ -45,10 +53,10 @@ export class IdentityMemberFacts implements MemberFacts {
         identity: { v1: { IdentityService: new (address: string, creds: unknown) => unknown } };
       };
     };
-    this.#client = new pkg.chronos.identity.v1.IdentityService(
-      address,
-      credentials.createInsecure(),
-    ) as { getMemberFacts: Unary; close: () => void };
+    this.#client = new pkg.chronos.identity.v1.IdentityService(address, channelCredentials) as {
+      getMemberFacts: Unary;
+      close: () => void;
+    };
   }
 
   get(ids: readonly string[]): Promise<Map<string, MemberFact>> {
