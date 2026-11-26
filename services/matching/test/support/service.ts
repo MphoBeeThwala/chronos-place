@@ -55,7 +55,7 @@ export async function startService(databaseUrl: string) {
   const bus = new InMemoryEventBus();
   const grpcPort = await freePort();
   const service: RunningService = await bootstrapService({
-    module: createAppModule({ publisher: bus }),
+    module: createAppModule({ publisher: bus, subscriber: bus }),
     extraConfig: matchingConfig,
     grpc: { packageName: MATCHING_PACKAGE, protoPath: MATCHING_PROTO },
     allowList: MATCHING_ALLOW_LIST,

@@ -40,7 +40,7 @@ export const identityConfig = {
    */
   ERASURE_CONFIRMING_SERVICES: z
     .string()
-    .default('profile')
+    .default('profile,matching')
     .transform((v) =>
       v
         .split(',')

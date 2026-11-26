@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { createEvent } from '@chronos/contracts/events';
 import { status } from '@grpc/grpc-js';
 import { firstValueFrom as call } from 'rxjs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -204,5 +205,78 @@ describe('events', () => {
       'accountIds',
       'matchId',
     ]);
+  });
+});
+
+describe('account erasure (ADR-0025 d)', () => {
+  const erase = async (accountId: string) => {
+    const event = createEvent('account.erasure_requested', 'identity', {
+      accountId,
+      requestedAt: new Date().toISOString(),
+    });
+    await bus.publish(event.type, accountId, event);
+    await bus.drain();
+    expect(bus.failures).toEqual([]);
+  };
+  async function rowsNaming(accountId: string): Promise<number> {
+    const { rows } = await db.pool.query<{ n: string }>(
+      `select (select count(*) from matching.likes where $1 in (from_id, to_id))
+            + (select count(*) from matching.blocks where $1 in (blocker_id, blocked_id))
+            + (select count(*) from matching.matches where $1 in (a_id, b_id)) as n`,
+      [accountId],
+    );
+    return Number(rows[0]?.n);
+  }
+
+  it('ends matches, deletes every row naming the member, then confirms', async () => {
+    const [gone, match, ex, liker, blocker, other1, other2] = [
+      randomUUID(),
+      randomUUID(),
+      randomUUID(),
+      randomUUID(),
+      randomUUID(),
+      randomUUID(),
+      randomUUID(),
+    ];
+    await like(gone, match);
+    await like(match, gone);
+    await like(gone, ex);
+    const { matchId: exMatch } = await like(ex, gone);
+    await call(client.unmatch({ accountId: ex, matchId: exMatch }));
+    await like(liker, gone);
+    await block(blocker, gone);
+    await call(client.pass({ fromAccountId: gone, toAccountId: other1 }));
+    // Two other members' match stays exactly as it was.
+    const { matchId: untouched } = await (async () => {
+      await like(other1, other2);
+      return like(other2, other1);
+    })();
+    expect(await rowsNaming(gone)).toBeGreaterThan(0);
+
+    await erase(gone);
+
+    expect(await rowsNaming(gone)).toBe(0);
+    expect(await relationship(match, gone)).toEqual({ blocked: false, activeMatchId: '' });
+    expect(await matchesOf(match)).toEqual([]);
+    expect((await matchesOf(other1)).map((m) => m.matchId)).toEqual([untouched]);
+    // match.ended for the live match (the ex-match had ended already), then the confirmation.
+    const topics = await events(gone);
+    expect(topics.filter((t) => t === 'match.ended')).toHaveLength(2); // ex's unmatch + erasure
+    expect(topics).toContain('account.erasure_confirmed');
+    const { rows } = await db.pool.query<{ reason: string | null }>(
+      `select payload->'data'->>'service' as reason from matching.outbox
+        where topic = 'account.erasure_confirmed' and payload::text like $1`,
+      [`%${gone}%`],
+    );
+    expect(rows).toEqual([{ reason: 'matching' }]);
+  });
+
+  it('confirms a member with nothing stored, and again on a repeated request', async () => {
+    const stranger = randomUUID();
+    await erase(stranger);
+    await erase(stranger);
+    expect((await events(stranger)).filter((t) => t === 'account.erasure_confirmed')).toHaveLength(
+      2,
+    );
   });
 });
