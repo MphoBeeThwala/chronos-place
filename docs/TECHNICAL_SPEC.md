@@ -290,7 +290,7 @@ canView(viewer, subject, purpose):
   switch subject.visibility:
     hidden       -> deny "hidden"
     match_only   -> allow if activeMatch(viewer, subject) else deny
-    chat_grant   -> allow if activeGrant(subject, viewer) else deny
+    chat_grant   -> allow if activeGrant(subject, viewer) and activeMatch(viewer, subject) else deny
     profile      -> allow if viewer.verified else deny
   ALWAYS write health_access_log (allow or deny)
 ```
@@ -298,9 +298,10 @@ canView(viewer, subject, purpose):
 Implementation notes (M2.3, approved): the decision is a pure function (`restricted/disclosure-service/src/access/decide.ts`, 100% branch coverage enforced).
 
 - A subject with no health profile is denied for everyone (`no_profile`). Self is allowed in full before any outside fact is needed.
-- **Fail closed:** if matching or identity cannot answer, the view is denied (`relationship_unavailable`, `identity_unavailable`). Until the matching service exists (M3.1), every view by another member is denied.
+- **Fail closed:** if matching or identity cannot answer, the view is denied (`relationship_unavailable`, `identity_unavailable`). Relationships come from matching's `GetRelationship` (M3.1); without `MATCHING_GRPC_ADDRESS` every view by another member is denied.
 - Moderation is denied (`moderation_unavailable`) until M5 can prove an open report; the access log records the accessor as `staff:<id>`.
 - **What is shown:** `match_only` and `profile` show conditions only. Free text and the note are shared only through a grant with FULL scope.
+- **A share needs a live match** (M3.1, approved): when a match ends (unmatch or block) the viewer loses the share at once, even if the grant row has not been ended yet.
 - Allowed views carry a 5-minute lease (`lease_expires_at`).
 - The caller only learns `allowed`, never the reason. "No profile" and "hidden" answer identically, and a subject with nothing in the vault leaves no row behind.
 - `SetVisibility` needs an existing profile and increments its version.

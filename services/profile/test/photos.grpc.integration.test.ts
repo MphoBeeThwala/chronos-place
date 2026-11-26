@@ -12,7 +12,7 @@ import { runMigrations } from '../src/db/migrate.js';
 import { PROFILE_PACKAGE, PROFILE_PROTO } from '../src/proto.js';
 import { startTestDatabase, type TestDatabase } from './support/database.js';
 import { hasGps } from './support/exif.js';
-import { FakeMemberFacts } from './support/profile-fakes.js';
+import { FakeBlocks, FakeMemberFacts } from './support/profile-fakes.js';
 import { startTestS3, type TestS3 } from './support/s3.js';
 
 /**
@@ -111,7 +111,7 @@ beforeAll(async () => {
   const grpcPort = await freePort();
   const httpPort = await freePort();
   service = await bootstrapService({
-    module: createAppModule({ facts }),
+    module: createAppModule({ facts, visibility: new FakeBlocks() }),
     extraConfig: profileConfig,
     grpc: { packageName: PROFILE_PACKAGE, protoPath: PROFILE_PROTO },
     env: {

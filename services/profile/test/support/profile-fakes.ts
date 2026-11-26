@@ -1,3 +1,4 @@
+import type { BlockVisibility } from '../../src/matching/visibility.js';
 import type { MemberFact, MemberFacts } from '../../src/identity/member-facts.js';
 import type { Point } from '../../src/profiles/location.js';
 import type {
@@ -117,5 +118,15 @@ export class InMemoryProfileStore implements ProfileStore {
         ];
       }),
     );
+  }
+}
+
+/** Matching's blocks, from pairs tests add (either order hides both). */
+export class FakeBlocks implements BlockVisibility {
+  readonly pairs = new Set<string>();
+  static key = (a: string, b: string) => [a, b].sort().join(':');
+
+  visibleTo(viewerId: string, ids: readonly string[]): Promise<string[]> {
+    return Promise.resolve(ids.filter((id) => !this.pairs.has(FakeBlocks.key(viewerId, id))));
   }
 }

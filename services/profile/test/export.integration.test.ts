@@ -11,7 +11,7 @@ import { DrizzleProfileStore } from '../src/profiles/profile-store.js';
 import { ProfileService } from '../src/profiles/profile.service.js';
 import { startTestDatabase, type TestDatabase } from './support/database.js';
 import { FixedModerator } from './support/photo-fakes.js';
-import { FakeMemberFacts } from './support/profile-fakes.js';
+import { FakeBlocks, FakeMemberFacts } from './support/profile-fakes.js';
 import { startTestS3, type TestS3 } from './support/s3.js';
 
 /** "Download my data", profile's part (ADR-0025 c, i), against PostgreSQL and SeaweedFS. */
@@ -33,6 +33,7 @@ beforeAll(async () => {
   profiles = new ProfileService({
     profiles: new DrizzleProfileStore(orm),
     facts: new FakeMemberFacts(),
+    visibility: new FakeBlocks(),
     logger,
   });
   const photos = new PhotoService({

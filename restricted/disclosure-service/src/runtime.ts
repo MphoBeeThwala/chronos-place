@@ -9,7 +9,11 @@ import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { Logger } from '@chronos/logger';
 import pg from 'pg';
 import { IdentityMemberFacts, type MemberFacts } from './access/member-facts.js';
-import { MatchingNotYetAvailable, type Relationships } from './access/relationships.js';
+import {
+  MatchingNotYetAvailable,
+  MatchingRelationships,
+  type Relationships,
+} from './access/relationships.js';
 import { SharingService } from './access/sharing.service.js';
 import { ViewService } from './access/view.service.js';
 import { ViewersService } from './access/viewers.service.js';
@@ -29,6 +33,7 @@ export interface DisclosureConfig extends ClientTlsConfig {
   KMS_ENDPOINT?: string | undefined;
   AWS_REGION: string;
   IDENTITY_GRPC_ADDRESS: string;
+  MATCHING_GRPC_ADDRESS?: string | undefined;
   VAULT_LEDGER_BUCKET: string;
   S3_ENDPOINT?: string | undefined;
 }
@@ -101,7 +106,14 @@ export function createDisclosureRuntime(
       grpcClientCredentials(config, 'identity'),
     );
   const grants = new Grants(db);
-  const relationships = overrides.relationships ?? new MatchingNotYetAvailable();
+  const relationships: Relationships =
+    overrides.relationships ??
+    (config.MATCHING_GRPC_ADDRESS === undefined
+      ? new MatchingNotYetAvailable()
+      : new MatchingRelationships(
+          config.MATCHING_GRPC_ADDRESS,
+          grpcClientCredentials(config, 'matching'),
+        ));
   const views = new ViewService({
     db,
     subjects,
@@ -133,6 +145,7 @@ export function createDisclosureRuntime(
     }),
     close: async () => {
       members.close();
+      relationships.close?.();
       await pool.end();
     },
   };

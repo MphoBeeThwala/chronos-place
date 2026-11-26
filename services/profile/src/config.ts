@@ -18,6 +18,11 @@ export const profileConfig = {
     .string()
     .regex(/^[A-Za-z0-9.-]+:\d{1,5}$/)
     .default('127.0.0.1:50052'),
+  /** host:port of matching, for blocks (M3.1). Unreachable: no public profile is shown. */
+  MATCHING_GRPC_ADDRESS: z
+    .string()
+    .regex(/^[A-Za-z0-9.-]+:\d{1,5}$/)
+    .default('127.0.0.1:50056'),
 
   /**
    * Photo storage (ADR-0024). Both buckets are private. Unset in development keeps photos in

@@ -7,7 +7,8 @@
  * M2.3 decisions: views by anyone but the member are denied until the matching service can say
  * whether they are blocked or matched (M3.1); moderation is denied until M5 can prove an open
  * report; "matches only" and "everyone" show conditions only, and own words and the note are
- * shared only through a one-to-one grant with full scope.
+ * shared only through a one-to-one grant with full scope. M3.1: a one-to-one grant counts only
+ * while the two still have an active match.
  */
 export type ViewPurpose = 'profile_view' | 'chat_card' | 'moderation';
 export type Visibility = 'hidden' | 'match_only' | 'chat_grant' | 'profile';
@@ -48,9 +49,11 @@ export function decide(f: AccessFacts): Decision {
         ? { allow: true, scope: 'conditions_only', reason: 'match' }
         : deny('no_match');
     case 'chat_grant':
-      return f.grant === undefined
-        ? deny('no_grant')
-        : { allow: true, scope: f.grant, reason: 'grant' };
+      // A share needs a live match too (M3.1 decision): an ex-match never keeps seeing it.
+      if (f.grant === undefined) return deny('no_grant');
+      return f.relationship.activeMatch
+        ? { allow: true, scope: f.grant, reason: 'grant' }
+        : deny('no_match');
     case 'profile':
       return f.members.viewerVerified
         ? { allow: true, scope: 'conditions_only', reason: 'verified' }
