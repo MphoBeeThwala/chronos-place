@@ -16,12 +16,13 @@ import { GraphQLError } from 'graphql';
 import { z } from 'zod';
 import type { GatewayContext } from '../auth/context.js';
 import type { DisclosureClient } from '../disclosure/disclosure-client.js';
+import type { MatchingClient } from '../matching/matching-client.js';
 import { fromGrpc } from '../identity/errors.js';
 import { toDate } from '../identity/identity-client.js';
 import type { RateLimiter } from '../limits/rate-limit.js';
 import type { ProfileClient } from '../profile/profile-client.js';
 import type { ResolverMap } from './not-available.js';
-import { photo } from './profile-resolvers.js';
+import { promptQuestions, publicProfile, type WirePublicProfile } from './public-profile.js';
 
 /** The condition list holds no member data and changes only with a migration. */
 export const TAXONOMY_TTL_MS = 10 * 60 * 1000;
@@ -38,6 +39,10 @@ const VISIBILITY_TO_WIRE = {
   MATCH_ONLY: Visibility.VISIBILITY_MATCH_ONLY,
   CHAT_GRANT: Visibility.VISIBILITY_CHAT_GRANT,
   PROFILE: Visibility.VISIBILITY_PROFILE,
+} as const;
+const SCOPE_TO_WIRE = {
+  FULL: GrantScope.GRANT_SCOPE_FULL,
+  CONDITIONS_ONLY: GrantScope.GRANT_SCOPE_CONDITIONS_ONLY,
 } as const;
 const SCOPE_FROM_WIRE = new Map<number, string>([
   [GrantScope.GRANT_SCOPE_FULL, 'FULL'],
@@ -58,6 +63,7 @@ const DISCLOSURE_MESSAGES = new Set([
   'Health profile changed elsewhere; reload and try again.',
   'Sharing changed elsewhere; reload and try again.',
 ]);
+const NOT_A_MATCH = 'You can share only with a current match.';
 const CONFLICT_MESSAGE = 'Health profile changed elsewhere; reload and try again.';
 const GENERIC: Partial<Record<number, string>> = {
   [status.INVALID_ARGUMENT]: 'Invalid input.',
@@ -87,23 +93,13 @@ const inputs = {
   }),
   filters: z.object({ conditionCodes: z.array(code).max(10) }),
   account: z.object({ accountId: z.uuid() }),
+  share: z.object({ matchId: z.uuid(), scope: z.enum(['FULL', 'CONDITIONS_ONLY']) }),
 };
-
-interface WirePublicProfile {
-  accountId: string;
-  displayName: string;
-  age: number;
-  bio: string;
-  areaLabel: string;
-  distanceKm?: number | null;
-  prompts?: { promptId: string; answer: string }[];
-  verified: boolean;
-  photos?: Parameters<typeof photo>[0][];
-}
 
 export interface HealthResolverDeps {
   disclosure: DisclosureClient;
   profile: ProfileClient;
+  matching: MatchingClient;
   rateLimiter: Pick<RateLimiter, 'checkHealthRead' | 'checkHealthWrite'>;
 }
 
@@ -178,19 +174,7 @@ export function healthResolvers(deps: HealthResolverDeps): ResolverMap {
   };
 
   let taxonomy: { entries: { code: string; label: string }[]; at: number } | undefined;
-  let catalogue: { questions: Map<string, string>; at: number } | undefined;
-  const promptQuestions = async (): Promise<Map<string, string>> => {
-    if (catalogue && Date.now() - catalogue.at < TAXONOMY_TTL_MS) return catalogue.questions;
-    const result = await profileCall<{ prompts?: { id: string; question: string }[] }>(
-      'getCatalogue',
-      {},
-    );
-    catalogue = {
-      questions: new Map((result.prompts ?? []).map((p) => [p.id, p.question])),
-      at: Date.now(),
-    };
-    return catalogue.questions;
-  };
+  const loadQuestions = promptQuestions(() => profileCall('getCatalogue', {}));
 
   return {
     Query: {
@@ -226,7 +210,7 @@ export function healthResolvers(deps: HealthResolverDeps): ResolverMap {
             viewerAccountId: accountId,
             accountIds: viewers.map((v) => v.viewerAccountId),
           }),
-          promptQuestions(),
+          loadQuestions(),
         ]);
         const byId = new Map(profiles.map((p) => [p.accountId, p]));
         return viewers.map((v) => {
@@ -234,24 +218,7 @@ export function healthResolvers(deps: HealthResolverDeps): ResolverMap {
           return {
             // Null when they have left, paused or are in private mode: the profile service does
             // not say which.
-            viewer: p
-              ? {
-                  id: p.accountId,
-                  displayName: p.displayName,
-                  age: p.age,
-                  bio: text(p.bio),
-                  areaLabel: text(p.areaLabel),
-                  distanceKm: p.distanceKm ?? null,
-                  photos: (p.photos ?? []).map(photo),
-                  prompts: (p.prompts ?? []).flatMap((answer) => {
-                    const question = questions.get(answer.promptId);
-                    return question === undefined
-                      ? []
-                      : [{ id: answer.promptId, question, answer: answer.answer }];
-                  }),
-                  verified: p.verified,
-                }
-              : null,
+            viewer: p ? publicProfile(p, questions) : null,
             lastViewedAt: toDate(v.lastViewedAt),
             viewCount: v.viewCount,
             hasActiveGrant: v.hasActiveGrant,
@@ -331,7 +298,32 @@ export function healthResolvers(deps: HealthResolverDeps): ResolverMap {
         });
         return result.revoked;
       },
-      // shareHealthCard needs a match (M3): it stays "not available yet".
+
+      shareHealthCard: async (_parent, args, ctx) => {
+        const subject = await health(ctx, 'write');
+        const { matchId, scope } = parse(inputs.share, args);
+        // The card names the match; matching says who it is with, only for an active match of
+        // the member's. Anything else reads exactly like the Disclosure Service's own refusal.
+        let viewer: string | undefined;
+        try {
+          const { match } = await deps.matching.call<{ match?: { otherAccountId: string } }>(
+            'getMatch',
+            { accountId: subject, matchId },
+          );
+          viewer = match?.otherAccountId;
+        } catch (error) {
+          if ((error as { code?: unknown }).code !== status.NOT_FOUND) throw fromGrpc(error);
+        }
+        if (viewer === undefined || viewer === '') {
+          throw new GraphQLError(NOT_A_MATCH, { extensions: { code: 'FAILED_PRECONDITION' } });
+        }
+        await call('grantDisclosure', {
+          subjectAccountId: subject,
+          viewerAccountId: viewer,
+          scope: SCOPE_TO_WIRE[scope],
+        });
+        return true;
+      },
     },
   };
 }

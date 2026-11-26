@@ -20,6 +20,7 @@ import {
 import { healthResolvers } from './graphql/health-resolvers.js';
 import { exportResolvers } from './graphql/export-resolvers.js';
 import { identityResolvers } from './graphql/identity-resolvers.js';
+import { matchingResolvers } from './graphql/matching-resolvers.js';
 import { profileResolvers } from './graphql/profile-resolvers.js';
 import { type ResolverMap, rootResolvers } from './graphql/not-available.js';
 import { createGatewayRuntime, type GatewayConfig, type GatewayRuntime } from './runtime.js';
@@ -43,6 +44,7 @@ const defaultResolvers = (runtime: GatewayRuntime): ResolverMap =>
     profileResolvers(runtime),
     exportResolvers(runtime),
     healthResolvers(runtime),
+    matchingResolvers(runtime),
   );
 
 const SDL = readFileSync(schemaPath, 'utf8');

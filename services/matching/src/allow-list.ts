@@ -13,6 +13,7 @@ export const MATCHING_ALLOW_LIST: AllowList = {
     Block: ['gateway'],
     Unblock: ['gateway'],
     ListMatches: ['gateway'],
+    GetMatch: ['gateway'],
     ListBlocked: ['gateway'],
     GetRelationship: ['disclosure-service', 'messaging'],
     FilterVisible: ['profile', 'discovery'],

@@ -99,6 +99,25 @@ describe('likes and matches', () => {
       [...(first.matches ?? []), ...(second.matches ?? [])].map((m) => m.otherAccountId),
     ).toEqual([...others].reverse());
     expect(second.nextPageToken).toBe('');
+    // Each match's cursor continues after it.
+    const fromFirst = await call(
+      client.listMatches({ accountId: me, pageToken: first.matches?.[0]?.cursor ?? 'x' }),
+    );
+    expect(fromFirst.matches?.map((m) => m.otherAccountId)).toEqual([others[1], others[0]]);
+  });
+
+  it('names who a match is with, only for a member of an active match', async () => {
+    const [a, b] = [randomUUID(), randomUUID()];
+    await like(a, b);
+    const { matchId } = await like(b, a);
+    expect((await call(client.getMatch({ accountId: a, matchId }))).match?.otherAccountId).toBe(b);
+    expect((await call(client.getMatch({ accountId: b, matchId }))).match?.otherAccountId).toBe(a);
+    const stranger = call(client.getMatch({ accountId: randomUUID(), matchId }));
+    expect(await grpcError(stranger)).toBe(status.NOT_FOUND);
+    await call(client.unmatch({ accountId: a, matchId }));
+    expect(await grpcError(call(client.getMatch({ accountId: a, matchId })))).toBe(
+      status.NOT_FOUND,
+    );
   });
 });
 
