@@ -1,0 +1,120 @@
+syntax = "proto3";
+
+package chronos.matching.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Likes, passes, matches, unmatches and blocks (TASKS M3.1).
+//
+// Conventions
+// - Callers are authenticated by mTLS identity and checked against a per-method allow-list (M2.5).
+// - Ids only: no profile text and no health data, ever (CLAUDE.md rules 1 and 3).
+// - A block hides both members from each other everywhere (M3.1 AC). Other services ask
+//   GetRelationship or FilterVisible, and treat "matching unreachable" as "hidden".
+// - Approved rules (M3.1): a block ends any match and clears likes both ways; an unblock restores
+//   nothing. An unmatch is final: the two are never matched or shown to each other again.
+// - gRPC status codes: INVALID_ARGUMENT for bad ids or acting on yourself, NOT_FOUND for a match
+//   that is not the member's. Messages are fixed and never say whether someone blocked you.
+service MatchingService {
+  // Likes another member. A like back creates a match. Liking someone who blocked you, or whom
+  // you blocked or unmatched, quietly does nothing. Caller: gateway.
+  rpc Like(LikeRequest) returns (LikeResponse);
+  // Passes on another member: they are not shown again. Caller: gateway.
+  rpc Pass(PassRequest) returns (PassResponse);
+  // Ends a match for both members, for good. Idempotent. Caller: gateway.
+  rpc Unmatch(UnmatchRequest) returns (UnmatchResponse);
+  // Blocks another member, with or without a match. Idempotent. Caller: gateway.
+  rpc Block(BlockRequest) returns (BlockResponse);
+  // Removes the member's own block. Restores nothing. Idempotent. Caller: gateway.
+  rpc Unblock(UnblockRequest) returns (UnblockResponse);
+  // The member's active matches, newest first. Caller: gateway.
+  rpc ListMatches(ListMatchesRequest) returns (ListMatchesResponse);
+  // Members the member has blocked, newest first (for settings). Caller: gateway.
+  rpc ListBlocked(ListBlockedRequest) returns (ListBlockedResponse);
+  // Whether two members are blocked either way, and their active match. Callers: disclosure-service, messaging (M4).
+  rpc GetRelationship(GetRelationshipRequest) returns (GetRelationshipResponse);
+  // The candidates the viewer may be shown: drops anyone blocked either way. Callers: profile, discovery (M3.2).
+  rpc FilterVisible(FilterVisibleRequest) returns (FilterVisibleResponse);
+}
+
+message LikeRequest {
+  string from_account_id = 1;
+  string to_account_id = 2;
+}
+message LikeResponse {
+  // True when this like completed a match (or the two were already matched).
+  bool matched = 1;
+  string match_id = 2;
+}
+
+message PassRequest {
+  string from_account_id = 1;
+  string to_account_id = 2;
+}
+message PassResponse {}
+
+message UnmatchRequest {
+  string account_id = 1;
+  string match_id = 2;
+}
+message UnmatchResponse {}
+
+message BlockRequest {
+  string blocker_account_id = 1;
+  string blocked_account_id = 2;
+}
+message BlockResponse {}
+
+message UnblockRequest {
+  string blocker_account_id = 1;
+  string blocked_account_id = 2;
+}
+message UnblockResponse {}
+
+message Match {
+  string match_id = 1;
+  string other_account_id = 2;
+  google.protobuf.Timestamp created_at = 3;
+}
+message ListMatchesRequest {
+  string account_id = 1;
+  // 1 to 100; 0 means 50.
+  int32 page_size = 2;
+  string page_token = 3;
+}
+message ListMatchesResponse {
+  repeated Match matches = 1;
+  string next_page_token = 2;
+}
+
+message BlockedMember {
+  string account_id = 1;
+  google.protobuf.Timestamp blocked_at = 2;
+}
+message ListBlockedRequest {
+  string account_id = 1;
+}
+message ListBlockedResponse {
+  repeated BlockedMember blocked = 1;
+}
+
+message GetRelationshipRequest {
+  string account_id = 1;
+  string other_account_id = 2;
+}
+message GetRelationshipResponse {
+  // Either member blocked the other. Says nothing about who.
+  bool blocked = 1;
+  // Set when the two have an active match.
+  string active_match_id = 2;
+}
+
+message FilterVisibleRequest {
+  string viewer_account_id = 1;
+  // At most 500.
+  repeated string candidate_account_ids = 2;
+}
+message FilterVisibleResponse {
+  // The visible candidates, in the order given.
+  repeated string visible_account_ids = 1;
+}

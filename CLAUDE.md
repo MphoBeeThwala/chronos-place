@@ -104,7 +104,7 @@ pnpm test:acceptance         # cross-service acceptance tests in tools/acceptanc
 pnpm test:privacy            # leakage tests (logs, events, notifications)
 pnpm test:e2e                # Playwright tests for apps/web (starts the app itself; PLAYWRIGHT_CHROME_PATH=/path/to/chrome uses an installed Chrome)
 pnpm test:e2e:stack          # onboarding end to end against the real identity, profile and gateway, with axe checks (needs the stack up)
-pnpm db:migrate              # core-database migrations (identity and profile). Needs the stack up
+pnpm db:migrate              # core-database migrations (identity, profile and matching). Needs the stack up
 pnpm db:migrate:vault        # Health Vault migrations, roles and audit-log lock (restricted/vault-db). Needs the stack up
 pnpm seed                    # NOT YET: synthetic data only, from tools/seed (arrives with M1.5)
 pnpm check:deps              # banned third-party SDKs (rule 7); also runs in CI

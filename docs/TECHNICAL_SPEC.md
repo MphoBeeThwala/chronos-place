@@ -140,6 +140,10 @@ CREATE TABLE blocks (
   blocker_id uuid NOT NULL, blocked_id uuid NOT NULL,
   PRIMARY KEY (blocker_id, blocked_id)
 );
+-- Matching (M3.1, schema `matching`, approved rules): a block ends any match (ended_reason block)
+-- and clears likes both ways; an unblock restores nothing; an unmatch is final (the ended row keeps
+-- the pair from ever matching again). Two likes at once create one match (per-pair advisory lock).
+-- Other services ask matching's GetRelationship / FilterVisible and treat "unreachable" as hidden.
 
 CREATE TABLE reports (
   id uuid PRIMARY KEY,

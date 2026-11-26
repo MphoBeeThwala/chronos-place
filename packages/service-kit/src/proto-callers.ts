@@ -14,7 +14,8 @@ export function callersFromProto(protoPath: string, service: string): Map<string
   const result = new Map<string, string[]>();
   let current: string[] | undefined;
   for (const line of body.split('\n')) {
-    const named = /Callers?: ([^.]*)/.exec(line);
+    // A note in brackets may contain dots: `discovery (M3.2).`
+    const named = /Callers?: ((?:[^.(]|\([^)]*\))*)/.exec(line);
     if (named?.[1] !== undefined) {
       const list = named[1].replace(/\([^)]*\)/g, '').trim();
       current =

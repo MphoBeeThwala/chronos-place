@@ -19,6 +19,8 @@ service S {
   rpc E(X) returns (X);
   // Callers: gateway, moderation (purpose MODERATION only).
   rpc F(X) returns (X);
+  // Callers: profile, discovery (M3.2).
+  rpc G(X) returns (X);
 }`;
 
 describe('callersFromProto', () => {
@@ -32,6 +34,7 @@ describe('callersFromProto', () => {
       D: ['identity'],
       E: [],
       F: ['gateway', 'moderation'],
+      G: ['profile', 'discovery'],
     });
   });
 
