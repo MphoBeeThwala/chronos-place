@@ -100,3 +100,28 @@ body {
 :root {
   accent-color: var(--color-primary);
 }
+
+/* Health screens (ScreenProtect, ADR-0017, TASKS M2.8). */
+[data-screen-protect='true'] {
+  user-select: none;
+  -webkit-user-select: none;
+}
+[data-screen-protect='true'] :is(input, textarea) {
+  user-select: text;
+  -webkit-user-select: text;
+}
+[data-screen-protect='true'][data-screen-hidden='true'] {
+  filter: blur(24px);
+}
+.screen-protect-print {
+  display: none;
+}
+@media print {
+  [data-screen-protect='true'] {
+    display: none !important;
+  }
+  .screen-protect-print {
+    display: block !important;
+    padding: 2rem;
+  }
+}

@@ -84,6 +84,26 @@ export const OPERATIONS = {
   "DeleteAccount": {
     "hash": "31b7c46a166b44fd95b4177f2f99b416cf22d7ebd2194a174569ac4939cdee67",
     "text": "mutation DeleteAccount($challengeId: ID!, $code: String!) {\n  deleteAccount(challengeId: $challengeId, code: $code) {\n    id\n    status\n  }\n}"
+  },
+  "HealthPage": {
+    "hash": "4fe4b61aed0384640a4891f327e4cc07ec71149e6991fd43a81a217130598a05",
+    "text": "query HealthPage {\n  myHealthProfile {\n    conditions {\n      code\n      status\n    }\n    freeText\n    note\n    visibility\n    filterOptIn\n    version\n  }\n  conditionTaxonomy {\n    code\n    label\n  }\n  myHealthFilters\n}"
+  },
+  "HealthViewers": {
+    "hash": "07fb7c81cb13d67c1c11e3f3cbc6348357ff5216a99181ed15abfa6d483d6261",
+    "text": "query HealthViewers {\n  healthViewers {\n    viewer {\n      id\n      displayName\n    }\n    lastViewedAt\n    viewCount\n    hasActiveGrant\n  }\n}"
+  },
+  "UpsertHealthProfile": {
+    "hash": "87da14ed009db7d4ec21a44d64403b72962e59763f5a0926745c6e5f70d81539",
+    "text": "mutation UpsertHealthProfile($input: HealthProfileInput!) {\n  upsertHealthProfile(input: $input) {\n    version\n  }\n}"
+  },
+  "SetHealthVisibility": {
+    "hash": "bd75271bf697a77d44c84bf28cdce155d1dbb25df5ebe43ab5e342fd0e4dc034",
+    "text": "mutation SetHealthVisibility($visibility: HealthVisibility!, $filterOptIn: Boolean) {\n  setHealthVisibility(visibility: $visibility, filterOptIn: $filterOptIn) {\n    visibility\n    filterOptIn\n    version\n  }\n}"
+  },
+  "SetHealthFilters": {
+    "hash": "2512c3f4bde5fa3a65d766695d1be8df58393b517a39929ebc86e348f001b1ab",
+    "text": "mutation SetHealthFilters($conditionCodes: [String!]!) {\n  setHealthFilters(conditionCodes: $conditionCodes)\n}"
   }
 } as const;
 

@@ -1,37 +1,31 @@
 /**
- * Health profile page.
- * Protected: screenshot prevention (web equivalent of FLAG_SECURE — CSS user-select: none
- * plus a printed-page warning). The ScreenProtect component handles this.
- * M2.8 will add the full health profile UX.
+ * The member's health profile (TASKS M2.8). Neutral tab title and path (ADR-0017, M1.9), screen
+ * protection, and served per request with Cache-Control: no-store (ADR-0009), so no browser, proxy
+ * or back/forward cache keeps a copy.
  */
 import type { Metadata } from 'next';
+import { HealthProfile } from '@/components/health/HealthProfile';
+import { COPY } from '@/components/health/health-copy';
 import { ScreenProtect } from '@/components/health/ScreenProtect';
 
-// Always rendered per request and served with Cache-Control: no-store, so no browser, proxy or
-// back/forward cache keeps a copy of a health view (ADR-0009).
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  // Neutral: tab titles and history must not imply health (ADR-0017, TASKS M1.9).
+  // Neutral: tab titles and history must not imply health.
   title: 'Private',
-  // Instruct crawlers/caches not to index health-related pages.
   robots: { index: false, follow: false },
 };
 
 export default function HealthProfilePage() {
   return (
-    <ScreenProtect>
-      <main id="main-content" className="p-4 max-w-lg mx-auto">
-        <h1 className="text-xl font-semibold mb-2" style={{ color: 'var(--color-text)' }}>
-          Health profile
-        </h1>
-        <p className="text-sm mb-6" style={{ color: 'var(--color-text-muted)' }}>
-          This information is encrypted and only shared with people you choose.
+    <main id="main-content" className="mx-auto max-w-lg p-4">
+      <ScreenProtect>
+        <h1 className="mb-2 text-2xl font-semibold">{COPY.heading}</h1>
+        <p className="mb-6" style={{ color: 'var(--color-text-muted)' }}>
+          {COPY.intro}
         </p>
-        <p style={{ color: 'var(--color-text-muted)' }}>
-          Full health profile management will be available in M2.8.
-        </p>
-      </main>
-    </ScreenProtect>
+        <HealthProfile />
+      </ScreenProtect>
+    </main>
   );
 }
