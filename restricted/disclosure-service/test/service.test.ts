@@ -1,7 +1,7 @@
 import { createServer } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { bootstrapService, type RunningService } from '@chronos/service-kit';
-import { AppModule } from '../src/app.module.js';
+import { createAppModule } from '../src/app.module.js';
 import { disclosureConfig } from '../src/config.js';
 
 const freePort = (): Promise<number> =>
@@ -24,13 +24,14 @@ describe('disclosure-service service', () => {
     const httpPort = await freePort();
     http = `http://127.0.0.1:${String(httpPort)}`;
     service = await bootstrapService({
-      module: AppModule,
+      module: createAppModule(),
       extraConfig: disclosureConfig,
       loggerMode: 'allowlist',
       telemetry: false,
       env: {
         // Nothing listens here: the service must start, but report the vault as not ready.
         VAULT_DATABASE_URL: 'postgres://disclosure:unused-password@127.0.0.1:1/chronos_vault',
+        VAULT_DATA_KEY_ID: 'alias/test-vault',
         NODE_ENV: 'test',
         SERVICE_NAME: 'disclosure-service',
         HTTP_PORT: String(httpPort),

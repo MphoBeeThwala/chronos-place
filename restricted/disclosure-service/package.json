@@ -13,14 +13,19 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:integration": "vitest run --config vitest.integration.config.ts"
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:privacy": "vitest run --config vitest.privacy.config.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-kms": "^3.1145.0",
     "@chronos/config": "workspace:*",
+    "@chronos/contracts": "workspace:*",
     "@chronos/crypto": "workspace:*",
     "@chronos/logger": "workspace:*",
     "@chronos/service-kit": "workspace:*",
     "@chronos/vault-db": "workspace:*",
+    "@grpc/grpc-js": "^1.14.5",
+    "@grpc/proto-loader": "^0.8.1",
     "@nestjs/common": "^12.1.2",
     "@nestjs/core": "^12.1.2",
     "@nestjs/microservices": "^12.1.2",
@@ -31,6 +36,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@chronos/privacy-harness": "workspace:*",
     "@chronos/tsconfig": "workspace:*",
     "@testcontainers/postgresql": "^12.2.2",
     "@types/pg": "^8.23.1"

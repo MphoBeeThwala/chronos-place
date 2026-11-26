@@ -161,6 +161,15 @@ describe('development-only packages inside restricted/', () => {
     expect(await lint(file, code)).toContain(`${BOUNDARY}:notAllowedInRestricted`);
   });
 
+  it('allows the privacy harness in tests only', async () => {
+    const code =
+      "import { usePrivacyHarness } from '@chronos/privacy-harness/vitest';\nexport { usePrivacyHarness };\n";
+    expect(await lint('restricted/disclosure-service/test/a.privacy.test.ts', code)).toEqual([]);
+    expect(await lint('restricted/disclosure-service/src/a.ts', code)).toContain(
+      `${BOUNDARY}:notAllowedInRestricted`,
+    );
+  });
+
   it('still rejects unapproved packages in tests', async () => {
     const code = "import { Kafka } from 'kafkajs';\nexport { Kafka };\n";
     expect(await lint('restricted/vault-db/test/a.test.ts', code)).toContain(

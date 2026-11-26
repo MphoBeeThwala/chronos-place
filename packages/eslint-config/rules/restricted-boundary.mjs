@@ -45,6 +45,8 @@ export const RESTRICTED_ALLOWED_THIRD_PARTY = [
  * (see RESTRICTED_DEV_FILE). They never reach a built service: none of these are runtime dependencies.
  */
 export const RESTRICTED_ALLOWED_DEV_ONLY = [
+  // Leakage tests (CLAUDE.md: anything touching health data needs a privacy test).
+  '@chronos/privacy-harness',
   '@testcontainers/postgresql',
   'testcontainers',
   'drizzle-kit',
