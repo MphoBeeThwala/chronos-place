@@ -49,6 +49,8 @@ export const ACCESS_PURPOSES = [
   'moderation',
   'export',
   'erasure',
+  // Reading a candidate's profile to apply someone's condition filters (M2.6).
+  'filter',
 ] as const;
 export const ACCESS_DECISIONS = ['allow', 'deny'] as const;
 

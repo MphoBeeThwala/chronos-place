@@ -95,6 +95,15 @@ describe('health profile privacy', () => {
       );
       await call(client.revokeDisclosure(pair));
       const listed = await call(client.listHealthViewers({ subjectAccountId: accountId }));
+      // Filters: preferences in, a filter run, preferences out. Only ids and outcomes come back.
+      await call(
+        client.setFilterPreferences({ accountId, wantedConditionCodes: ['cystic_fibrosis'] }),
+      );
+      const filtered = await call(
+        client.filterEligibleSubjects({ viewerAccountId: accountId, candidateAccountIds: [match] }),
+      );
+      expect(Object.keys(filtered).sort()).toEqual(['outcome']);
+      await call(client.getFilterPreferences({ accountId }));
       // Who, when, how often, and whether still shared: nothing from the profile.
       expect(Object.keys(listed.viewers?.[0] ?? {}).sort()).toEqual([
         'hasActiveGrant',
@@ -123,7 +132,7 @@ describe('health profile privacy', () => {
     // The harness checks the markers; these are what a reader could link to a person.
     for (const line of [...privacy.logs.texts(), ...privacy.grpc.texts()]) {
       expect(line).not.toContain(accountId);
-      expect(line).not.toMatch(/living_with|"other"/);
+      expect(line).not.toMatch(/living_with|"other"|cystic_fibrosis/);
       // Nor the access decision's reasons: they reveal a member's setting.
       expect(line).not.toMatch(/relationship_unavailable|not_verified|no_grant|"hidden"/);
     }

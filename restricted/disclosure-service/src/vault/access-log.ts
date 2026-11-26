@@ -5,7 +5,7 @@ export interface AccessRecord {
   vaultId: string;
   /** `account:<uuid>`, `service:<name>` or `staff:<uuid>`; the database rejects anything else. */
   accessor: string;
-  purpose: 'profile_view' | 'chat_card' | 'moderation' | 'export' | 'erasure';
+  purpose: 'profile_view' | 'chat_card' | 'moderation' | 'export' | 'erasure' | 'filter';
   decision: 'allow' | 'deny';
   /** A short code such as `self` or `no_grant`; never free text. */
   reason: string;
@@ -21,5 +21,10 @@ export class AccessLog {
 
   async record(entry: AccessRecord): Promise<void> {
     await this.#db.insert(healthAccessLog).values(entry);
+  }
+
+  /** Appends several decisions in one statement. */
+  async recordMany(entries: readonly AccessRecord[]): Promise<void> {
+    if (entries.length > 0) await this.#db.insert(healthAccessLog).values([...entries]);
   }
 }

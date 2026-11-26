@@ -85,6 +85,8 @@ export class ViewersService {
          and l.decision = 'allow'
          and l.accessor like 'account:%'
          and l.accessor <> ${self}
+         -- Profile views only: appearing in someone's filtered list is not a view (M2.6 decision).
+         and l.purpose in ('profile_view', 'chat_card')
        group by l.vault_id, l.accessor
       ${
         after === undefined

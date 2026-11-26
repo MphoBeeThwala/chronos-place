@@ -11,7 +11,7 @@ back only what the viewer may see.
 - **Keys:** each member's data key is wrapped by KMS and stored in `vault.subject_keys`. Deleting
   that row is the crypto-shred.
 
-## What it does so far (M2.2 to M2.4)
+## What it does so far (M2.2 to M2.6)
 
 - `UpsertHealthProfile` saves a member's whole profile, sealed with their data key and bound to
   their vault id. `expected_version` (0 to create) stops two devices overwriting each other:
@@ -37,7 +37,14 @@ back only what the viewer may see.
 - `ListHealthViewers` (M2.4): successful views by other members, newest first, with a count and
   whether the share is still live. Own and moderator views are not listed. Reading it is recorded
   (`self_viewers`).
-- Every other call answers `UNIMPLEMENTED` until its task (M2.5 to M2.7).
+- `SetFilterPreferences` and `GetFilterPreferences` (M2.6) store and return the conditions a member
+  filters for, sealed with their own key: up to 10 active codes, not `other`. An empty list deletes
+  them.
+- `FilterEligibleSubjects` (M2.6, discovery only) returns account ids of candidates who chose
+  "Everyone", opted in, and have any wanted condition. The viewer must share the same way
+  (`viewer_not_sharing` otherwise), and fewer than 20 matches return nothing (`below_threshold`).
+  Each candidate profile opened is recorded with purpose `filter`.
+- Every other call answers `UNIMPLEMENTED` until M2.7.
 
 **Retired conditions:** entries are retired, never deleted. A member who already has a retired
 condition keeps it and can still save other changes (that check reads their stored profile, audited

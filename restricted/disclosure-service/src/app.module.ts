@@ -1,4 +1,5 @@
-import { ReadinessRegistry, SERVICE_CONFIG } from '@chronos/service-kit';
+import type { Logger } from '@chronos/logger';
+import { ReadinessRegistry, SERVICE_CONFIG, SERVICE_LOGGER } from '@chronos/service-kit';
 import { Inject, Module, type OnModuleDestroy, type Type } from '@nestjs/common';
 import { DISCLOSURE_RUNTIME, DisclosureController } from './disclosure.controller.js';
 import {
@@ -15,9 +16,9 @@ export function createAppModule(overrides: RuntimeOverrides = {}): Type {
     providers: [
       {
         provide: DISCLOSURE_RUNTIME,
-        inject: [SERVICE_CONFIG, ReadinessRegistry],
-        useFactory: (config: DisclosureConfig, readiness: ReadinessRegistry) =>
-          createDisclosureRuntime(config, readiness, overrides),
+        inject: [SERVICE_CONFIG, ReadinessRegistry, SERVICE_LOGGER],
+        useFactory: (config: DisclosureConfig, readiness: ReadinessRegistry, logger: Logger) =>
+          createDisclosureRuntime(config, readiness, overrides, logger),
       },
     ],
   })
