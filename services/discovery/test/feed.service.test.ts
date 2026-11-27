@@ -1,26 +1,37 @@
 import { createLogger } from '@chronos/logger';
 import { DomainError } from '@chronos/service-kit';
 import { describe, expect, it } from 'vitest';
-import { InMemoryFeedCache } from '../src/feed/feed-cache.js';
+import { InMemoryFeedCache, MemoryFeedCache } from '../src/feed/feed-cache.js';
 import { FEED_SIZE, FeedService, MAX_CANDIDATE_PAGES } from '../src/feed/feed.service.js';
-import { FakeFilter, FakeSource, member, NEUTRAL, VIEWER } from './support/fakes.js';
+import {
+  FakeConditions,
+  FakeFilter,
+  FakeSource,
+  member,
+  NEUTRAL,
+  VIEWER,
+} from './support/fakes.js';
 
 function setup() {
   const source = new FakeSource();
   const filter = new FakeFilter();
   const cache = new InMemoryFeedCache();
+  const conditions = new FakeConditions();
+  const memory = new MemoryFeedCache();
   const lines: string[] = [];
   const service = new FeedService({
     source,
     filter,
     cache,
+    conditions,
+    memory,
     logger: createLogger({
       service: 'discovery-test',
       level: 'trace',
       destination: { write: (l: string) => lines.push(l) },
     }),
   });
-  return { source, filter, cache, service, lines };
+  return { source, filter, cache, conditions, memory, service, lines };
 }
 const ids = (count: number) => Array.from({ length: count }, () => member());
 const as = (list: string[]) => list.map((accountId) => ({ accountId }));
@@ -46,6 +57,7 @@ describe('the feed (M3.2, ADR-0026)', () => {
         outcome,
         accountIds: [],
         nextPageToken: '',
+        filter: 'off',
       });
       expect(cache.feeds.size).toBe(0);
     }
@@ -158,5 +170,100 @@ describe('ranking the feed (M3.3)', () => {
     expect(kept).toHaveLength(FEED_SIZE);
     expect(kept.slice(0, 100)).toEqual(page.slice(350).map((c) => c.accountId));
     expect(source.calls).toBe(1);
+  });
+});
+
+describe('condition-aware filtering (M3.4, spec 4.3)', () => {
+  const nearby = (n: number) => ids(n).map((accountId) => ({ accountId }));
+
+  it('shows only matching members once at least 20 match, and keeps that feed in memory only', async () => {
+    const { source, conditions, cache, memory, service } = setup();
+    const all = nearby(60);
+    source.set(all);
+    conditions.answer = 'ok';
+    const matching = all.filter((_, i) => i % 2 === 0).map((c) => c.accountId);
+    for (const id of matching) conditions.matching.add(id);
+    const page = await service.page(VIEWER, 50, '');
+    expect(page.filter).toBe('on');
+    expect(page.accountIds).toEqual(matching);
+    // Never in Redis: a list of members who match a condition implies health (approved).
+    expect(cache.feeds.size).toBe(0);
+    expect(memory.size).toBe(1);
+    // Later pages keep the state.
+    const next = await service.page(VIEWER, 20, (await service.page(VIEWER, 20, '')).nextPageToken);
+    expect(next.filter).toBe('on');
+  });
+
+  it('shows the usual feed when fewer than 20 match, saying so, still out of Redis', async () => {
+    const { source, conditions, cache, service } = setup();
+    const all = nearby(40);
+    source.set(all);
+    conditions.answer = 'ok';
+    for (const c of all.slice(0, 19)) conditions.matching.add(c.accountId);
+    const page = await service.page(VIEWER, 50, '');
+    expect(page).toMatchObject({ filter: 'too_few_nearby' });
+    expect(page.accountIds).toEqual(all.map((c) => c.accountId));
+    expect(cache.feeds.size).toBe(0);
+  });
+
+  it('keeps the usual feed in Redis for a member with no filters', async () => {
+    const { source, cache, memory, service } = setup();
+    source.set(nearby(5));
+    expect((await service.page(VIEWER, 50, '')).filter).toBe('off');
+    expect(cache.feeds.size).toBe(1);
+    expect(memory.size).toBe(0);
+  });
+
+  it("says when filters need the member's own sharing, and when the vault is down", async () => {
+    for (const [answer, state] of [
+      ['viewer_not_sharing', 'needs_your_sharing'],
+      ['down', 'unavailable'],
+    ] as const) {
+      const { source, conditions, cache, service } = setup();
+      const all = nearby(3);
+      source.set(all);
+      conditions.answer = answer;
+      const page = await service.page(VIEWER, 50, '');
+      expect(page.filter).toBe(state);
+      expect(page.accountIds).toEqual(all.map((c) => c.accountId));
+      expect(cache.feeds.size).toBe(0);
+    }
+  });
+
+  it('asks the vault only about members matching left visible and unseen', async () => {
+    const { source, filter, conditions, service } = setup();
+    const all = nearby(4);
+    source.set(all);
+    filter.hidden.add(all[1]?.accountId ?? '');
+    await service.page(VIEWER, 50, '');
+    expect(conditions.requests).toEqual([[all[0], all[2], all[3]].map((c) => c?.accountId)]);
+  });
+
+  it('logs neither the filter state nor the feed size', async () => {
+    const { source, conditions, service, lines } = setup();
+    const all = nearby(30);
+    source.set(all);
+    conditions.answer = 'ok';
+    for (const c of all) conditions.matching.add(c.accountId);
+    await service.page(VIEWER, 50, '');
+    const log = lines.join('\n');
+    expect(log).toContain('feed built');
+    expect(log).not.toMatch(/"(filter|size)"|too_few|needs_your|"on"/);
+  });
+});
+
+describe('the memory-only feed store', () => {
+  it('expires feeds and drops the oldest past its limit', async () => {
+    let now = 0;
+    const memory = new MemoryFeedCache({ maxFeeds: 2, now: () => now });
+    const feed = { generation: 'g', items: [], filter: 'on' as const };
+    await memory.set('a', feed);
+    await memory.set('b', feed, 1);
+    await memory.set('c', feed);
+    expect(await memory.get('a')).toBeUndefined();
+    expect(await memory.get('b')).toEqual(feed);
+    now = 1_500;
+    expect(await memory.get('b')).toBeUndefined();
+    expect(await memory.get('c')).toEqual(feed);
   });
 });

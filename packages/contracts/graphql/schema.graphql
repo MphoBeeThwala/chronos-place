@@ -318,9 +318,26 @@ enum FeedStatus {
   LOCATION_REQUIRED
 }
 
+"""
+The member's own condition filter (M3.4). Only they see it, and it is never cached.
+"""
+enum ConditionFilterState {
+  "No conditions chosen to filter by: everyone who fits."
+  OFF
+  "Only members who match a chosen condition and chose to be found that way."
+  ON
+  "Fewer than 20 nearby match yet, so everyone who fits is shown."
+  TOO_FEW_NEARBY
+  "Filters need the member's own health profile shared with everyone, with filters on."
+  NEEDS_YOUR_SHARING
+  "The filter could not be applied just now; everyone who fits is shown."
+  UNAVAILABLE
+}
+
 type FeedConnection {
   "Why the feed is empty when it is not OK. The app chooses the words."
   status: FeedStatus!
+  conditionFilter: ConditionFilterState!
   edges: [FeedEdge!]!
   pageInfo: PageInfo!
 }

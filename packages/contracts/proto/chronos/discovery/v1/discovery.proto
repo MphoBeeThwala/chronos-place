@@ -7,7 +7,8 @@ package chronos.discovery.v1;
 // Conventions
 // - Callers are authenticated by mTLS identity and checked against a per-method allow-list (M2.5).
 // - Ids only: discovery never holds profile text, coordinates, distances or health data. The
-//   gateway asks profile for the cards, which applies blocks and rounding again.
+//   gateway asks profile for the cards, which applies blocks and rounding again. A feed filtered by
+//   condition (M3.4) is kept only in discovery's memory, never in Redis.
 // - gRPC status codes: INVALID_ARGUMENT for a bad id or page token, UNAVAILABLE when a service
 //   discovery depends on cannot answer (nothing is shown unfiltered). Messages are fixed.
 service DiscoveryService {
@@ -34,10 +35,27 @@ message GetFeedRequest {
   string page_token = 3;
 }
 
+// The state of the viewer's own condition filter (M3.4). For the viewer alone: never logged,
+// never kept anywhere but discovery's memory.
+enum FeedFilter {
+  FEED_FILTER_UNSPECIFIED = 0;
+  // No wanted conditions: the usual feed.
+  FEED_FILTER_OFF = 1;
+  // Only members who match one of the wanted conditions (and chose to be found that way).
+  FEED_FILTER_ON = 2;
+  // Fewer than 20 nearby match: the usual feed (approved).
+  FEED_FILTER_TOO_FEW_NEARBY = 3;
+  // The viewer has wanted conditions but does not share their own profile the same way.
+  FEED_FILTER_NEEDS_YOUR_SHARING = 4;
+  // The filter could not be applied just now: the usual feed, tried again soon.
+  FEED_FILTER_UNAVAILABLE = 5;
+}
+
 message GetFeedResponse {
   FeedOutcome outcome = 1;
   // In feed order. Can hold fewer than page_size and still have a next page.
   repeated string account_ids = 2;
   // Empty at the end of the feed.
   string next_page_token = 3;
+  FeedFilter filter = 4;
 }

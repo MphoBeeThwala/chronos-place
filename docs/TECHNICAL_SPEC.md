@@ -325,6 +325,7 @@ Implementation notes (M2.6, approved):
 - **Below threshold:** 19 matches and none answer the same. A candidate that cannot be opened does not match.
 - **No preferences (M3.4):** decided from whether the viewer's `filter_preferences` row exists, before anything is opened; nothing is audited because nothing is read.
 - **Speed (M3.4):** profiles are opened 32 at a time, since each may need a KMS unwrap (keys stay cached for at most 60 s). With 10 ms per unwrap, 500 candidates of whom 150 opted in answer in about 140 ms warm (`test/filter-speed.integration.test.ts`).
+- **In discovery (M3.4, approved):** discovery asks after matching's filter, so nobody blocked or already seen is opened. With 20 or more matches the feed shows only them; otherwise the usual feed, with the filter's state for the member alone. Feeds a filter touched stay in discovery's memory, never Redis.
 - **Known limit:** a compromised discovery service could probe a member by mixing them into a list of known matches. Discovery is allow-listed and runs over mTLS; detecting unusual call patterns is monitoring work.
 
 ### 4.4 Encryption

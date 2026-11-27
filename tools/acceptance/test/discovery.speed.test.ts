@@ -46,6 +46,10 @@ import {
   type TestDatabase,
 } from '../../../services/profile/test/support/database.js';
 
+/** The vault's answer for a member with no condition filters (M3.4). */
+const NO_FILTERS = {
+  eligible: () => Promise.resolve({ outcome: 'no_preferences' as const }),
+};
 const env = loadConfig(
   z.object({
     TEST_POSTGRES_URL: z.string().optional(),
@@ -219,7 +223,9 @@ beforeAll(async () => {
   const discoveryAt = await start(
     'discovery',
     {
-      module: discoveryModule({ cache: new RedisFeedCache(redis) }),
+      // Members without condition filters, the usual case; a filtered feed's vault cost is
+      // measured in restricted/ (filter-speed.integration).
+      module: discoveryModule({ cache: new RedisFeedCache(redis), conditions: NO_FILTERS }),
       extraConfig: discoveryConfig,
       grpc: { packageName: DISCOVERY_PACKAGE, protoPath: DISCOVERY_PROTO },
       allowList: DISCOVERY_ALLOW_LIST,
