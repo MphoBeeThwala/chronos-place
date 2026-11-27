@@ -14,10 +14,12 @@ import type { ConditionTaxonomy } from './taxonomy.js';
 /** Fewer matches than this and nothing is returned, so small results cannot reveal anyone (spec 4.3). */
 export const FILTER_K = 20;
 export const MAX_CANDIDATES = 500;
+/** Profiles opened at once: each may need a KMS unwrap, so one at a time is too slow (M3.4). */
+export const OPEN_CONCURRENCY = 32;
 export const FILTERS_FIELD = 'filter_preferences';
 export const INVALID_FILTERS = 'Invalid filter preferences.';
 
-export type FilterOutcome = 'ok' | 'below_threshold' | 'viewer_not_sharing';
+export type FilterOutcome = 'ok' | 'below_threshold' | 'viewer_not_sharing' | 'no_preferences';
 
 const preferencesSchema = z.object({ codes: z.array(z.string()).max(MAX_CONDITIONS) }).strict();
 
@@ -104,10 +106,13 @@ export class FilterService {
     const { db, subjects, accessLog } = this.#deps;
     const none = (outcome: FilterOutcome) => ({ outcome, eligible: [] });
 
+    // No wanted conditions comes first (M3.4): then the answer says nothing about the viewer's
+    // own profile. Whether a row exists is all that is read here; nothing is opened.
     const viewerVault = await subjects.find(viewerId);
-    if (viewerVault === undefined || !(await this.#sharesForFilters(viewerVault))) {
-      return none('viewer_not_sharing');
+    if (viewerVault === undefined || !(await this.#hasPreferences(viewerVault))) {
+      return none('no_preferences');
     }
+    if (!(await this.#sharesForFilters(viewerVault))) return none('viewer_not_sharing');
     await accessLog.record({
       vaultId: viewerVault,
       accessor: `account:${viewerId}`,
@@ -116,8 +121,9 @@ export class FilterService {
       reason: 'self_filters',
     });
     const wanted = new Set(await this.#openPreferences(viewerVault));
+    if (wanted.size === 0) return none('no_preferences');
     const candidates = [...new Set(candidateIds)].filter((id) => id !== viewerId);
-    if (wanted.size === 0 || candidates.length === 0) return none('below_threshold');
+    if (candidates.length === 0) return none('below_threshold');
 
     // Only members who chose "Everyone" and opted in to filters are considered (spec 4.3 step 2).
     const rows = await db
@@ -148,12 +154,24 @@ export class FilterService {
     );
 
     const matched = new Set<string>();
-    for (const row of rows) {
-      if (await this.#hasAny(row, wanted)) matched.add(row.accountId);
+    for (let i = 0; i < rows.length; i += OPEN_CONCURRENCY) {
+      const batch = rows.slice(i, i + OPEN_CONCURRENCY);
+      const hits = await Promise.all(batch.map((row) => this.#hasAny(row, wanted)));
+      batch.forEach((row, j) => {
+        if (hits[j] === true) matched.add(row.accountId);
+      });
     }
     if (matched.size < FILTER_K) return none('below_threshold');
     // In the order discovery sent them.
     return { outcome: 'ok', eligible: candidates.filter((id) => matched.has(id)) };
+  }
+
+  async #hasPreferences(vaultId: string): Promise<boolean> {
+    const [row] = await this.#deps.db
+      .select({ vaultId: filterPreferences.vaultId })
+      .from(filterPreferences)
+      .where(eq(filterPreferences.vaultId, vaultId));
+    return row !== undefined;
   }
 
   async #sharesForFilters(vaultId: string): Promise<boolean> {

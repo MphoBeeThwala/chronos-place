@@ -314,7 +314,7 @@ Block and match state are fetched from matching via gRPC (or a short-TTL cache i
 
 1. Discovery calls `FilterEligibleSubjects(viewer, candidateIds[])`. The viewer's wanted condition codes are stored in the vault (`SetFilterPreferences`), so discovery, its caches and its logs never see them (ADR-0015).
 2. The service returns only candidates whose visibility is `profile`, who set `filter_opt_in`, and who match the codes — **and only if the viewer also shares their own health profile** (`profile` visibility + opt-in).
-3. If fewer than **k = 20** candidates pass, return an empty set with outcome `below_threshold` so counts cannot reveal individuals. A viewer who does not share their own profile gets outcome `viewer_not_sharing`.
+3. If fewer than **k = 20** candidates pass, return an empty set with outcome `below_threshold` so counts cannot reveal individuals. A viewer with no wanted conditions gets `no_preferences` (M3.4), checked first so it says nothing about their own profile. A viewer with wanted conditions who does not share their own profile gets `viewer_not_sharing`.
 4. The response contains account IDs only, never condition data.
 
 Implementation notes (M2.6, approved):
@@ -322,7 +322,9 @@ Implementation notes (M2.6, approved):
 - **Matching:** candidates are matched by decrypting their profiles in memory. There is no searchable index, so nothing new is stored. A candidate matches if they have **any** wanted condition, in any status.
 - **Preferences:** sealed with the member's own key in `filter_preferences`. Up to 10 active codes, never `other`. An empty list deletes the row.
 - **Audit:** each candidate profile opened is recorded with purpose `filter` before decryption. Those rows do not appear in `ListHealthViewers`, which counts profile views only.
-- **Below threshold:** a viewer without stored preferences gets `below_threshold`. A candidate that cannot be opened does not match.
+- **Below threshold:** 19 matches and none answer the same. A candidate that cannot be opened does not match.
+- **No preferences (M3.4):** decided from whether the viewer's `filter_preferences` row exists, before anything is opened; nothing is audited because nothing is read.
+- **Speed (M3.4):** profiles are opened 32 at a time, since each may need a KMS unwrap (keys stay cached for at most 60 s). With 10 ms per unwrap, 500 candidates of whom 150 opted in answer in about 140 ms warm (`test/filter-speed.integration.test.ts`).
 - **Known limit:** a compromised discovery service could probe a member by mixing them into a list of known matches. Discovery is allow-listed and runs over mTLS; detecting unusual call patterns is monitoring work.
 
 ### 4.4 Encryption

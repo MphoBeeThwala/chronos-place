@@ -1,5 +1,5 @@
 import { createServer } from 'node:net';
-import { SubjectKeyring } from '@chronos/crypto';
+import { type KeyWrapper, SubjectKeyring } from '@chronos/crypto';
 import { InMemoryKeyWrapper } from '@chronos/crypto/testing';
 import { createLogger, type LoggerOptions } from '@chronos/logger';
 import { bootstrapService, grpcClientCredentials, type RunningService } from '@chronos/service-kit';
@@ -107,6 +107,18 @@ const freePort = (): Promise<number> =>
 
 export const SHARED_WRAPPER = new InMemoryKeyWrapper();
 
+/** The shared wrapper with a KMS-like delay on every unwrap, for speed tests. */
+export function slowUnwraps(delayMs: number): KeyWrapper {
+  return {
+    generateDataKey: (context) => SHARED_WRAPPER.generateDataKey(context),
+    unwrap: async (wrapped, context) => {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      return SHARED_WRAPPER.unwrap(wrapped, context);
+    },
+    rewrap: (wrapped, context) => SHARED_WRAPPER.rewrap(wrapped, context),
+  };
+}
+
 /** The erasure ledger stand-in (a real S3 ledger is tested separately). */
 export class MemoryLedger implements ErasureLedger {
   readonly entries = new Set<string>();
@@ -147,11 +159,12 @@ export async function startService(
   logs?: LoggerOptions['destination'],
   overrides: Omit<RuntimeOverrides, 'keyring'> = {},
   mtls?: Pki,
+  /** Defaults to the shared in-memory wrapper; `slowUnwraps` gives one with KMS-like delays. */
+  wrapper: KeyWrapper = SHARED_WRAPPER,
 ): Promise<StartedService> {
   const server = mtls?.services['disclosure-service'];
   const grpcPort = await freePort();
   // One wrapper for every test service, like one KMS key for every instance in production.
-  const wrapper = SHARED_WRAPPER;
   const service: RunningService = await bootstrapService({
     module: createAppModule({
       keyring: (store, ledger) => new SubjectKeyring({ wrapper, store, ledger, cacheTtlMs: 0 }),
