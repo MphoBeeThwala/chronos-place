@@ -28,6 +28,17 @@ const HEALTH_TYPES = new Set([
   'HealthVisibility',
   'GrantScope',
   'ConditionStatus',
+  'ConditionFilterState',
+]);
+
+/**
+ * Health fields allowed on a type that is not a health type, each with its reason. Keep this short:
+ * every entry is a place where a member's health-related state travels with other data.
+ */
+const HEALTH_FIELDS_ELSEWHERE = new Map([
+  // The member's own condition filter state on their feed (M3.4, approved). The gateway marks
+  // every feed response no-store (services/gateway/test/feed.e2e.test.ts).
+  ['FeedConnection.conditionFilter', 'own filter state; feed is always no-store'],
 ]);
 
 /** Query and Mutation fields that are health operations and resolve through the Disclosure Service. */
@@ -110,6 +121,7 @@ describe('privacy: health data stays on health types (CLAUDE.md rules 1 and 2)',
       if (HEALTH_TYPES.has(type.name)) continue;
       for (const field of fieldNames(type)) {
         if (isRoot && HEALTH_OPERATIONS.has(field)) continue;
+        if (HEALTH_FIELDS_ELSEWHERE.has(`${type.name}.${field}`)) continue;
         if (HEALTH_TERM.test(field)) offenders.push(`${type.name}.${field}`);
       }
       if (isObjectType(type) && isRoot) {

@@ -7,3 +7,4 @@ export const DISCOVERY_PROTO = proto('discovery');
 export const DISCOVERY_PACKAGE = 'chronos.discovery.v1';
 export const PROFILE_PROTO = proto('profile');
 export const MATCHING_PROTO = proto('matching');
+export const DISCLOSURE_PROTO = proto('disclosure');

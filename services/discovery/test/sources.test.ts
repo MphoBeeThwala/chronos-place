@@ -1,3 +1,4 @@
+import { FilterOutcome } from '@chronos/contracts/disclosure';
 import { CandidatesOutcome } from '@chronos/contracts/profile';
 import {
   loadPackageDefinition,
@@ -8,8 +9,13 @@ import {
 } from '@grpc/grpc-js';
 import { loadSync } from '@grpc/proto-loader';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { MATCHING_PROTO, PROFILE_PROTO } from '../src/proto.js';
-import { DependencyUnavailable, MatchingFilter, ProfileCandidates } from '../src/feed/sources.js';
+import { DISCLOSURE_PROTO, MATCHING_PROTO, PROFILE_PROTO } from '../src/proto.js';
+import {
+  DependencyUnavailable,
+  MatchingFilter,
+  ProfileCandidates,
+  VaultConditionFilter,
+} from '../src/feed/sources.js';
 import { member, VIEWER } from './support/fakes.js';
 
 type Handler = (request: Record<string, unknown>) => unknown;
@@ -17,6 +23,7 @@ const handlers = new Map<string, Handler>();
 const server = new Server();
 let profile: ProfileCandidates;
 let matching: MatchingFilter;
+let vault: VaultConditionFilter;
 
 const service = (protoPath: string, path: string[]) => {
   let node: unknown = loadPackageDefinition(
@@ -45,6 +52,13 @@ beforeAll(async () => {
   const matchingService = service(MATCHING_PROTO, ['chronos', 'matching', 'v1', 'MatchingService']);
   server.addService(profileService, implement(profileService));
   server.addService(matchingService, implement(matchingService));
+  const vaultService = service(DISCLOSURE_PROTO, [
+    'chronos',
+    'disclosure',
+    'v1',
+    'DisclosureService',
+  ]);
+  server.addService(vaultService, implement(vaultService));
   const port = await new Promise<number>((resolve, reject) => {
     server.bindAsync('127.0.0.1:0', ServerCredentials.createInsecure(), (e, p) => {
       if (e) reject(e);
@@ -53,11 +67,13 @@ beforeAll(async () => {
   });
   profile = new ProfileCandidates(`127.0.0.1:${String(port)}`);
   matching = new MatchingFilter(`127.0.0.1:${String(port)}`);
+  vault = new VaultConditionFilter(`127.0.0.1:${String(port)}`);
 });
 
 afterAll(() => {
   profile.close();
   matching.close();
+  vault.close();
   server.forceShutdown();
 });
 
@@ -113,5 +129,31 @@ describe('profile and matching clients', () => {
     expect(caught).toBeInstanceOf(DependencyUnavailable);
     expect((caught as Error).message).not.toContain('10.0.0.1');
     await expect(profile.page(VIEWER, '')).rejects.toBeInstanceOf(DependencyUnavailable);
+  });
+
+  it('asks the vault with ids only and reads each outcome (M3.4)', async () => {
+    const [a, b] = [member(), member()];
+    let asked: Record<string, unknown> | undefined;
+    const answer = (outcome: number, eligibleAccountIds: string[] = []) => {
+      handlers.set('filterEligibleSubjects', (r) => {
+        asked = r;
+        return { outcome, eligibleAccountIds };
+      });
+    };
+    answer(FilterOutcome.FILTER_OUTCOME_OK, [b, member()]);
+    expect(await vault.eligible(VIEWER, [a, b])).toEqual({ outcome: 'ok', eligible: [b] });
+    expect(asked).toEqual({ viewerAccountId: VIEWER, candidateAccountIds: [a, b] });
+    for (const [wire, outcome] of [
+      [FilterOutcome.FILTER_OUTCOME_BELOW_THRESHOLD, 'below_threshold'],
+      [FilterOutcome.FILTER_OUTCOME_VIEWER_NOT_SHARING, 'viewer_not_sharing'],
+      [FilterOutcome.FILTER_OUTCOME_NO_PREFERENCES, 'no_preferences'],
+    ] as const) {
+      answer(wire);
+      expect(await vault.eligible(VIEWER, [a])).toEqual({ outcome });
+    }
+    answer(FilterOutcome.FILTER_OUTCOME_UNSPECIFIED);
+    await expect(vault.eligible(VIEWER, [a])).rejects.toBeInstanceOf(DependencyUnavailable);
+    handlers.delete('filterEligibleSubjects');
+    await expect(vault.eligible(VIEWER, [a])).rejects.toBeInstanceOf(DependencyUnavailable);
   });
 });

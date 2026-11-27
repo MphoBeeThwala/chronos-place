@@ -11,4 +11,6 @@ export const discoveryConfig = {
   PROFILE_GRPC_ADDRESS: address.default('127.0.0.1:50053'),
   /** host:port of matching: FilterCandidates. */
   MATCHING_GRPC_ADDRESS: address.default('127.0.0.1:50056'),
+  /** host:port of the Disclosure Service: FilterEligibleSubjects, ids only (M3.4). */
+  DISCLOSURE_GRPC_ADDRESS: address.default('127.0.0.1:50055'),
 };

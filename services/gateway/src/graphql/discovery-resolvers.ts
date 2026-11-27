@@ -1,4 +1,4 @@
-import { FeedOutcome } from '@chronos/contracts/discovery';
+import { FeedFilter, FeedOutcome } from '@chronos/contracts/discovery';
 import { GraphQLError } from 'graphql';
 import { z } from 'zod';
 import type { GatewayContext } from '../auth/context.js';
@@ -26,6 +26,14 @@ const STATUS = new Map<number, string>([
   [FeedOutcome.FEED_OUTCOME_NO_LOCATION, 'LOCATION_REQUIRED'],
 ]);
 
+const CONDITION_FILTER = new Map<number, string>([
+  [FeedFilter.FEED_FILTER_OFF, 'OFF'],
+  [FeedFilter.FEED_FILTER_ON, 'ON'],
+  [FeedFilter.FEED_FILTER_TOO_FEW_NEARBY, 'TOO_FEW_NEARBY'],
+  [FeedFilter.FEED_FILTER_NEEDS_YOUR_SHARING, 'NEEDS_YOUR_SHARING'],
+  [FeedFilter.FEED_FILTER_UNAVAILABLE, 'UNAVAILABLE'],
+]);
+
 export interface DiscoveryResolverDeps {
   discovery: DiscoveryClient;
   profile: ProfileClient;
@@ -40,11 +48,20 @@ export function discoveryResolvers(deps: DiscoveryResolverDeps): ResolverMap {
   return {
     Query: {
       feed: async (_parent, args, ctx) => {
-        const { viewer } = ctx as GatewayContext;
+        const context = ctx as GatewayContext;
+        const { viewer } = context;
         if (!viewer) throw SIGN_IN();
+        // The feed can say what the member's condition filter did, and who matched it (M3.4):
+        // never kept by a browser or a proxy.
+        context.noStore = true;
         const parsed = page.safeParse(args);
         if (!parsed.success) throw INVALID();
-        let result: { outcome: number; accountIds?: string[]; nextPageToken: string };
+        let result: {
+          outcome: number;
+          accountIds?: string[];
+          nextPageToken: string;
+          filter?: number;
+        };
         try {
           result = await deps.discovery.call('getFeed', {
             viewerAccountId: viewer.accountId,
@@ -60,6 +77,8 @@ export function discoveryResolvers(deps: DiscoveryResolverDeps): ResolverMap {
         return {
           // Anything unknown is treated as nothing to show yet.
           status: STATUS.get(result.outcome) ?? 'OK',
+          // An unknown state is reported as unavailable, never as on.
+          conditionFilter: CONDITION_FILTER.get(result.filter ?? 0) ?? 'UNAVAILABLE',
           // The feed is paged with pageInfo.endCursor; every edge carries it.
           edges: ids.flatMap((id) => {
             const node = profiles.get(id);

@@ -1,3 +1,4 @@
+import { FilterOutcome } from '@chronos/contracts/disclosure';
 import { CandidatesOutcome } from '@chronos/contracts/profile';
 import {
   type ChannelCredentials,
@@ -7,7 +8,7 @@ import {
   type ServiceError,
 } from '@grpc/grpc-js';
 import { loadSync } from '@grpc/proto-loader';
-import { MATCHING_PROTO, PROFILE_PROTO } from '../proto.js';
+import { DISCLOSURE_PROTO, MATCHING_PROTO, PROFILE_PROTO } from '../proto.js';
 import type { RankingFeatures } from './ranking.js';
 
 export type Outcome = 'ok' | 'no_profile' | 'no_location';
@@ -38,6 +39,20 @@ export interface CandidateFilter {
     ids: readonly string[],
     privateIds: readonly string[],
   ): Promise<string[]>;
+  close?(): void;
+}
+
+/**
+ * The vault's answer about the viewer's own condition filter (M3.4, spec 4.3): ids only, and only
+ * when at least 20 candidates match. Discovery never sees which conditions.
+ */
+export type VaultAnswer =
+  | { outcome: 'ok'; eligible: string[] }
+  | { outcome: 'below_threshold' | 'viewer_not_sharing' | 'no_preferences' };
+
+/** The Disclosure Service's FilterEligibleSubjects: the only door to health data (rule 2). */
+export interface ConditionFilter {
+  eligible(viewerId: string, ids: readonly string[]): Promise<VaultAnswer>;
   close?(): void;
 }
 
@@ -166,6 +181,47 @@ export class MatchingFilter implements CandidateFilter {
     // Only ids that were asked about, in the order asked.
     const kept = new Set(r.accountIds ?? []);
     return ids.filter((id) => kept.has(id));
+  }
+
+  close(): void {
+    this.#client.close();
+  }
+}
+
+const VAULT_OUTCOMES = new Map<number, Exclude<VaultAnswer['outcome'], 'ok'>>([
+  [FilterOutcome.FILTER_OUTCOME_BELOW_THRESHOLD, 'below_threshold'],
+  [FilterOutcome.FILTER_OUTCOME_VIEWER_NOT_SHARING, 'viewer_not_sharing'],
+  [FilterOutcome.FILTER_OUTCOME_NO_PREFERENCES, 'no_preferences'],
+]);
+
+export class VaultConditionFilter implements ConditionFilter {
+  readonly #client: ReturnType<typeof client>;
+
+  constructor(address: string, creds: ChannelCredentials = credentials.createInsecure()) {
+    this.#client = client(
+      DISCLOSURE_PROTO,
+      'chronos.disclosure.v1.DisclosureService',
+      address,
+      creds,
+    );
+  }
+
+  async eligible(viewerId: string, ids: readonly string[]): Promise<VaultAnswer> {
+    const r = await this.#client.call<{ outcome: FilterOutcome; eligibleAccountIds?: string[] }>(
+      'filterEligibleSubjects',
+      { viewerAccountId: viewerId, candidateAccountIds: [...ids] },
+    );
+    if (r.outcome === FilterOutcome.FILTER_OUTCOME_OK) {
+      // Only ids that were asked about.
+      const asked = new Set(ids);
+      return {
+        outcome: 'ok',
+        eligible: (r.eligibleAccountIds ?? []).filter((id) => asked.has(id)),
+      };
+    }
+    const outcome = VAULT_OUTCOMES.get(r.outcome);
+    if (outcome === undefined) throw new DependencyUnavailable();
+    return { outcome };
   }
 
   close(): void {

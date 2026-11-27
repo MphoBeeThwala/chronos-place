@@ -33,6 +33,10 @@ import {
 } from '../../../services/profile/test/support/database.js';
 import { FakeMemberFacts } from '../../../services/profile/test/support/profile-fakes.js';
 
+/** The vault's answer for a member with no condition filters (M3.4). */
+const NO_FILTERS = {
+  eligible: () => Promise.resolve({ outcome: 'no_preferences' as const }),
+};
 const silent = createLogger({ service: 'acceptance', destination: { write: () => undefined } });
 
 const freePort = (): Promise<number> =>
@@ -136,7 +140,9 @@ beforeAll(async () => {
   const discoveryAt = await start(
     'discovery',
     {
-      module: discoveryModule({ cache: new InMemoryFeedCache() }),
+      // The vault runs in restricted/, which this package may not import: its filter is tested
+      // there (filter.grpc.integration). Here, nobody has condition filters.
+      module: discoveryModule({ cache: new InMemoryFeedCache(), conditions: NO_FILTERS }),
       extraConfig: discoveryConfig,
       grpc: { packageName: DISCOVERY_PACKAGE, protoPath: DISCOVERY_PROTO },
       allowList: DISCOVERY_ALLOW_LIST,

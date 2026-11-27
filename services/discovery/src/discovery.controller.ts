@@ -1,9 +1,10 @@
-import { FeedOutcome } from '@chronos/contracts/discovery';
+import { FeedFilter, FeedOutcome } from '@chronos/contracts/discovery';
 import { DomainError } from '@chronos/service-kit';
 import { Controller, Inject } from '@nestjs/common';
 import { GrpcMethod } from '@nestjs/microservices';
 import { z } from 'zod';
 import type { DiscoveryRuntime } from './runtime.js';
+import type { FilterState } from './feed/feed-cache.js';
 import type { Outcome } from './feed/sources.js';
 
 export const DISCOVERY_RUNTIME = Symbol('DISCOVERY_RUNTIME');
@@ -15,6 +16,14 @@ const OUTCOME: Record<Outcome, FeedOutcome> = {
   ok: FeedOutcome.FEED_OUTCOME_OK,
   no_profile: FeedOutcome.FEED_OUTCOME_NO_PROFILE,
   no_location: FeedOutcome.FEED_OUTCOME_NO_LOCATION,
+};
+
+const FILTER: Record<FilterState, FeedFilter> = {
+  off: FeedFilter.FEED_FILTER_OFF,
+  on: FeedFilter.FEED_FILTER_ON,
+  too_few_nearby: FeedFilter.FEED_FILTER_TOO_FEW_NEARBY,
+  needs_your_sharing: FeedFilter.FEED_FILTER_NEEDS_YOUR_SHARING,
+  unavailable: FeedFilter.FEED_FILTER_UNAVAILABLE,
 };
 
 // Validated at the edge (CLAUDE.md). Field names are the proto-loader camelCase.
@@ -43,6 +52,7 @@ export class DiscoveryController {
       outcome: OUTCOME[page.outcome],
       accountIds: page.accountIds,
       nextPageToken: page.nextPageToken,
+      filter: FILTER[page.filter],
     };
   }
 }

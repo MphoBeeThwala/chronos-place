@@ -8,9 +8,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { DISCOVERY_ALLOW_LIST } from '../src/allow-list.js';
 import { createAppModule } from '../src/app.module.js';
 import { discoveryConfig } from '../src/config.js';
-import { InMemoryFeedCache } from '../src/feed/feed-cache.js';
+import { InMemoryFeedCache, MemoryFeedCache } from '../src/feed/feed-cache.js';
 import { DISCOVERY_PACKAGE, DISCOVERY_PROTO } from '../src/proto.js';
-import { FakeFilter, FakeSource, member, VIEWER } from './support/fakes.js';
+import { FakeConditions, FakeFilter, FakeSource, member, VIEWER } from './support/fakes.js';
 
 const freePort = (): Promise<number> =>
   new Promise((resolve, reject) => {
@@ -43,7 +43,13 @@ beforeAll(async () => {
   const [httpPort, grpcPort] = [await freePort(), await freePort()];
   http = `http://127.0.0.1:${String(httpPort)}`;
   service = await bootstrapService({
-    module: createAppModule({ source, filter, cache: new InMemoryFeedCache() }),
+    module: createAppModule({
+      source,
+      filter,
+      cache: new InMemoryFeedCache(),
+      conditions: new FakeConditions(),
+      memory: new MemoryFeedCache(),
+    }),
     extraConfig: discoveryConfig,
     grpc: { packageName: DISCOVERY_PACKAGE, protoPath: DISCOVERY_PROTO },
     allowList: DISCOVERY_ALLOW_LIST,

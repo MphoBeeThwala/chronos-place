@@ -1,4 +1,4 @@
-import { FeedOutcome } from '@chronos/contracts/discovery';
+import { FeedFilter, FeedOutcome } from '@chronos/contracts/discovery';
 import { status } from '@grpc/grpc-js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AccountStatus, FakeIdentity, GrpcFailure } from './support/fake-identity.js';
@@ -18,7 +18,7 @@ const member = () => {
   return id;
 };
 const as = async (id: string) => ({ cookie: `chronos_access=${await identity.token(id)}` });
-const FEED = `query($first: Int, $after: String) { feed(first: $first, after: $after) { status edges { cursor node { id displayName distanceKm } } pageInfo { endCursor hasNextPage } } }`;
+const FEED = `query($first: Int, $after: String) { feed(first: $first, after: $after) { status conditionFilter edges { cursor node { id displayName distanceKm } } pageInfo { endCursor hasNextPage } } }`;
 /** Profiles the fake profile service shows. */
 const shown = new Set<string>();
 
@@ -60,6 +60,7 @@ describe('feed (M3.2)', () => {
       outcome: FeedOutcome.FEED_OUTCOME_OK,
       accountIds: [b, gone, a],
       nextPageToken: 'next',
+      filter: FeedFilter.FEED_FILTER_ON,
     }));
     const response = await gql(gateway.url, FEED, {
       ...(await as(me)),
@@ -68,6 +69,7 @@ describe('feed (M3.2)', () => {
     expect(response.body.data).toEqual({
       feed: {
         status: 'OK',
+        conditionFilter: 'ON',
         edges: [
           { cursor: 'next', node: { id: b, displayName: 'Synthetic member', distanceKm: 5 } },
           { cursor: 'next', node: { id: a, displayName: 'Synthetic member', distanceKm: 5 } },
@@ -90,7 +92,12 @@ describe('feed (M3.2)', () => {
       discovery.handlers.set('getFeed', () => ({ outcome, accountIds: [], nextPageToken: '' }));
       const response = await gql(gateway.url, FEED, await as(member()));
       expect(response.body.data).toEqual({
-        feed: { status: expected, edges: [], pageInfo: { endCursor: null, hasNextPage: false } },
+        feed: {
+          status: expected,
+          conditionFilter: 'UNAVAILABLE',
+          edges: [],
+          pageInfo: { endCursor: null, hasNextPage: false },
+        },
       });
     }
   });
@@ -103,5 +110,24 @@ describe('feed (M3.2)', () => {
     });
     const down = await gql(gateway.url, FEED, await as(member()));
     expect(codes(down)).toEqual(['UNAVAILABLE']);
+  });
+
+  it('reports each condition filter state, and is never cached', async () => {
+    for (const [filter, expected] of [
+      [FeedFilter.FEED_FILTER_OFF, 'OFF'],
+      [FeedFilter.FEED_FILTER_TOO_FEW_NEARBY, 'TOO_FEW_NEARBY'],
+      [FeedFilter.FEED_FILTER_NEEDS_YOUR_SHARING, 'NEEDS_YOUR_SHARING'],
+      [FeedFilter.FEED_FILTER_UNAVAILABLE, 'UNAVAILABLE'],
+    ] as const) {
+      discovery.handlers.set('getFeed', () => ({
+        outcome: FeedOutcome.FEED_OUTCOME_OK,
+        accountIds: [],
+        nextPageToken: '',
+        filter,
+      }));
+      const response = await gql(gateway.url, FEED, await as(member()));
+      expect(response.body.data?.['feed']).toMatchObject({ conditionFilter: expected });
+      expect(response.headers.get('cache-control')).toBe('no-store');
+    }
   });
 });

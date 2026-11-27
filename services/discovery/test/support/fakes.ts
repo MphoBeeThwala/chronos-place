@@ -1,4 +1,10 @@
-import type { CandidateFilter, CandidatePage, CandidateSource } from '../../src/feed/sources.js';
+import type {
+  CandidateFilter,
+  CandidatePage,
+  CandidateSource,
+  ConditionFilter,
+  VaultAnswer,
+} from '../../src/feed/sources.js';
 import { DependencyUnavailable } from '../../src/feed/sources.js';
 import type { RankingFeatures } from '../../src/feed/ranking.js';
 
@@ -66,3 +72,23 @@ export class FakeFilter implements CandidateFilter {
 let n = 0;
 export const member = () => `99999999-9999-4999-8999-${String((n += 1)).padStart(12, '0')}`;
 export const VIEWER = '99999999-9999-4999-8999-999999999999';
+
+/**
+ * The vault's condition filter: `no_preferences` unless a test says otherwise. With `matching`
+ * set, behaves like the vault: those ids pass, and fewer than 20 passing gives nothing.
+ */
+export class FakeConditions implements ConditionFilter {
+  answer: VaultAnswer['outcome'] | 'down' = 'no_preferences';
+  readonly matching = new Set<string>();
+  readonly requests: string[][] = [];
+
+  eligible(_viewerId: string, ids: readonly string[]): Promise<VaultAnswer> {
+    this.requests.push([...ids]);
+    if (this.answer === 'down') return Promise.reject(new DependencyUnavailable());
+    if (this.answer !== 'ok') return Promise.resolve({ outcome: this.answer });
+    const eligible = ids.filter((id) => this.matching.has(id));
+    return Promise.resolve(
+      eligible.length >= 20 ? { outcome: 'ok', eligible } : { outcome: 'below_threshold' },
+    );
+  }
+}
