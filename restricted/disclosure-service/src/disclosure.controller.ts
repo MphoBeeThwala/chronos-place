@@ -57,6 +57,7 @@ const OUTCOME: Record<FilterOutcome, WireOutcome> = {
   ok: WireOutcome.FILTER_OUTCOME_OK,
   below_threshold: WireOutcome.FILTER_OUTCOME_BELOW_THRESHOLD,
   viewer_not_sharing: WireOutcome.FILTER_OUTCOME_VIEWER_NOT_SHARING,
+  no_preferences: WireOutcome.FILTER_OUTCOME_NO_PREFERENCES,
 };
 const SCOPE_FROM_WIRE = new Map<number, Scope>(
   (Object.entries(SCOPE) as [Scope, WireScope][]).map(([k, v]) => [v, k]),

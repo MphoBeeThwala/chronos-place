@@ -85,8 +85,12 @@ enum FilterOutcome {
   FILTER_OUTCOME_OK = 1;
   // Fewer than k candidates passed, so none are returned (prevents inference from small result sets).
   FILTER_OUTCOME_BELOW_THRESHOLD = 2;
-  // The viewer does not share their own profile, so condition filters are unavailable to them.
+  // The viewer has wanted conditions but does not share their own profile the same way, so the
+  // filters are unavailable to them.
   FILTER_OUTCOME_VIEWER_NOT_SHARING = 3;
+  // The viewer has no wanted conditions stored: discovery shows the usual feed (M3.4). Checked
+  // first, so it says nothing about whether the viewer shares a profile.
+  FILTER_OUTCOME_NO_PREFERENCES = 4;
 }
 
 message Condition {

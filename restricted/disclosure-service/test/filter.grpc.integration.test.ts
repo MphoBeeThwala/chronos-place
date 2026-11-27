@@ -17,6 +17,7 @@ const {
   FILTER_OUTCOME_OK: OK,
   FILTER_OUTCOME_BELOW_THRESHOLD: BELOW,
   FILTER_OUTCOME_VIEWER_NOT_SHARING: NOT_SHARING,
+  FILTER_OUTCOME_NO_PREFERENCES: NO_PREFERENCES,
 } = FilterOutcome;
 
 beforeAll(async () => {
@@ -71,11 +72,13 @@ describe('M2.6 acceptance', () => {
 
   it('refuses filters to a viewer who does not share their own profile the same way', async () => {
     const candidates = await many(FILTER_K, ['epilepsy']);
-    const noProfile = randomUUID();
     const hidden = await member(['asthma'], { visibility: Visibility.VISIBILITY_HIDDEN });
     const noOptIn = await member(['asthma'], { filterOptIn: false });
     const matchesOnly = await member(['asthma'], { visibility: Visibility.VISIBILITY_MATCH_ONLY });
-    for (const id of [noProfile, hidden, noOptIn, matchesOnly]) {
+    for (const id of [hidden, noOptIn, matchesOnly]) {
+      await call(
+        client.setFilterPreferences({ accountId: id, wantedConditionCodes: ['epilepsy'] }),
+      );
       expect(await filter(id, candidates)).toEqual({ outcome: NOT_SHARING });
     }
   });
@@ -97,9 +100,48 @@ describe('who counts', () => {
     });
   });
 
-  it('matches nothing without stored preferences', async () => {
-    const v = await member(['asthma']);
-    expect(await filter(v, await many(FILTER_K, ['asthma']))).toEqual({ outcome: BELOW });
+  it('says "no preferences" without them, whatever the viewer shares, and opens nothing (M3.4)', async () => {
+    const candidates = await many(FILTER_K, ['asthma']);
+    const sharing = await member(['asthma']);
+    const hidden = await member(['asthma'], { visibility: Visibility.VISIBILITY_HIDDEN });
+    const nothingInVault = randomUUID();
+    const cleared = await viewer(['asthma']);
+    await call(client.setFilterPreferences({ accountId: cleared, wantedConditionCodes: [] }));
+    const before = await db.pool.query<{ n: string }>(
+      'select count(*) as n from vault.health_access_log',
+    );
+    for (const id of [sharing, hidden, nothingInVault, cleared]) {
+      expect(await filter(id, candidates)).toEqual({ outcome: NO_PREFERENCES });
+    }
+    // No profile was opened, so there is nothing to audit; and the answer is the same whether
+    // or not the viewer shares, so it reveals nothing about them.
+    const after = await db.pool.query<{ n: string }>(
+      'select count(*) as n from vault.health_access_log',
+    );
+    expect(after.rows[0]?.n).toBe(before.rows[0]?.n);
+    // Nobody unknown to the vault is added to it by asking.
+    const { rows } = await db.pool.query('select 1 from vault.subject_map where account_id = $1', [
+      nothingInVault,
+    ]);
+    expect(rows).toEqual([]);
+  });
+
+  it('gives 19 matches and none the same answer, so counts point at nobody (M3.4 AC)', async () => {
+    const v = await viewer(['crohns_disease']);
+    const nineteen = await many(FILTER_K - 1, ['crohns_disease']);
+    const unrelated = await many(FILTER_K, ['asthma']);
+    const answers = [
+      await filter(v, nineteen),
+      await filter(v, unrelated),
+      await filter(v, [...nineteen, ...unrelated]),
+      await filter(v, []),
+    ];
+    for (const answer of answers) expect(answer).toEqual({ outcome: BELOW });
+    // Adding one more match changes nothing but the outcome, and then all 20 come back.
+    const twentieth = await member(['crohns_disease']);
+    const ok = await filter(v, [...unrelated, twentieth, ...nineteen]);
+    expect(ok.outcome).toBe(OK);
+    expect(new Set(ok.eligibleAccountIds)).toEqual(new Set([twentieth, ...nineteen]));
   });
 
   it('rejects more than 500 candidates', async () => {
